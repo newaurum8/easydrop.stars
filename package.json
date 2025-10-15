@@ -20,6 +20,9 @@
     "build": "react-scripts build",
     "dev": "react-scripts start"
   },
+  "engines": {
+    "node": "18.x"
+  },
   "eslintConfig": {
     "extends": [
       "react-app",
