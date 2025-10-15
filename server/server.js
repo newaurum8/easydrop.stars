@@ -54,11 +54,12 @@ app.post('/api/create-invoice', async (req, res) => {
     }
 
     try {
-        const title = `Top up for ${amount} stars`;
-        const description = `Balance top-up in Easydrop Stars for ${amount} stars.`;
+        // Возвращаем кириллицу, так как проблема была не в ней
+        const title = `Пополнение на ${amount} звезд`;
+        const description = `Пополнение баланса в приложении Easydrop Stars на ${amount} звезд.`;
         const payload = JSON.stringify({ userId, amount, type: 'topup' });
         const currency = 'XTR';
-        const prices = [{ label: `${amount} stars`, amount: parseInt(amount) }];
+        const prices = [{ label: `${amount} звезд`, amount: parseInt(amount) }];
 
         const invoiceOptions = {
             title,
@@ -73,9 +74,18 @@ app.post('/api/create-invoice', async (req, res) => {
         res.status(200).json({ invoiceLink });
 
     } catch (err) {
-        const errorBody = err.response ? err.response.body : err.message;
-        console.error('Ошибка при создании счета в Telegram:', errorBody);
-        const errorDescription = err.response ? JSON.parse(err.response.body).description : 'Не удалось создать счет для оплаты.';
+        // --- ИСПРАВЛЕНИЕ ОШИБКИ ПАДЕНИЯ СЕРВЕРА ---
+        console.error('Ошибка при создании счета в Telegram:', err.response ? err.response.body : err.message);
+
+        let errorDescription = 'Не удалось создать счет для оплаты.';
+        if (err.response && err.response.body) {
+            // Проверяем, является ли body уже объектом или строкой
+            const errorBody = typeof err.response.body === 'string'
+                ? JSON.parse(err.response.body)
+                : err.response.body;
+            errorDescription = errorBody.description || errorDescription;
+        }
+        
         res.status(500).json({ error: errorDescription });
     }
 });
@@ -163,16 +173,17 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'build', 'index.html'));
 });
 
-// --- ЗАПУСК СЕРВERA И УСТАНОВКА ВЕБХУКА ---
+// --- ЗАПУСК СЕРВЕРА ---
 app.listen(PORT, async () => {
     console.log(`--- Сервер запущен и слушает порт ${PORT}`);
+    // Блок установки вебхука должен быть закомментирован после первой успешной установки
     try {
-        // Установка Webhook (этот код выполнится один раз при запуске)
-        const WEBHOOK_URL = `https://easydrop-stars-1.onrender.com/webhook/${BOT_TOKEN}`;
-        await bot.setWebHook(WEBHOOK_URL, {
-            allowed_updates: ["pre_checkout_query", "message"]
-        });
-        console.log(`Webhook успешно установлен на: ${WEBHOOK_URL}`);
+        // Установка Webhook (нужно выполнить один раз после деплоя)
+        // const WEBHOOK_URL = `https://easydrop-stars-1.onrender.com/webhook/${BOT_TOKEN}`;
+        // await bot.setWebHook(WEBHOOK_URL, {
+        //     allowed_updates: ["pre_checkout_query", "message"]
+        // });
+        // console.log(`Webhook успешно установлен на: ${WEBHOOK_URL}`);
     } catch (err) {
         console.error("Ошибка установки webhook:", err);
     }
