@@ -2,10 +2,10 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
-const TelegramBot = require('node-telegram-bot-api'); // <-- Импортируем библиотеку
+const TelegramBot = require('node-telegram-bot-api');
 
 // --- Переменные окружения ---
-const BOT_TOKEN = process.env.BOT_TOKEN; // Токен вашего бота из @BotFather
+const BOT_TOKEN = process.env.BOT_TOKEN;
 
 if (!process.env.DATABASE_URL) {
     console.error('FATAL ERROR: Переменная окружения DATABASE_URL не установлена.');
@@ -17,7 +17,7 @@ if (!BOT_TOKEN) {
 }
 
 // --- Инициализация ---
-const bot = new TelegramBot(BOT_TOKEN); // Инициализация бота
+const bot = new TelegramBot(BOT_TOKEN);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -54,45 +54,47 @@ app.post('/api/create-invoice', async (req, res) => {
     }
 
     try {
-        const invoice = {
-            title: `Пополнение на ${amount} звезд`,
-            description: `Пополнение баланса в приложении Easydrop Stars на ${amount} звезд.`,
-            // Уникальный payload, чтобы понять, какой платеж обрабатывать
-            payload: JSON.stringify({ userId, amount, type: 'topup' }),
-            currency: 'XTR', // Валюта для Telegram Stars
-            prices: [{ label: `${amount} звезд`, amount: parseInt(amount) }]
+        const title = `Top up for ${amount} stars`;
+        const description = `Balance top-up in Easydrop Stars for ${amount} stars.`;
+        const payload = JSON.stringify({ userId, amount, type: 'topup' });
+        const currency = 'XTR';
+        const prices = [{ label: `${amount} stars`, amount: parseInt(amount) }];
+
+        const invoiceOptions = {
+            title,
+            description,
+            payload,
+            currency,
+            prices,
+            is_flexible: false,
         };
 
-        const invoiceLink = await bot.createInvoiceLink(invoice);
+        const invoiceLink = await bot.createInvoiceLink(invoiceOptions);
         res.status(200).json({ invoiceLink });
 
     } catch (err) {
-        console.error('Ошибка при создании счета в Telegram:', err.response ? err.response.body : err);
-        res.status(500).json({ error: 'Не удалось создать счет для оплаты.' });
+        const errorBody = err.response ? err.response.body : err.message;
+        console.error('Ошибка при создании счета в Telegram:', errorBody);
+        const errorDescription = err.response ? JSON.parse(err.response.body).description : 'Не удалось создать счет для оплаты.';
+        res.status(500).json({ error: errorDescription });
     }
 });
 
-// Webhook для получения обновлений от Telegram (включая информацию об оплате)
+// Webhook для получения обновлений от Telegram
 app.post(`/webhook/${BOT_TOKEN}`, express.json(), async (req, res) => {
     const update = req.body;
 
-    // 1. Подтверждаем готовность принять платеж
     if (update.pre_checkout_query) {
         try {
             await bot.answerPreCheckoutQuery(update.pre_checkout_query.id, true);
         } catch (err) {
             console.error('Ошибка подтверждения pre_checkout_query:', err);
         }
-    }
-    // 2. Обрабатываем успешный платеж
-    else if (update.message && update.message.successful_payment) {
+    } else if (update.message && update.message.successful_payment) {
         console.log('Получен успешный платеж:', update.message.successful_payment);
-
         try {
             const payload = JSON.parse(update.message.successful_payment.invoice_payload);
             const { userId, amount } = payload;
-
-            // Начисляем звезды пользователю в базе данных
             const query = `
               INSERT INTO users (id, total_top_up)
               VALUES ($1, $2)
@@ -103,17 +105,12 @@ app.post(`/webhook/${BOT_TOKEN}`, express.json(), async (req, res) => {
             const values = [userId, amount];
             await pool.query(query, values);
             console.log(`Пользователю ${userId} успешно зачислено ${amount} звезд.`);
-
         } catch (err) {
             console.error('Ошибка при зачислении звезд в БД:', err);
-            // Здесь стоит добавить логику для оповещения администратора,
-            // т.к. деньги списались, а звезды не зачислились.
         }
     }
-
-    res.sendStatus(200); // Всегда отвечаем 200, чтобы Telegram не повторял отправку
+    res.sendStatus(200);
 });
-
 
 app.get('/api/leaderboard', async (req, res) => {
     try {
@@ -134,7 +131,6 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
-// Этот эндпоинт больше не нужен для пополнения, но может использоваться для других целей
 app.post('/api/topup', async (req, res) => {
     const { userId, firstName, username, photoUrl, amount } = req.body;
     if (!userId || !amount) {
@@ -167,16 +163,16 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'build', 'index.html'));
 });
 
-// --- ЗАПУСК СЕРВЕРА ---
+// --- ЗАПУСК СЕРВERA И УСТАНОВКА ВЕБХУКА ---
 app.listen(PORT, async () => {
     console.log(`--- Сервер запущен и слушает порт ${PORT}`);
     try {
-        // Установка Webhook (нужно выполнить один раз после деплоя)
-        // const WEBHOOK_URL = `https://your-app-domain.com/webhook/${BOT_TOKEN}`;
-        // await bot.setWebHook(WEBHOOK_URL, {
-        //     allowed_updates: ["pre_checkout_query", "message"]
-        // });
-        // console.log(`Webhook успешно установлен на: ${WEBHOOK_URL}`);
+        // Установка Webhook (этот код выполнится один раз при запуске)
+        const WEBHOOK_URL = `https://easydrop-stars-1.onrender.com/webhook/${BOT_TOKEN}`;
+        await bot.setWebHook(WEBHOOK_URL, {
+            allowed_updates: ["pre_checkout_query", "message"]
+        });
+        console.log(`Webhook успешно установлен на: ${WEBHOOK_URL}`);
     } catch (err) {
         console.error("Ошибка установки webhook:", err);
     }
