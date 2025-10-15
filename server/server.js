@@ -3,6 +3,7 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
 const TelegramBot = require('node-telegram-bot-api');
+const axios = require('axios'); // <-- 1. Импортируем axios
 
 // --- Переменные окружения ---
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -17,6 +18,7 @@ if (!BOT_TOKEN) {
 }
 
 // --- Инициализация ---
+// Оставляем bot для вебхуков, но не для создания счета
 const bot = new TelegramBot(BOT_TOKEN);
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -28,13 +30,12 @@ const pool = new Pool({
         rejectUnauthorized: false
     }
 });
-
-pool.query('SELECT NOW()', (err, res) => {
+pool.query('SELECT NOW()', (err) => {
     if (err) {
         console.error('!!! Ошибка подключения к базе данных:', err);
         process.exit(1);
     } else {
-        console.log('--- База данных успешно подключена:', res.rows[0].now);
+        console.log('--- База данных успешно подключена');
     }
 });
 
@@ -45,7 +46,7 @@ app.use(express.json());
 
 // --- API ЭНДПОИНТЫ ---
 
-// Эндпоинт для создания счета на оплату
+// --- 2. ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ ЭНДПОИНТ ---
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, userId } = req.body;
 
@@ -53,67 +54,50 @@ app.post('/api/create-invoice', async (req, res) => {
         return res.status(400).json({ error: 'Неверная сумма или ID пользователя' });
     }
 
+    const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`;
+
+    const invoiceData = {
+        title: `Пополнение на ${amount} звезд`,
+        description: `Пополнение баланса в приложении Easydrop Stars на ${amount} звезд.`,
+        payload: JSON.stringify({ userId, amount, type: 'topup' }),
+        currency: 'XTR',
+        prices: [{ label: `${amount} звезд`, amount: parseInt(amount) }]
+    };
+
     try {
-        // Возвращаем кириллицу, так как проблема была не в ней
-        const title = `Пополнение на ${amount} звезд`;
-        const description = `Пополнение баланса в приложении Easydrop Stars на ${amount} звезд.`;
-        const payload = JSON.stringify({ userId, amount, type: 'topup' });
-        const currency = 'XTR';
-        const prices = [{ label: `${amount} звезд`, amount: parseInt(amount) }];
-
-        const invoiceOptions = {
-            title,
-            description,
-            payload,
-            currency,
-            prices,
-            is_flexible: false,
-        };
-
-        const invoiceLink = await bot.createInvoiceLink(invoiceOptions);
-        res.status(200).json({ invoiceLink });
+        const response = await axios.post(TELEGRAM_API_URL, invoiceData);
+        
+        if (response.data.ok) {
+            // Telegram вернул успешный ответ, в котором есть ссылка
+            res.status(200).json({ invoiceLink: response.data.result });
+        } else {
+            // Telegram вернул ошибку
+            res.status(500).json({ error: response.data.description });
+        }
 
     } catch (err) {
-        // --- ИСПРАВЛЕНИЕ ОШИБКИ ПАДЕНИЯ СЕРВЕРА ---
-        console.error('Ошибка при создании счета в Telegram:', err.response ? err.response.body : err.message);
-
-        let errorDescription = 'Не удалось создать счет для оплаты.';
-        if (err.response && err.response.body) {
-            // Проверяем, является ли body уже объектом или строкой
-            const errorBody = typeof err.response.body === 'string'
-                ? JSON.parse(err.response.body)
-                : err.response.body;
-            errorDescription = errorBody.description || errorDescription;
-        }
-        
+        console.error('Критическая ошибка при запросе к API Telegram:', err.response ? err.response.data : err.message);
+        const errorDescription = err.response ? err.response.data.description : 'Не удалось создать счет для оплаты.';
         res.status(500).json({ error: errorDescription });
     }
 });
 
+
 // Webhook для получения обновлений от Telegram
 app.post(`/webhook/${BOT_TOKEN}`, express.json(), async (req, res) => {
     const update = req.body;
-
     if (update.pre_checkout_query) {
-        try {
-            await bot.answerPreCheckoutQuery(update.pre_checkout_query.id, true);
-        } catch (err) {
-            console.error('Ошибка подтверждения pre_checkout_query:', err);
-        }
+        bot.answerPreCheckoutQuery(update.pre_checkout_query.id, true).catch(err => console.error('Ошибка pre_checkout_query:', err));
     } else if (update.message && update.message.successful_payment) {
         console.log('Получен успешный платеж:', update.message.successful_payment);
         try {
             const payload = JSON.parse(update.message.successful_payment.invoice_payload);
             const { userId, amount } = payload;
             const query = `
-              INSERT INTO users (id, total_top_up)
-              VALUES ($1, $2)
-              ON CONFLICT (id) DO UPDATE
-              SET total_top_up = users.total_top_up + $2
-              RETURNING *;
+              INSERT INTO users (id, total_top_up) VALUES ($1, $2)
+              ON CONFLICT (id) DO UPDATE SET total_top_up = users.total_top_up + $2;
             `;
-            const values = [userId, amount];
-            await pool.query(query, values);
+            await pool.query(query, [userId, amount]);
             console.log(`Пользователю ${userId} успешно зачислено ${amount} звезд.`);
         } catch (err) {
             console.error('Ошибка при зачислении звезд в БД:', err);
@@ -122,19 +106,19 @@ app.post(`/webhook/${BOT_TOKEN}`, express.json(), async (req, res) => {
     res.sendStatus(200);
 });
 
+// ... (остальные ваши эндпоинты: /api/leaderboard, /api/topup)
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const result = await pool.query(
             'SELECT id, first_name, username, photo_url, total_top_up FROM users ORDER BY total_top_up DESC LIMIT 15'
         );
-        const leaderboard = result.rows.map((user, index) => ({
+        res.json(result.rows.map((user, index) => ({
             ...user,
             rank: index + 1,
             name: user.first_name || user.username || `User ${user.id}`,
             amount: user.total_top_up,
             avatar: user.photo_url || '/images/profile.png'
-        }));
-        res.json(leaderboard);
+        })));
     } catch (err) {
         console.error('Ошибка при получении рейтинга:', err);
         res.status(500).json({ error: 'Internal server error' });
@@ -149,13 +133,11 @@ app.post('/api/topup', async (req, res) => {
     try {
         const query = `
             INSERT INTO users (id, first_name, username, photo_url, total_top_up)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (id) DO UPDATE
+            VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE
             SET total_top_up = users.total_top_up + $5,
                 first_name = EXCLUDED.first_name,
                 username = EXCLUDED.username,
-                photo_url = EXCLUDED.photo_url
-            RETURNING *;
+                photo_url = EXCLUDED.photo_url;
         `;
         const values = [userId, firstName || null, username || null, photoUrl || null, amount];
         const result = await pool.query(query, values);
@@ -174,17 +156,7 @@ app.get('*', (req, res) => {
 });
 
 // --- ЗАПУСК СЕРВЕРА ---
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
     console.log(`--- Сервер запущен и слушает порт ${PORT}`);
-    // Блок установки вебхука должен быть закомментирован после первой успешной установки
-    try {
-        // Установка Webhook (нужно выполнить один раз после деплоя)
-        // const WEBHOOK_URL = `https://easydrop-stars-1.onrender.com/webhook/${BOT_TOKEN}`;
-        // await bot.setWebHook(WEBHOOK_URL, {
-        //     allowed_updates: ["pre_checkout_query", "message"]
-        // });
-        // console.log(`Webhook успешно установлен на: ${WEBHOOK_URL}`);
-    } catch (err) {
-        console.error("Ошибка установки webhook:", err);
-    }
+    // Вебхук уже должен быть установлен. Если нет, используйте код из предыдущих ответов для одноразовой установки.
 });
