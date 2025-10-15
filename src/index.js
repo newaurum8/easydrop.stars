@@ -5,9 +5,12 @@ import { AppProvider } from './context/AppContext';
 import './style.css';
 import { TonConnectUIProvider } from '@tonconnect/ui-react';
 
-// Полифилл, необходимый для работы крипто-библиотек в браузере
+// --- ИСПРАВЛЕНИЕ ОШИБКИ ---
+// Полифилл, который создает объект Buffer в браузере,
+// необходимый для работы крипто-библиотек TON.
 import { Buffer } from 'buffer';
 window.Buffer = Buffer;
+// --------------------------
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
