@@ -1,3 +1,8 @@
+// index.tsx / main.tsx
+// 1) Полифиллы — первыми!
+import { Buffer } from 'buffer';
+(globalThis as any).Buffer = Buffer;
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -5,17 +10,13 @@ import { AppProvider } from './context/AppContext';
 import './style.css';
 import { TonConnectUIProvider } from '@tonconnect/ui-react';
 
-// --- ИСПРАВЛЕНИЕ ОШИБКИ ---
-// Полифилл, который создает объект Buffer в браузере,
-// необходимый для работы крипто-библиотек TON.
-import { Buffer } from 'buffer';
-window.Buffer = Buffer;
-// --------------------------
+const rootEl = document.getElementById('root');
+if (!rootEl) throw new Error('Root element #root not found');
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const root = ReactDOM.createRoot(rootEl);
+
 root.render(
   <React.StrictMode>
-    {/* Оборачиваем все приложение в провайдер TON Connect */}
     <TonConnectUIProvider manifestUrl="https://easydrop-stars-1.onrender.com/tonconnect-manifest.json">
       <AppProvider>
         <App />
