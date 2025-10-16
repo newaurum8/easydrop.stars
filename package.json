@@ -32,9 +32,9 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "craco start",
+    "start": "node server/server.js",
     "build": "craco build",
-    "test": "craco test"
+    "dev": "craco start"
   },
   "engines": {
     "node": "18.x"
