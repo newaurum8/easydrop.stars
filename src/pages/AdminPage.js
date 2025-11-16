@@ -1,6 +1,6 @@
 import React, { useContext, useState, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
-import { Link } from 'react-router-dom'; // Для кнопки "Назад"
+import { Link } from 'react-router-dom';
 
 // --- Редактор одного предмета (Карточка) ---
 const PrizeEditor = ({ prize, onSave, onDelete }) => {
@@ -34,7 +34,7 @@ const PrizeEditor = ({ prize, onSave, onDelete }) => {
 
 // --- Вкладка "База Предметов" ---
 const ItemManagement = () => {
-    const { ALL_PRIZES, setAllPrizes, setAllCases } = useContext(AppContext);
+    const { ALL_PRIZES, setAllPrizes, setAllCases } = useContext(AppContext); // <-- resetAdminData здесь не нужен
 
     const handleUpdatePrize = (prizeId, updatedData) => {
         setAllPrizes(prev => prev.map(p => (p.id === prizeId ? updatedData : p)));
@@ -245,12 +245,20 @@ const CaseManagement = () => {
 // --- Главный компонент страницы AdminPage ---
 const AdminPage = () => {
     const [activeTab, setActiveTab] = useState('cases'); // 'cases' или 'items'
+    // --- ДОБАВЛЕНО: Получаем функцию сброса ---
+    const { resetAdminData } = useContext(AppContext);
 
     return (
         <div className="admin-container">
             <header className="admin-header">
                 <h1>Панель Администратора</h1>
-                <Link to="/" className="admin-button">&larr; Вернуться в приложение</Link>
+                <div>
+                    {/* --- ДОБАВЛЕНО: Кнопка сброса --- */}
+                    <button onClick={resetAdminData} className="admin-button danger" style={{marginRight: '10px'}}>
+                        Сбросить настройки
+                    </button>
+                    <Link to="/" className="admin-button">&larr; Вернуться в приложение</Link>
+                </div>
             </header>
 
             <nav className="admin-tabs">
