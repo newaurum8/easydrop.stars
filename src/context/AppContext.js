@@ -1,7 +1,11 @@
 import React, { createContext, useState, useCallback, useEffect } from 'react';
 
-// --- ДАННЫЕ КЕЙСОВ И ПРИЗОВ (без изменений) ---
-const ALL_PRIZES_CASE1 = [
+// --- ИСХОДНЫЕ ДАННЫЕ ПЕРЕМЕЩЕНЫ ВНУТРЬ КОМПОНЕНТА ---
+
+export const AppContext = createContext();
+
+// --- ВАЖНО: Мы создаем ОДНУ общую базу призов ---
+const INITIAL_PRIZES_CASE1 = [
     { id: 'c1_item_1', name: 'Золотые часы', image: '/images/case/item.png', value: 250000, chance: 1 },
     { id: 'c1_item_2', name: 'Кепка Telegram', image: '/images/case/item1.png', value: 12000, chance: 5 },
     { id: 'c1_item_3', name: 'Роза', image: '/images/case/item2.png', value: 10000, chance: 10 },
@@ -12,7 +16,7 @@ const ALL_PRIZES_CASE1 = [
     { id: 'c1_item_8', name: 'Бенгальский огонь', image: '/images/case/item7.png', value: 300, chance: 60 },
     { id: 'c1_item_9', name: 'Бриллиант', image: '/images/case/item8.png', value: 100, chance: 70 }
 ];
-const ALL_PRIZES_CASE2 = [
+const INITIAL_PRIZES_CASE2 = [
     { id: 'c2_item_1', name: 'Кольцо с бриллиантом', image: '/images/case1/item1.png', value: 300000, chance: 1 },
     { id: 'c2_item_2', name: 'Леденец', image: '/images/case1/item2.png', value: 15000, chance: 5 },
     { id: 'c2_item_3', name: 'Ракета', image: '/images/case1/item3.png', value: 12000, chance: 10 },
@@ -22,20 +26,21 @@ const ALL_PRIZES_CASE2 = [
     { id: 'c2_item_7', name: 'Букет тюльпанов', image: '/images/case1/item7.png', value: 1000, chance: 50 },
     { id: 'c2_item_8', name: 'Искорка', image: '/images/case1/item8.png', value: 500, chance: 60 },
 ];
-const ALL_PRIZES = [...ALL_PRIZES_CASE1, ...ALL_PRIZES_CASE2];
-const ALL_CASES = [
-    { id: 'case_1', name: 'Классический', image: '/images/case.png', price: 2500, prizes: ALL_PRIZES_CASE1, },
-    { id: 'case_2', name: 'Сладкий', image: '/images/case1.png', price: 7500, prizes: ALL_PRIZES_CASE2, },
-    { id: 'case_3', name: 'Праздничный', image: '/images/case2.png', price: 15000, prizes: [...ALL_PRIZES_CASE1.slice(4), ...ALL_PRIZES_CASE2.slice(0, 4)], },
-    { id: 'case_4', name: 'Редкий', image: '/images/case3.png', price: 20000, prizes: ALL_PRIZES_CASE2.slice(0, 6), },
-    { id: 'case_5', name: 'Элитный', image: '/images/case4.png', price: 50000, prizes: ALL_PRIZES_CASE1.slice(0, 4), },
-    { id: 'case_6', name: 'Коллекционный', image: '/images/case5.png', price: 100000, prizes: ALL_PRIZES_CASE2.slice(0, 3), },
-    { id: 'case_7', name: 'Мифический', image: '/images/case6.png', price: 250000, prizes: [ALL_PRIZES_CASE1[0], ALL_PRIZES_CASE2[0]], },
-    { id: 'case_8', name: 'Легендарный', image: '/images/case7.png', price: 500000, prizes: [ALL_PRIZES_CASE1[0], ALL_PRIZES_CASE2[0], ALL_PRIZES_CASE1[1]], },
-    { id: 'promo_case', name: 'Промо-кейс', image: '/images/case8.png', price: 0, prizes: [ALL_PRIZES_CASE1[3], ALL_PRIZES_CASE1[4], ALL_PRIZES_CASE1[5], ALL_PRIZES_CASE2[6], ALL_PRIZES_CASE2[7]], isPromo: true, }
+const INITIAL_PRIZES = [...INITIAL_PRIZES_CASE1, ...INITIAL_PRIZES_CASE2];
+
+// --- ВАЖНО: Кейсы теперь ссылаются на призы по ID ---
+const INITIAL_CASES = [
+    { id: 'case_1', name: 'Классический', image: '/images/case.png', price: 2500, prizeIds: INITIAL_PRIZES_CASE1.map(p => p.id), },
+    { id: 'case_2', name: 'Сладкий', image: '/images/case1.png', price: 7500, prizeIds: INITIAL_PRIZES_CASE2.map(p => p.id), },
+    { id: 'case_3', name: 'Праздничный', image: '/images/case2.png', price: 15000, prizeIds: [...INITIAL_PRIZES_CASE1.slice(4).map(p => p.id), ...INITIAL_PRIZES_CASE2.slice(0, 4).map(p => p.id)], },
+    { id: 'case_4', name: 'Редкий', image: '/images/case3.png', price: 20000, prizeIds: INITIAL_PRIZES_CASE2.slice(0, 6).map(p => p.id), },
+    { id: 'case_5', name: 'Элитный', image: '/images/case4.png', price: 50000, prizeIds: INITIAL_PRIZES_CASE1.slice(0, 4).map(p => p.id), },
+    { id: 'case_6', name: 'Коллекционный', image: '/images/case5.png', price: 100000, prizeIds: INITIAL_PRIZES_CASE2.slice(0, 3).map(p => p.id), },
+    { id: 'case_7', name: 'Мифический', image: '/images/case6.png', price: 250000, prizeIds: [INITIAL_PRIZES_CASE1[0].id, INITIAL_PRIZES_CASE2[0].id], },
+    { id: 'case_8', name: 'Легендарный', image: '/images/case7.png', price: 500000, prizeIds: [INITIAL_PRIZES_CASE1[0].id, INITIAL_PRIZES_CASE2[0].id, INITIAL_PRIZES_CASE1[1].id], },
+    { id: 'promo_case', name: 'Промо-кейс', image: '/images/case8.png', price: 0, prizeIds: [INITIAL_PRIZES_CASE1[3].id, INITIAL_PRIZES_CASE1[4].id, INITIAL_PRIZES_CASE1[5].id, INITIAL_PRIZES_CASE2[6].id, INITIAL_PRIZES_CASE2[7].id], isPromo: true, }
 ];
 
-export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
     const [balance, setBalance] = useState(() => parseInt(localStorage.getItem('userBalance') || '50000'));
@@ -43,6 +48,11 @@ export const AppProvider = ({ children }) => {
     const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('userHistory') || '[]'));
     const [user, setUser] = useState(null);
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
+
+    // --- ДОБАВЛЕНО: Кейсы и Призы теперь в состоянии ---
+    const [allPrizes, setAllPrizes] = useState(INITIAL_PRIZES);
+    const [allCases, setAllCases] = useState(INITIAL_CASES);
+    // ----------------------------------------------
 
     useEffect(() => {
         const tg = window.Telegram?.WebApp;
@@ -111,7 +121,8 @@ export const AppProvider = ({ children }) => {
     }, []);
 
     const getWeightedRandomPrize = useCallback((prizes) => {
-        const prizePool = prizes || ALL_PRIZES;
+        // Эта функция теперь должна получать УЖЕ РЕШЕННЫЕ призы (массив объектов)
+        const prizePool = prizes || allPrizes; // Fallback на все призы, если ничего не передано
         const totalChance = prizePool.reduce((sum, prize) => sum + prize.chance, 0);
         let random = Math.random() * totalChance;
         for (const prize of prizePool) {
@@ -121,7 +132,7 @@ export const AppProvider = ({ children }) => {
             random -= prize.chance;
         }
         return prizePool[prizePool.length - 1];
-    }, []);
+    }, [allPrizes]); // Зависим от allPrizes на случай fallback
 
     const getUpgradeResult = (sourceItem, targetItem) => {
         if (!sourceItem || !targetItem) {
@@ -150,8 +161,12 @@ export const AppProvider = ({ children }) => {
         inventory,
         history,
         user,
-        ALL_PRIZES,
-        ALL_CASES,
+        // --- ИЗМЕНЕНО: Передаем переменные состояния ---
+        ALL_PRIZES: allPrizes,
+        ALL_CASES: allCases,
+        setAllPrizes, // <-- ДОБАВЛЕНО для админки
+        setAllCases,  // <-- ДОБАВЛЕНО для админки
+        // -----------------------------------------
         updateBalance,
         addToInventory,
         sellItem,
