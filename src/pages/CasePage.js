@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 
-// --- Модальное окно ResultsModal (без изменений) ---
+// --- Модальное окно с выбором продажи (без изменений) ---
 const ResultsModal = ({ winners, onClose }) => {
     const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -105,16 +105,15 @@ const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
 });
 
 
-// --- Основной компонент страницы (ИЗМЕНЕНИЯ) ---
+// Основной компонент страницы
 const CasePage = () => {
-    const { caseId } = useParams();
-    // --- ИЗМЕНЕНО: Получаем ALL_PRIZES из контекста ---
+    const { caseId } = useParams(); // Получаем ID кейса из URL
     const { balance, updateBalance, addToInventory, addToHistory, getWeightedRandomPrize, ALL_CASES, ALL_PRIZES } = useContext(AppContext);
 
-    // --- ИЗМЕНЕНО: Находим кейс (он теперь содержит prizeIds) ---
+    // Находим данные текущего кейса по ID
     const currentCase = useMemo(() => ALL_CASES.find(c => c.id === caseId), [caseId, ALL_CASES]);
 
-    // --- ДОБАВЛЕНО: "Разрешаем" ID призов в полные объекты из ALL_PRIZES ---
+    // "Разрешаем" ID призов в полные объекты из ALL_PRIZES
     const currentCasePrizes = useMemo(() => {
         if (!currentCase || !ALL_PRIZES) return [];
         // Находим каждый приз по ID в общей базе ALL_PRIZES
@@ -122,7 +121,6 @@ const CasePage = () => {
             .map(id => ALL_PRIZES.find(p => p.id === id))
             .filter(Boolean); // Отфильтровываем, если приз вдруг не найден
     }, [currentCase, ALL_PRIZES]);
-    // -------------------------------------------------------------------
 
     const [quantity, setQuantity] = useState(1);
     const [isFastRoll, setIsFastRoll] = useState(false);
@@ -137,11 +135,11 @@ const CasePage = () => {
     carouselRefs.current = [...Array(quantity)].map((_, i) => carouselRefs.current[i] ?? React.createRef());
 
     useEffect(() => {
-        // --- ИЗМЕНЕНО: Используем new 'currentCasePrizes' ---
+        // Устанавливаем призы по умолчанию для карусели при изменении кейса или количества
         if (currentCasePrizes?.length) {
             setWinningPrizes(Array(quantity).fill(currentCasePrizes[0]));
         }
-    }, [quantity, currentCasePrizes]); // <-- Зависимость изменена
+    }, [quantity, currentCasePrizes]);
 
     useEffect(() => {
         if (!isRolling) return;
@@ -193,6 +191,7 @@ const CasePage = () => {
     const handlePromoCodeChange = (e) => {
         const code = e.target.value;
         setPromoCode(code);
+        // Здесь можно добавить более сложную логику проверки промокода
         if (code.toLowerCase() === 'promo') {
             setIsPromoValid(true);
         } else {
@@ -202,7 +201,6 @@ const CasePage = () => {
 
 
     const handleRoll = () => {
-        // --- ИЗМЕНЕНО: Проверяем 'currentCasePrizes' ---
         if (!currentCase || !currentCasePrizes) return;
         
         if (currentCase.isPromo) {
@@ -213,8 +211,8 @@ const CasePage = () => {
             updateBalance(-cost);
         }
 
+
         setShowModal(false);
-        // --- ИЗМЕНЕНО: Передаем 'currentCasePrizes' в функцию ---
         const winners = Array.from({ length: quantity }).map(() => getWeightedRandomPrize(currentCasePrizes));
         setWinningPrizes(winners);
         setIsRolling(true);
@@ -254,7 +252,6 @@ const CasePage = () => {
             <div id="multi-roll-container">
                 <div className="carousel-indicator"></div>
                 {winningPrizes.map((prize, i) => (
-                    // --- ИЗМЕНЕНО: Передаем 'currentCasePrizes' ---
                     <Carousel key={`${quantity}-${i}`} ref={carouselRefs.current[i]} winningPrize={prize} prizes={currentCasePrizes} quantity={quantity} />
                 ))}
                 <div className="carousel-indicator bottom"></div>
@@ -300,14 +297,25 @@ const CasePage = () => {
                                     </button>
                                 ))}
                             </div>
+                            
+                            {/* --- ОБНОВЛЕННЫЙ БЛОК "БЫСТРО" --- */}
                             <div className="fast-roll-toggle">
-                                <input
-                                    type="checkbox"
-                                    id="fast-roll-checkbox"
-                                    checked={isFastRoll}
-                                    onChange={(e) => setIsFastRoll(e.target.checked)} />
-                                <label htmlFor="fast-roll-checkbox">Быстро</label>
+                                <label className="switch">
+                                    <input
+                                        type="checkbox"
+                                        id="fast-roll-checkbox"
+                                        checked={isFastRoll}
+                                        onChange={(e) => setIsFastRoll(e.target.checked)}
+                                        disabled={isRolling} /* Блокируем во время прокрутки */
+                                    />
+                                    <span className="slider round"></span> {/* Используем слайдер */}
+                                </label>
+                                <label htmlFor="fast-roll-checkbox" style={{cursor: isRolling ? 'not-allowed' : 'pointer'}}>
+                                    Быстро
+                                </label>
                             </div>
+                            {/* --- КОНЕЦ ОБНОВЛЕННОГО БЛОКА --- */}
+
                         </div>
                     </>
                 )}
@@ -323,7 +331,6 @@ const CasePage = () => {
             </div>
             <div className="prize-list">
                 <h3 className="prize-list-header">Содержимое кейса: {currentCase.name}</h3>
-                {/* --- ИЗМЕНЕНО: Рендерим 'currentCasePrizes' --- */}
                 {currentCasePrizes.sort((a,b) => a.chance - b.chance).map(prize => (
                     <div key={prize.id} className="prize-item">
                         <div className="prize-item-image-wrapper">
