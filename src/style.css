@@ -1974,4 +1974,18 @@ input:checked + .slider:before {
 .top-2 .rank-icon { background-image: url('./images/silver-medal.png'); }
 
 .top-3 .rank-icon { background-image: url('./images/bronze-medal.png'); }
+.switch input:disabled + .slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.switch input:disabled + .slider:before {
+    background-color: #8a99a8;
+}
+
+/* Делаем текст "Быстро" тоже серым и некликабельным */
+.fast-roll-toggle input:disabled ~ label {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
