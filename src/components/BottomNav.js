@@ -24,6 +24,11 @@ const BottomNav = () => {
                 <img src="/images/history.png" alt="История" className="nav-icon" />
                 <span className="nav-label">История</span>
             </NavLink>
+            {/* Эта кнопка будет перенаправлять на отдельную страницу без Layout */}
+            <NavLink to="/admin" className={({ isActive }) => "nav-item" + (isActive ? " active" : "")}>
+                <img src="/images/profile.png" alt="Админ" className="nav-icon" />
+                <span className="nav-label">Админ</span>
+            </NavLink>
         </nav>
     );
 };
