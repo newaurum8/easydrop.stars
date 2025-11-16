@@ -1574,7 +1574,352 @@ input:checked + .slider:before {
 .admin-button.danger {
     background-color: #f44336;
 }
+#root > .admin-container {
+    max-width: none;
+    padding-bottom: 20px;
+    min-height: 100vh;
+}
 
+.admin-container {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+    color: #e0e0e0;
+}
+
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #3a4552;
+    margin-bottom: 20px;
+}
+
+.admin-header h1 {
+    color: #fff;
+    margin: 0;
+}
+
+.admin-button {
+    background-color: #0088cc;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    text-align: center;
+}
+.admin-button:hover {
+    background-color: #00aaff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 150, 255, 0.2);
+}
+.admin-button.success { background-color: #4CAF50; }
+.admin-button.success:hover { background-color: #5cdb61; }
+.admin-button.danger { background-color: #f44336; }
+.admin-button.danger:hover { background-color: #f7665c; }
+.admin-button.small-btn {
+    padding: 5px 10px;
+    font-size: 16px;
+    font-weight: bold;
+    margin-left: auto;
+}
+.admin-button.large {
+    padding: 14px 24px;
+    font-size: 16px;
+}
+
+/* --- Вкладки --- */
+.admin-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.admin-tab-button {
+    flex: 1;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 500;
+    border: none;
+    background-color: #2c3641;
+    color: #8a99a8;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.admin-tab-button:hover {
+    background-color: #3a4552;
+    color: #fff;
+}
+.admin-tab-button.active {
+    background-color: #0088cc;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 150, 255, 0.2);
+}
+
+.admin-tab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.admin-tab-header h2 {
+    color: #fff;
+    margin: 0;
+}
+
+/* --- Сетка для предметов --- */
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.admin-card {
+    background-color: #2c3641;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+.admin-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+.admin-card-img {
+    width: 100%;
+    height: 150px;
+    object-fit: contain;
+    background-color: #3a4552;
+    padding: 10px;
+    box-sizing: border-box;
+}
+.admin-card-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.admin-card-footer {
+    padding: 16px;
+    margin-top: auto;
+    background-color: rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+.admin-form-row {
+    display: flex;
+    gap: 10px;
+}
+.admin-form-row input {
+    width: 100%;
+}
+
+.admin-card input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #3a4552;
+    background-color: #212a31;
+    color: white;
+    font-size: 14px;
+}
+
+/* --- Управление кейсами (Master-Detail) --- */
+.case-management-layout {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 20px;
+    min-height: 75vh;
+}
+
+.case-list-sidebar {
+    background-color: #2c3641;
+    border-radius: 12px;
+    padding: 16px;
+    height: 75vh;
+    display: flex;
+    flex-direction: column;
+}
+.case-list-sidebar h3 {
+    color: #fff;
+    margin-top: 0;
+    border-bottom: 1px solid #3a4552;
+    padding-bottom: 16px;
+}
+.case-list {
+    overflow-y: auto;
+    flex: 1;
+}
+.case-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border: 2px solid transparent;
+}
+.case-list-item:hover {
+    background-color: #3a4552;
+}
+.case-list-item.active {
+    background-color: #3a4552;
+    border-color: #00aaff;
+}
+.case-list-item img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+.case-list-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+.case-list-item-info strong {
+    color: #fff;
+    font-size: 14px;
+}
+.case-list-item-info span {
+    font-size: 12px;
+    color: #ffc107;
+}
+.case-list-item-info span small {
+    font-size: 10px;
+    color: #8a99a8;
+}
+.case-list-item-count {
+    font-size: 12px;
+    color: #8a99a8;
+    background-color: #212a31;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.case-editor-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background-color: #2c3641;
+    border-radius: 12px;
+    color: #8a99a8;
+    height: 75vh;
+}
+.case-editor-main {
+    background-color: #2c3641;
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    height: 75vh;
+}
+.case-editor-main h3 {
+    color: #fff;
+    margin-top: 0;
+}
+.case-editor-main .admin-form-row {
+    margin-bottom: 20px;
+}
+.case-editor-main .admin-form-row input {
+    padding: 12px;
+    font-size: 16px;
+}
+.case-editor-footer {
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid #3a4552;
+    display: flex;
+    gap: 10px;
+}
+
+/* --- Выбор предметов в 2 колонки --- */
+.admin-item-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    flex: 1;
+    min-height: 0; /* Важно для overflow */
+}
+.item-picker-col {
+    background-color: #212a31;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+}
+.item-picker-col h4 {
+    color: #fff;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+.item-picker-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #3a4552;
+    background-color: #2c3641;
+    color: white;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+.item-picker-list {
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.item-picker-list p {
+    color: #8a99a8;
+    text-align: center;
+    font-size: 14px;
+    margin-top: 20px;
+}
+.item-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #2c3641;
+    padding: 8px;
+    border-radius: 6px;
+}
+.item-picker-item img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+.item-picker-item span {
+    font-size: 13px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.item-picker-item .admin-button {
+    padding: 4px 8px;
+    font-size: 14px;
+}
 .admin-form {
     display: flex;
     gap: 10px;
@@ -1629,3 +1974,4 @@ input:checked + .slider:before {
 .top-2 .rank-icon { background-image: url('./images/silver-medal.png'); }
 
 .top-3 .rank-icon { background-image: url('./images/bronze-medal.png'); }
+
