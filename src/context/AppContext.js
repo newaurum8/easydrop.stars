@@ -1,10 +1,6 @@
 import React, { createContext, useState, useCallback, useEffect } from 'react';
 
-// --- ИСХОДНЫЕ ДАННЫЕ ПЕРЕМЕЩЕНЫ ВНУТРЬ КОМПОНЕНТА ---
-
-export const AppContext = createContext();
-
-// --- ВАЖНО: Мы создаем ОДНУ общую базу призов ---
+// --- ИСХОДНЫЕ ДАННЫЕ (константы для сброса) ---
 const INITIAL_PRIZES_CASE1 = [
     { id: 'c1_item_1', name: 'Золотые часы', image: '/images/case/item.png', value: 250000, chance: 1 },
     { id: 'c1_item_2', name: 'Кепка Telegram', image: '/images/case/item1.png', value: 12000, chance: 5 },
@@ -28,7 +24,6 @@ const INITIAL_PRIZES_CASE2 = [
 ];
 const INITIAL_PRIZES = [...INITIAL_PRIZES_CASE1, ...INITIAL_PRIZES_CASE2];
 
-// --- ВАЖНО: Кейсы теперь ссылаются на призы по ID ---
 const INITIAL_CASES = [
     { id: 'case_1', name: 'Классический', image: '/images/case.png', price: 2500, prizeIds: INITIAL_PRIZES_CASE1.map(p => p.id), },
     { id: 'case_2', name: 'Сладкий', image: '/images/case1.png', price: 7500, prizeIds: INITIAL_PRIZES_CASE2.map(p => p.id), },
@@ -40,26 +35,44 @@ const INITIAL_CASES = [
     { id: 'case_8', name: 'Легендарный', image: '/images/case7.png', price: 500000, prizeIds: [INITIAL_PRIZES_CASE1[0].id, INITIAL_PRIZES_CASE2[0].id, INITIAL_PRIZES_CASE1[1].id], },
     { id: 'promo_case', name: 'Промо-кейс', image: '/images/case8.png', price: 0, prizeIds: [INITIAL_PRIZES_CASE1[3].id, INITIAL_PRIZES_CASE1[4].id, INITIAL_PRIZES_CASE1[5].id, INITIAL_PRIZES_CASE2[6].id, INITIAL_PRIZES_CASE2[7].id], isPromo: true, }
 ];
+// --------------------------------------------------
 
+export const AppContext = createContext();
+
+// --- ДОБАВЛЕНО: Функции-загрузчики из localStorage ---
+const loadFromStorage = (key, defaultValue) => {
+    const storedValue = localStorage.getItem(key);
+    if (storedValue) {
+        try {
+            return JSON.parse(storedValue);
+        } catch (e) {
+            console.error(`Failed to parse ${key} from localStorage`, e);
+            return defaultValue;
+        }
+    }
+    return defaultValue;
+};
+// ----------------------------------------------------
 
 export const AppProvider = ({ children }) => {
-    const [balance, setBalance] = useState(() => parseInt(localStorage.getItem('userBalance') || '50000'));
-    const [inventory, setInventory] = useState(() => JSON.parse(localStorage.getItem('userInventory') || '[]'));
-    const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('userHistory') || '[]'));
+    // --- ОБНОВЛЕНО: Используем localStorage для пользовательских данных ---
+    const [balance, setBalance] = useState(() => loadFromStorage('userBalance', 50000));
+    const [inventory, setInventory] = useState(() => loadFromStorage('userInventory', []));
+    const [history, setHistory] = useState(() => loadFromStorage('userHistory', []));
+    
     const [user, setUser] = useState(null);
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
-    // --- ДОБАВЛЕНО: Кейсы и Призы теперь в состоянии ---
-    const [allPrizes, setAllPrizes] = useState(INITIAL_PRIZES);
-    const [allCases, setAllCases] = useState(INITIAL_CASES);
-    // ----------------------------------------------
+    // --- ОБНОВЛЕНО: Используем localStorage для данных админки ---
+    const [allPrizes, setAllPrizes] = useState(() => loadFromStorage('admin_allPrizes', INITIAL_PRIZES));
+    const [allCases, setAllCases] = useState(() => loadFromStorage('admin_allCases', INITIAL_CASES));
+    // ---------------------------------------------------------
 
     useEffect(() => {
         const tg = window.Telegram?.WebApp;
         if (tg) {
             tg.ready();
             const userData = tg.initDataUnsafe?.user;
-
             if (userData) {
                 setUser({
                     id: userData.id,
@@ -72,32 +85,45 @@ export const AppProvider = ({ children }) => {
         }
     }, []);
 
+    // --- ДОБАВЛЕНО: Эффекты для сохранения в localStorage ---
+    useEffect(() => {
+        localStorage.setItem('userBalance', balance);
+    }, [balance]);
+
+    useEffect(() => {
+        localStorage.setItem('userInventory', JSON.stringify(inventory));
+    }, [inventory]);
+
+    useEffect(() => {
+        localStorage.setItem('userHistory', JSON.stringify(history));
+    }, [history]);
+
+    // --- ДОБАВЛЕНО: Эффекты для сохранения АДМИН-ДАННЫХ в localStorage ---
+    useEffect(() => {
+        localStorage.setItem('admin_allPrizes', JSON.stringify(allPrizes));
+    }, [allPrizes]);
+
+    useEffect(() => {
+        localStorage.setItem('admin_allCases', JSON.stringify(allCases));
+    }, [allCases]);
+    // ------------------------------------------------------------------
+
     const openTopUpModal = useCallback(() => setIsTopUpModalOpen(true), []);
     const closeTopUpModal = useCallback(() => setIsTopUpModalOpen(false), []);
 
     const updateBalance = useCallback((amount) => {
-        setBalance(prev => {
-            const newBalance = prev + amount;
-            localStorage.setItem('userBalance', newBalance);
-            return newBalance;
-        });
+        setBalance(prev => prev + amount);
     }, []);
 
     const addToInventory = useCallback((items) => {
         setInventory(prev => {
             const newItems = items.map(item => ({ ...item, inventoryId: Date.now() + Math.random() }));
-            const updatedInventory = [...prev, ...newItems];
-            localStorage.setItem('userInventory', JSON.stringify(updatedInventory));
-            return updatedInventory;
+            return [...prev, ...newItems];
         });
     }, []);
 
     const removeFromInventory = useCallback((inventoryId) => {
-        setInventory(prev => {
-            const updatedInventory = prev.filter(item => item.inventoryId !== inventoryId);
-            localStorage.setItem('userInventory', JSON.stringify(updatedInventory));
-            return updatedInventory;
-        });
+        setInventory(prev => prev.filter(item => item.inventoryId !== inventoryId));
     }, []);
 
     const sellItem = useCallback((inventoryId) => {
@@ -114,15 +140,12 @@ export const AppProvider = ({ children }) => {
     const addToHistory = useCallback((items) => {
         setHistory(prev => {
             const newHistoryEntries = items.map(item => ({ ...item, date: new Date().toISOString() }));
-            const updatedHistory = [...newHistoryEntries, ...prev].slice(0, 50);
-            localStorage.setItem('userHistory', JSON.stringify(updatedHistory));
-            return updatedHistory;
+            return [...newHistoryEntries, ...prev].slice(0, 50);
         });
     }, []);
 
     const getWeightedRandomPrize = useCallback((prizes) => {
-        // Эта функция теперь должна получать УЖЕ РЕШЕННЫЕ призы (массив объектов)
-        const prizePool = prizes || allPrizes; // Fallback на все призы, если ничего не передано
+        const prizePool = prizes || allPrizes;
         const totalChance = prizePool.reduce((sum, prize) => sum + prize.chance, 0);
         let random = Math.random() * totalChance;
         for (const prize of prizePool) {
@@ -132,7 +155,7 @@ export const AppProvider = ({ children }) => {
             random -= prize.chance;
         }
         return prizePool[prizePool.length - 1];
-    }, [allPrizes]); // Зависим от allPrizes на случай fallback
+    }, [allPrizes]);
 
     const getUpgradeResult = (sourceItem, targetItem) => {
         if (!sourceItem || !targetItem) {
@@ -147,26 +170,32 @@ export const AppProvider = ({ children }) => {
         removeFromInventory(sourceItemId);
         if (success) {
             const newItem = { ...targetItem, inventoryId: Date.now() + Math.random() };
-            setInventory(prev => {
-                const updatedInventory = [...prev, newItem];
-                localStorage.setItem('userInventory', JSON.stringify(updatedInventory));
-                return updatedInventory;
-            });
+            setInventory(prev => [...prev, newItem]);
             addToHistory([newItem]);
         }
     }, [removeFromInventory, addToHistory]);
+
+    // --- ДОБАВЛЕНО: Функция сброса для админки ---
+    const resetAdminData = useCallback(() => {
+        if (window.confirm('Вы уверены, что хотите сбросить все кейсы и предметы к настройкам по умолчанию?')) {
+            localStorage.removeItem('admin_allPrizes');
+            localStorage.removeItem('admin_allCases');
+            setAllPrizes(INITIAL_PRIZES);
+            setAllCases(INITIAL_CASES);
+            alert('Настройки сброшены.');
+        }
+    }, []);
+    // ---------------------------------------------
 
     const value = {
         balance,
         inventory,
         history,
         user,
-        // --- ИЗМЕНЕНО: Передаем переменные состояния ---
         ALL_PRIZES: allPrizes,
         ALL_CASES: allCases,
-        setAllPrizes, // <-- ДОБАВЛЕНО для админки
-        setAllCases,  // <-- ДОБАВЛЕНО для админки
-        // -----------------------------------------
+        setAllPrizes,
+        setAllCases,
         updateBalance,
         addToInventory,
         sellItem,
@@ -177,7 +206,8 @@ export const AppProvider = ({ children }) => {
         performUpgrade,
         isTopUpModalOpen,
         openTopUpModal,
-        closeTopUpModal
+        closeTopUpModal,
+        resetAdminData // <-- ДОБАВЛЕНО
     };
 
     return (
