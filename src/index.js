@@ -1,15 +1,27 @@
 // src/index.js
 
-// 1) Сначала ВСЕ импорты
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Buffer } from 'buffer';
 import App from './App';
 import { AppProvider } from './context/AppContext';
-import './style.css';
 import { TonConnectUIProvider } from '@tonconnect/ui-react';
 
-// 2) А уже потом остальная логика (полифиллы)
+// --- Подключение новых стилей ---
+import './styles/global.css';
+import './styles/layout.css';
+import './styles/home.css';
+import './styles/case.css';
+import './styles/upgrade.css';
+import './styles/inventory.css';
+import './styles/history.css';
+import './styles/modals.css';
+import './styles/admin.css';
+import './styles/leaders.css';
+
+// Старый файл можно удалить
+// import './style.css';
+
 window.Buffer = Buffer;
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
