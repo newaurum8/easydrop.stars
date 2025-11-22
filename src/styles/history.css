@@ -1,0 +1,48 @@
+/* history.css */
+.history-content { padding: 16px 0; }
+
+.history-list { display: flex; flex-direction: column; gap: 8px; }
+
+.history-list .history-item {
+    animation: fade-in-item 0.5s ease-out forwards; opacity: 0; transform: translateY(20px);
+}
+.history-list .history-item:nth-child(1) { animation-delay: 0.1s; }
+.history-list .history-item:nth-child(2) { animation-delay: 0.15s; }
+.history-list .history-item:nth-child(3) { animation-delay: 0.2s; }
+.history-list .history-item:nth-child(4) { animation-delay: 0.25s; }
+.history-list .history-item:nth-child(5) { animation-delay: 0.3s; }
+.history-list .history-item:nth-child(6) { animation-delay: 0.35s; } 
+.history-list .history-item:nth-child(7) { animation-delay: 0.4s; }  
+.history-list .history-item:nth-child(8) { animation-delay: 0.45s; } 
+
+.history-item {
+    display: flex; align-items: center; background-color: #2c3641; border-radius: 12px;
+    padding: 10px; border-left: 4px solid transparent; position: relative; overflow: hidden;
+}
+.history-item::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.1; z-index: 0;
+}
+
+.history-item.rarity-common { border-left-color: #8a99a8; }
+.history-item.rarity-common::before { background: radial-gradient(circle at top left, #8a99a8, transparent 70%); }
+
+.history-item.rarity-uncommon { border-left-color: #00aaff; }
+.history-item.rarity-uncommon::before { background: radial-gradient(circle at top left, #00aaff, transparent 70%); }
+
+.history-item.rarity-rare { border-left-color: #f44336; }
+.history-item.rarity-rare::before { background: radial-gradient(circle at top left, #f44336, transparent 70%); }
+
+.history-item.rarity-legendary { border-left-color: #ffc107; }
+.history-item.rarity-legendary::before { background: radial-gradient(circle at top left, #ffc107, transparent 70%); }
+
+.history-item > * { position: relative; z-index: 1; }
+.history-date { font-size: 12px; color: #8a99a8; }
+.history-item .prize-value { margin-left: auto; }
+
+@keyframes fade-in-item { to { opacity: 1; transform: translateY(0); } }
+
+.history-group { margin-bottom: 24px; }
+.history-group-header {
+    color: #8a99a8; font-size: 14px; margin-bottom: 12px; padding-left: 4px;
+    border-bottom: 1px solid #3a4552; padding-bottom: 8px; text-transform: capitalize;
+}
