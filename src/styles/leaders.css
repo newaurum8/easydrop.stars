@@ -1,4 +1,4 @@
-/* leaders.css */
+/* leaders.css - Исправленные пути */
 .leaders-content { padding: 16px 0; }
 .leaders-content h3 { text-align: center; margin-bottom: 24px; }
 .leaderboard { display: flex; flex-direction: column; gap: 10px; }
@@ -22,6 +22,8 @@
 .rank-icon {
     display: inline-block; width: 24px; height: 24px; background-size: contain; background-repeat: no-repeat; background-position: center;
 }
-.top-1 .rank-icon { background-image: url('/images/gold-medal.png'); }
-.top-2 .rank-icon { background-image: url('/images/silver-medal.png'); }
-.top-3 .rank-icon { background-image: url('/images/bronze-medal.png'); }
+
+/* --- ИСПРАВЛЕННЫЕ ПУТИ НИЖЕ --- */
+.top-1 .rank-icon { background-image: url('../images/gold-medal.png'); }
+.top-2 .rank-icon { background-image: url('../images/silver-medal.png'); }
+.top-3 .rank-icon { background-image: url('../images/bronze-medal.png'); }
