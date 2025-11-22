@@ -8,10 +8,10 @@ const { TonClient, Cell } = require('ton');
 
 // --- КОНФИГУРАЦИЯ ---
 
-// 1. Токен бота (объявляем ДО использования)
+// 1. Токен бота
 const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAH4r5kWjNvBpMgmcg3F7JClrTu64QASXJg'; 
 
-// 2. Кошелек админа (куда приходят TON)
+// 2. Кошелек админа
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
 // 3. База данных
@@ -20,7 +20,7 @@ const DATABASE_URL = 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// !!! ВАЖНО: Включаем polling: true для работы Stars !!!
+// Polling для Stars
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 app.use(cors());
@@ -32,7 +32,7 @@ const pool = new Pool({
     ssl: true
 });
 
-// --- ДАННЫЕ ДЛЯ ЗАПОЛНЕНИЯ (SEEDING) ---
+// --- ДАННЫЕ (SEEDING) ---
 const INITIAL_PRIZES = [
     { id: 'c1_item_1', name: 'Золотые часы', image: '/images/case/item.png', value: 250000, chance: 1 },
     { id: 'c1_item_2', name: 'Кепка Telegram', image: '/images/case/item1.png', value: 12000, chance: 5 },
@@ -65,75 +65,27 @@ const INITIAL_CASES = [
     { id: 'promo_case', name: 'Промо-кейс', image: '/images/case8.png', price: 0, prizeIds: ['c1_item_4','c1_item_5','c1_item_6','c2_item_7','c2_item_8'], isPromo: true }
 ];
 
-// --- ИНИЦИАЛИЗАЦИЯ ТАБЛИЦ ---
 const initDB = async () => {
     try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id BIGINT PRIMARY KEY,
-                first_name TEXT,
-                username TEXT,
-                photo_url TEXT,
-                balance INT DEFAULT 0,
-                inventory JSONB DEFAULT '[]',
-                history JSONB DEFAULT '[]',
-                total_top_up INT DEFAULT 0
-            );
-        `);
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS transactions (
-                id SERIAL PRIMARY KEY,
-                tx_hash TEXT UNIQUE NOT NULL,
-                user_id BIGINT NOT NULL,
-                amount DECIMAL NOT NULL,
-                currency TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        `);
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS prizes (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                image TEXT NOT NULL,
-                value INT NOT NULL,
-                chance FLOAT NOT NULL
-            );
-        `);
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS cases (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                image TEXT NOT NULL,
-                price INT NOT NULL,
-                prize_ids JSONB NOT NULL,
-                is_promo BOOLEAN DEFAULT FALSE
-            );
-        `);
-
-        // Заполнение данными (Seeding)
+        await pool.query(`CREATE TABLE IF NOT EXISTS users (id BIGINT PRIMARY KEY, first_name TEXT, username TEXT, photo_url TEXT, balance INT DEFAULT 0, inventory JSONB DEFAULT '[]', history JSONB DEFAULT '[]', total_top_up INT DEFAULT 0);`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, tx_hash TEXT UNIQUE NOT NULL, user_id BIGINT NOT NULL, amount DECIMAL NOT NULL, currency TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW());`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS prizes (id TEXT PRIMARY KEY, name TEXT NOT NULL, image TEXT NOT NULL, value INT NOT NULL, chance FLOAT NOT NULL);`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS cases (id TEXT PRIMARY KEY, name TEXT NOT NULL, image TEXT NOT NULL, price INT NOT NULL, prize_ids JSONB NOT NULL, is_promo BOOLEAN DEFAULT FALSE);`);
+        
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
         if (parseInt(prizeCount.rows[0].count) === 0) {
-            console.log('Seed: Prizes...');
-            for (const item of INITIAL_PRIZES) {
-                await pool.query('INSERT INTO prizes (id, name, image, value, chance) VALUES ($1, $2, $3, $4, $5)', [item.id, item.name, item.image, item.value, item.chance]);
-            }
+            for (const item of INITIAL_PRIZES) await pool.query('INSERT INTO prizes (id, name, image, value, chance) VALUES ($1, $2, $3, $4, $5)', [item.id, item.name, item.image, item.value, item.chance]);
         }
         const caseCount = await pool.query('SELECT COUNT(*) FROM cases');
         if (parseInt(caseCount.rows[0].count) === 0) {
-            console.log('Seed: Cases...');
-            for (const c of INITIAL_CASES) {
-                await pool.query('INSERT INTO cases (id, name, image, price, prize_ids, is_promo) VALUES ($1, $2, $3, $4, $5, $6)', [c.id, c.name, c.image, c.price, JSON.stringify(c.prizeIds), c.isPromo || false]);
-            }
+            for (const c of INITIAL_CASES) await pool.query('INSERT INTO cases (id, name, image, price, prize_ids, is_promo) VALUES ($1, $2, $3, $4, $5, $6)', [c.id, c.name, c.image, c.price, JSON.stringify(c.prizeIds), c.isPromo || false]);
         }
-        console.log('>>> DB initialized successfully');
-    } catch (err) {
-        console.error('DB Init Error:', err);
-    }
+        console.log('>>> DB initialized');
+    } catch (err) { console.error('DB Init Error:', err); }
 };
-
 initDB();
 
-// --- ФУНКЦИЯ НАЧИСЛЕНИЯ БАЛАНСА ---
+// --- ФУНКЦИЯ НАЧИСЛЕНИЯ БАЛАНСА (С НОВЫМИ КУРСАМИ) ---
 async function creditUserBalance(userId, amount, txHash, currency) {
     const client = await pool.connect();
     try {
@@ -146,10 +98,13 @@ async function creditUserBalance(userId, amount, txHash, currency) {
         await client.query('INSERT INTO transactions (tx_hash, user_id, amount, currency) VALUES ($1, $2, $3, $4)', [txHash, userId, amount, currency]);
 
         let starsToAdd = 0;
+        // --- ОБНОВЛЕННЫЕ КУРСЫ ---
         if (currency === 'TON') {
-            starsToAdd = amount * 10000; // КУРС: 1 TON = 10 000 Звезд
+            // 0.1 TON = 300 -> 1 TON = 3000
+            starsToAdd = amount * 3000; 
         } else {
-            starsToAdd = amount; // 1 XTR = 1 Звезда
+            // 1 XTR = 50
+            starsToAdd = amount * 50; 
         }
 
         await client.query('UPDATE users SET balance = balance + $1, total_top_up = total_top_up + $1 WHERE id = $2', [Math.floor(starsToAdd), userId]);
@@ -165,89 +120,74 @@ async function creditUserBalance(userId, amount, txHash, currency) {
     }
 }
 
-// ============================================
-// === ЛОГИКА TELEGRAM STARS (BOT EVENTS) ===
-// ============================================
+// ==================================================
+// === ОБРАБОТЧИКИ TELEGRAM (POLLING) ===
+// ==================================================
 
-// 1. Обработчик Pre-Checkout (ОБЯЗАТЕЛЕН для оплаты)
 bot.on('pre_checkout_query', async (query) => {
     try {
-        // Отвечаем "ok: true", чтобы разрешить списание
         await bot.answerPreCheckoutQuery(query.id, true);
-        console.log(`✅ Pre-checkout approved for user ${query.from.id}`);
+        console.log(`✅ Pre-checkout allowed for ${query.id}`);
     } catch (error) {
-        console.error('❌ Pre-checkout error:', error.message);
-        await bot.answerPreCheckoutQuery(query.id, false, { error_message: "Internal Server Error" });
+        console.error('❌ Pre-checkout failed:', error.message);
     }
 });
 
-// 2. Обработчик Успешного Платежа (для начисления баланса)
-bot.on('successful_payment', async (msg) => {
-    try {
+bot.on('message', async (msg) => {
+    if (msg.successful_payment) {
         const payment = msg.successful_payment;
-        const payload = JSON.parse(payment.invoice_payload); // Достаем ID пользователя
+        const payload = JSON.parse(payment.invoice_payload);
         
-        console.log('💰 Payment received:', payment.total_amount, 'XTR');
-
-        // Начисляем баланс
+        console.log(`💰 Payment success: ${payment.total_amount} XTR`);
+        
         await creditUserBalance(
             payload.userId, 
             payment.total_amount, 
             payment.telegram_payment_charge_id, 
             'XTR'
         );
-    } catch (error) {
-        console.error('❌ Payment processing error:', error);
     }
 });
 
+// --- API ---
 
-// --- API ENDPOINTS ---
-
-// Создание ссылки на оплату (Stars)
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, userId } = req.body;
-    if (!amount || !userId) return res.status(400).json({ error: 'Missing data' });
-
     try {
-        const title = "Пополнение баланса";
-        const description = `Пополнение на ${amount} звезд`;
-        const payload = JSON.stringify({ userId, amount, ts: Date.now() });
-        const currency = "XTR";
-        const prices = [{ label: "Stars", amount: parseInt(amount) }];
+        // Отображаем пользователю кол-во покупаемой внутренней валюты в названии
+        // amount здесь - это количество Telegram Stars
+        const balanceAmount = amount * 50; 
+        const title = `Пополнение на ${balanceAmount} баланса`;
+        const description = `Оплата ${amount} Telegram Stars`;
 
-        const link = await bot.createInvoiceLink(title, description, payload, "", currency, prices);
+        const link = await bot.createInvoiceLink(
+            title, 
+            description, 
+            JSON.stringify({ userId, amount, ts: Date.now() }), 
+            "", 
+            "XTR", 
+            [{ label: "Stars", amount: parseInt(amount) }]
+        );
         res.json({ invoiceLink: link });
     } catch (err) {
-        console.error("Invoice Error:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// API для TON (проверка и начисление)
 app.post('/api/verify-ton-payment', async (req, res) => {
     const { boc, userId, amount } = req.body;
-    if (!boc || !userId || !amount) return res.status(400).json({ error: 'Missing data' });
-
     try {
         const cell = Cell.fromBase64(boc);
-        const txHash = cell.hash().toString('hex');
-        
-        // Отправка в сеть
         const endpoint = await getHttpEndpoint({ network: 'mainnet' });
         const client = new TonClient({ endpoint });
         await client.sendFile(cell.toBoc());
-
-        const result = await creditUserBalance(userId, amount, txHash, 'TON');
-        if (result.success) res.json({ success: true });
-        else res.status(409).json({ error: result.message });
-    } catch (err) {
-        console.error("TON Verify Error:", err);
-        res.status(500).json({ error: 'Verification failed' });
-    }
+        
+        const result = await creditUserBalance(userId, amount, cell.hash().toString('hex'), 'TON');
+        if(result.success) res.json({ success: true });
+        else res.status(409).json({ error: 'Processed' });
+    } catch (err) { res.status(500).json({ error: 'Verify failed' }); }
 });
 
-// Конфиг и Пользователи
 app.get('/api/config', async (req, res) => {
     try {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
@@ -262,13 +202,7 @@ app.get('/api/config', async (req, res) => {
 app.post('/api/user/sync', async (req, res) => {
     const { id, first_name, username, photo_url } = req.body;
     try {
-        const query = `
-            INSERT INTO users (id, first_name, username, photo_url, balance)
-            VALUES ($1, $2, $3, $4, 0)
-            ON CONFLICT (id) DO UPDATE 
-            SET first_name = EXCLUDED.first_name, username = EXCLUDED.username, photo_url = EXCLUDED.photo_url
-            RETURNING *;
-        `;
+        const query = `INSERT INTO users (id, first_name, username, photo_url, balance) VALUES ($1, $2, $3, $4, 0) ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, username = EXCLUDED.username, photo_url = EXCLUDED.photo_url RETURNING *;`;
         const result = await pool.query(query, [id, first_name, username, photo_url]);
         res.json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -282,7 +216,6 @@ app.post('/api/user/save', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Admin API
 app.get('/api/admin/user/:id', async (req, res) => {
     const r = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
     if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
