@@ -11,7 +11,7 @@ const { TonClient, Cell } = require('ton');
 // 1. Токен бота
 const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAH4r5kWjNvBpMgmcg3F7JClrTu64QASXJg'; 
 
-// 2. Кошелек админа
+// 2. Кошелек админа (для информации, реальный перевод идет на клиентской стороне или через Stars)
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
 // 3. База данных
@@ -33,6 +33,7 @@ const pool = new Pool({
 });
 
 // --- ДАННЫЕ (SEEDING) ---
+// Эти данные используются только при первой инициализации пустой БД
 const INITIAL_PRIZES = [
     { id: 'c1_item_1', name: 'Золотые часы', image: '/images/case/item.png', value: 250000, chance: 1 },
     { id: 'c1_item_2', name: 'Кепка Telegram', image: '/images/case/item1.png', value: 12000, chance: 5 },
@@ -54,15 +55,15 @@ const INITIAL_PRIZES = [
 ];
 
 const INITIAL_CASES = [
-    { id: 'case_1', name: 'Классический', image: '/images/case.png', price: 2500, prizeIds: ['c1_item_1','c1_item_2','c1_item_3','c1_item_4','c1_item_5','c1_item_6','c1_item_7','c1_item_8','c1_item_9'], isPromo: false },
-    { id: 'case_2', name: 'Сладкий', image: '/images/case1.png', price: 7500, prizeIds: ['c2_item_1','c2_item_2','c2_item_3','c2_item_4','c2_item_5','c2_item_6','c2_item_7','c2_item_8'], isPromo: false },
-    { id: 'case_3', name: 'Праздничный', image: '/images/case2.png', price: 15000, prizeIds: ['c1_item_5','c1_item_6','c1_item_7','c1_item_8','c2_item_1','c2_item_2','c2_item_3','c2_item_4'], isPromo: false },
-    { id: 'case_4', name: 'Редкий', image: '/images/case3.png', price: 20000, prizeIds: ['c2_item_1','c2_item_2','c2_item_3','c2_item_4','c2_item_5','c2_item_6'], isPromo: false },
-    { id: 'case_5', name: 'Элитный', image: '/images/case4.png', price: 50000, prizeIds: ['c1_item_1','c1_item_2','c1_item_3','c1_item_4'], isPromo: false },
-    { id: 'case_6', name: 'Коллекционный', image: '/images/case5.png', price: 100000, prizeIds: ['c2_item_1','c2_item_2','c2_item_3'], isPromo: false },
-    { id: 'case_7', name: 'Мифический', image: '/images/case6.png', price: 250000, prizeIds: ['c1_item_1', 'c2_item_1'], isPromo: false },
-    { id: 'case_8', name: 'Легендарный', image: '/images/case7.png', price: 500000, prizeIds: ['c1_item_1', 'c2_item_1', 'c1_item_2'], isPromo: false },
-    { id: 'promo_case', name: 'Промо-кейс', image: '/images/case8.png', price: 0, prizeIds: ['c1_item_4','c1_item_5','c1_item_6','c2_item_7','c2_item_8'], isPromo: true }
+    { id: 'case_1', name: 'Классический', image: '/images/case.png', price: 2500, prizeIds: ['c1_item_1','c1_item_2','c1_item_3','c1_item_4','c1_item_5','c1_item_6','c1_item_7','c1_item_8','c1_item_9'], isPromo: false, tag: 'common' },
+    { id: 'case_2', name: 'Сладкий', image: '/images/case1.png', price: 7500, prizeIds: ['c2_item_1','c2_item_2','c2_item_3','c2_item_4','c2_item_5','c2_item_6','c2_item_7','c2_item_8'], isPromo: false, tag: 'common' },
+    { id: 'case_3', name: 'Праздничный', image: '/images/case2.png', price: 15000, prizeIds: ['c1_item_5','c1_item_6','c1_item_7','c1_item_8','c2_item_1','c2_item_2','c2_item_3','c2_item_4'], isPromo: false, tag: 'rare' },
+    { id: 'case_4', name: 'Редкий', image: '/images/case3.png', price: 20000, prizeIds: ['c2_item_1','c2_item_2','c2_item_3','c2_item_4','c2_item_5','c2_item_6'], isPromo: false, tag: 'rare' },
+    { id: 'case_5', name: 'Элитный', image: '/images/case4.png', price: 50000, prizeIds: ['c1_item_1','c1_item_2','c1_item_3','c1_item_4'], isPromo: false, tag: 'legendary' },
+    { id: 'case_6', name: 'Коллекционный', image: '/images/case5.png', price: 100000, prizeIds: ['c2_item_1','c2_item_2','c2_item_3'], isPromo: false, tag: 'legendary' },
+    { id: 'case_7', name: 'Мифический', image: '/images/case6.png', price: 250000, prizeIds: ['c1_item_1', 'c2_item_1'], isPromo: false, tag: 'legendary' },
+    { id: 'case_8', name: 'Легендарный', image: '/images/case7.png', price: 500000, prizeIds: ['c1_item_1', 'c2_item_1', 'c1_item_2'], isPromo: false, tag: 'legendary' },
+    { id: 'promo_case', name: 'Промо-кейс', image: '/images/case8.png', price: 0, prizeIds: ['c1_item_4','c1_item_5','c1_item_6','c2_item_7','c2_item_8'], isPromo: true, tag: 'promo' }
 ];
 
 const initDB = async () => {
@@ -70,22 +71,28 @@ const initDB = async () => {
         await pool.query(`CREATE TABLE IF NOT EXISTS users (id BIGINT PRIMARY KEY, first_name TEXT, username TEXT, photo_url TEXT, balance INT DEFAULT 0, inventory JSONB DEFAULT '[]', history JSONB DEFAULT '[]', total_top_up INT DEFAULT 0);`);
         await pool.query(`CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, tx_hash TEXT UNIQUE NOT NULL, user_id BIGINT NOT NULL, amount DECIMAL NOT NULL, currency TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW());`);
         await pool.query(`CREATE TABLE IF NOT EXISTS prizes (id TEXT PRIMARY KEY, name TEXT NOT NULL, image TEXT NOT NULL, value INT NOT NULL, chance FLOAT NOT NULL);`);
-        await pool.query(`CREATE TABLE IF NOT EXISTS cases (id TEXT PRIMARY KEY, name TEXT NOT NULL, image TEXT NOT NULL, price INT NOT NULL, prize_ids JSONB NOT NULL, is_promo BOOLEAN DEFAULT FALSE);`);
+        // Добавляем поле tag
+        await pool.query(`CREATE TABLE IF NOT EXISTS cases (id TEXT PRIMARY KEY, name TEXT NOT NULL, image TEXT NOT NULL, price INT NOT NULL, prize_ids JSONB NOT NULL, is_promo BOOLEAN DEFAULT FALSE, tag TEXT DEFAULT 'common');`);
         
+        // Миграция для старых таблиц: если колонки tag нет, она добавится
+        try {
+            await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
+        } catch (e) { console.log('Migration note:', e.message); }
+
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
         if (parseInt(prizeCount.rows[0].count) === 0) {
             for (const item of INITIAL_PRIZES) await pool.query('INSERT INTO prizes (id, name, image, value, chance) VALUES ($1, $2, $3, $4, $5)', [item.id, item.name, item.image, item.value, item.chance]);
         }
         const caseCount = await pool.query('SELECT COUNT(*) FROM cases');
         if (parseInt(caseCount.rows[0].count) === 0) {
-            for (const c of INITIAL_CASES) await pool.query('INSERT INTO cases (id, name, image, price, prize_ids, is_promo) VALUES ($1, $2, $3, $4, $5, $6)', [c.id, c.name, c.image, c.price, JSON.stringify(c.prizeIds), c.isPromo || false]);
+            for (const c of INITIAL_CASES) await pool.query('INSERT INTO cases (id, name, image, price, prize_ids, is_promo, tag) VALUES ($1, $2, $3, $4, $5, $6, $7)', [c.id, c.name, c.image, c.price, JSON.stringify(c.prizeIds), c.isPromo || false, c.tag || 'common']);
         }
         console.log('>>> DB initialized');
     } catch (err) { console.error('DB Init Error:', err); }
 };
 initDB();
 
-// --- ФУНКЦИЯ НАЧИСЛЕНИЯ БАЛАНСА (С НОВЫМИ КУРСАМИ) ---
+// --- ФУНКЦИЯ НАЧИСЛЕНИЯ БАЛАНСА ---
 async function creditUserBalance(userId, amount, txHash, currency) {
     const client = await pool.connect();
     try {
@@ -98,12 +105,11 @@ async function creditUserBalance(userId, amount, txHash, currency) {
         await client.query('INSERT INTO transactions (tx_hash, user_id, amount, currency) VALUES ($1, $2, $3, $4)', [txHash, userId, amount, currency]);
 
         let starsToAdd = 0;
-        // --- ОБНОВЛЕННЫЕ КУРСЫ ---
         if (currency === 'TON') {
-            // 0.1 TON = 300 -> 1 TON = 3000
+            // 1 TON = 3000 звезд (0.1 TON = 300)
             starsToAdd = amount * 3000; 
         } else {
-            // 1 XTR = 50
+            // 1 XTR (Telegram Star) = 50 внутренних звезд
             starsToAdd = amount * 50; 
         }
 
@@ -154,8 +160,7 @@ bot.on('message', async (msg) => {
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, userId } = req.body;
     try {
-        // Отображаем пользователю кол-во покупаемой внутренней валюты в названии
-        // amount здесь - это количество Telegram Stars
+        // amount - кол-во Telegram Stars
         const balanceAmount = amount * 50; 
         const title = `Пополнение на ${balanceAmount} баланса`;
         const description = `Оплата ${amount} Telegram Stars`;
@@ -193,7 +198,13 @@ app.get('/api/config', async (req, res) => {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
         const cases = await pool.query('SELECT * FROM cases ORDER BY price ASC');
         const mappedCases = cases.rows.map(c => ({
-            id: c.id, name: c.name, image: c.image, price: c.price, prizeIds: c.prize_ids, isPromo: c.is_promo
+            id: c.id, 
+            name: c.name, 
+            image: c.image, 
+            price: c.price, 
+            prizeIds: c.prize_ids, 
+            isPromo: c.is_promo,
+            tag: c.tag // Возвращаем тег
         }));
         res.json({ prizes: prizes.rows, cases: mappedCases });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -216,6 +227,8 @@ app.post('/api/user/save', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// --- АДМИНСКИЕ ENDPOINTS ---
+
 app.get('/api/admin/user/:id', async (req, res) => {
     const r = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
     if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
@@ -229,10 +242,46 @@ app.post('/api/admin/user/balance', async (req, res) => {
     res.json(r.rows[0]);
 });
 
+// Обновление кейса (добавлен tag и image)
 app.post('/api/admin/case/update', async (req, res) => {
-    const { id, name, price, prizeIds } = req.body;
-    const r = await pool.query('UPDATE cases SET name=$1, price=$2, prize_ids=$3 WHERE id=$4 RETURNING *', [name, price, JSON.stringify(prizeIds), id]);
-    res.json(r.rows[0]);
+    const { id, name, price, prizeIds, tag, image, isPromo } = req.body;
+    try {
+        const r = await pool.query(
+            'UPDATE cases SET name=$1, price=$2, prize_ids=$3, tag=$4, image=$5, is_promo=$6 WHERE id=$7 RETURNING *',
+            [name, price, JSON.stringify(prizeIds), tag, image, isPromo, id]
+        );
+        res.json(r.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Создание нового кейса
+app.post('/api/admin/case/create', async (req, res) => {
+    const { id, name, image, price, prizeIds, tag, isPromo } = req.body;
+    try {
+        const r = await pool.query(
+            'INSERT INTO cases (id, name, image, price, prize_ids, tag, is_promo) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [id, name, image, price, JSON.stringify(prizeIds), tag, isPromo || false]
+        );
+        res.json(r.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Обновление предмета (цена и шанс)
+app.post('/api/admin/prize/update', async (req, res) => {
+    const { id, value, chance } = req.body;
+    try {
+        const r = await pool.query(
+            'UPDATE prizes SET value=$1, chance=$2 WHERE id=$3 RETURNING *',
+            [value, chance, id]
+        );
+        res.json(r.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Static
