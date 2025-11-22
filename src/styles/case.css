@@ -1,0 +1,183 @@
+/* case.css */
+.case-page-body .app-container {
+    padding-top: 16px;
+}
+
+.back-button {
+    color: #00aaff;
+    text-decoration: none;
+    font-weight: 500;
+    margin-bottom: 20px;
+    display: inline-block;
+}
+
+/* Карусель */
+.item-carousel {
+    display: flex;
+    transform: translateX(0);
+    left: 0;
+    top: 0;
+}
+.item-carousel.is-rolling {
+    transition: transform 6s cubic-bezier(0.2, 0.85, 0.3, 1);
+}
+.item-carousel.is-rolling.fast {
+    transition-duration: 0.8s;
+}
+.carousel-item {
+    background-color: #2c3641;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+}
+.carousel-item img {
+    max-width: 70%;
+    max-height: 70%;
+}
+.carousel-item.winning-item {
+    transform: scale(1.15);
+    box-shadow: 0 0 20px #00aaff, 0 0 30px #00aaff;
+    background-color: #3a506b;
+}
+
+#multi-roll-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    min-height: 150px;
+    margin-bottom: 24px;
+    position: relative;
+    padding-top: 15px; 
+    padding-bottom: 15px;
+}
+
+.item-carousel-wrapper {
+    transition: all 0.3s ease-in-out;
+    position: relative;
+    width: calc(100% + 32px);
+    margin-left: -16px;
+    box-sizing: border-box;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}
+
+.carousel-indicator {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    z-index: 10;
+    transition: transform 0.3s ease-in-out;
+}
+
+.carousel-indicator:not(.bottom) { top: 0; border-top: 10px solid #00aaff; }
+.carousel-indicator.bottom { bottom: 0; border-bottom: 10px solid #00aaff; }
+
+/* Размеры карусели */
+.item-carousel-wrapper.size-1 { height: 120px; }
+.size-1 .carousel-item { width: 100px; height: 100px; margin: 10px 5px; }
+.size-1 .item-carousel { height: 120px; }
+
+.item-carousel-wrapper.size-2 { height: 110px; }
+.size-2 .carousel-item { width: 90px; height: 90px; margin: 10px 5px; }
+.size-2 .item-carousel { height: 110px; }
+
+.item-carousel-wrapper.size-3 { height: 90px; }
+.size-3 .carousel-item { width: 75px; height: 75px; margin: 7.5px 4px; }
+.size-3 .item-carousel { height: 90px; }
+.size-3 .carousel-indicator { transform: translateX(-50%) scale(0.9); }
+
+.item-carousel-wrapper.size-4 { height: 75px; }
+.size-4 .carousel-item { width: 65px; height: 65px; margin: 5px 3px; }
+.size-4 .item-carousel { height: 75px; }
+.size-4 .carousel-indicator { transform: translateX(-50%) scale(0.8); }
+.size-4 .carousel-item img { max-width: 65%; max-height: 65%; }
+
+.item-carousel-wrapper.size-5 { height: 68px; }
+.size-5 .carousel-item { width: 58px; height: 58px; margin: 5px 3px; }
+.size-5 .item-carousel { height: 68px; }
+.size-5 .carousel-indicator { transform: translateX(-50%) scale(0.75); }
+.size-5 .carousel-item img { max-width: 60%; max-height: 60%; }
+
+/* Панель управления */
+.controls-panel { display: flex; flex-direction: column; gap: 16px; }
+
+.roll-button {
+    position: relative; width: 100%; background-color: #0088cc; color: white; border: none;
+    border-radius: 12px; padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer;
+    overflow: hidden; display: flex; justify-content: center; align-items: center; gap: 8px;
+}
+
+.roll-button-progress {
+    position: absolute; left: 0; top: 0; bottom: 0; background-color: #00aaff; width: 91.3%; z-index: 1;
+}
+
+.roll-button-text, .roll-button-star, .roll-button-counter { position: relative; z-index: 2; }
+.roll-button-counter { position: absolute; right: 16px; font-size: 14px; opacity: 0.7; }
+.roll-button.disabled { background-color: #555; cursor: not-allowed; }
+.roll-button.disabled .roll-button-progress { background-color: #777; }
+
+.roll-options { display: flex; justify-content: space-between; align-items: center; }
+.quantity-selector { display: flex; background-color: #2c3641; border-radius: 8px; overflow: hidden; }
+.quantity-btn {
+    background: none; border: none; color: #8a99a8; padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer; border-right: 1px solid #3a4552;
+}
+.quantity-selector .quantity-btn:last-child { border-right: none; }
+.quantity-btn.active { background-color: #00aaff; color: white; }
+
+.fast-roll-toggle, .demo-mode-toggle { display: flex; align-items: center; gap: 8px; }
+#fast-roll-checkbox { accent-color: #00aaff; }
+.fast-roll-toggle input:disabled ~ label { opacity: 0.5; cursor: not-allowed; }
+
+.promo-container { display: flex; flex-direction: column; gap: 10px; }
+.promo-input {
+    width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #3a4552;
+    background-color: #2c3641; color: white; font-size: 16px; box-sizing: border-box;
+}
+
+/* Список призов в кейсе */
+.prize-list { margin-top: 24px; }
+.prize-list-header { font-size: 16px; margin-top: 20px; margin-bottom: 12px; color: #8a99a8; }
+.prize-item {
+    display: flex; align-items: center; background-color: #2c3641; border-radius: 12px; padding: 10px; margin-bottom: 8px;
+}
+.prize-item-image-wrapper {
+    width: 48px; height: 48px; background-color: #3a4552; border-radius: 8px; display: flex;
+    justify-content: center; align-items: center; flex-shrink: 0; margin-right: 12px;
+}
+.prize-item-image-wrapper img { max-width: 80%; max-height: 80%; }
+.prize-item-info { display: flex; flex-direction: column; gap: 4px; }
+.prize-name { font-weight: 500; }
+.prize-value { display: flex; align-items: center; gap: 4px; color: #ffc107; font-weight: 500; }
+
+/* Модальное окно результатов */
+.results-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7);
+    display: flex; justify-content: center; align-items: center; z-index: 1000;
+}
+.results-modal-content {
+    background-color: #2c3641; padding: 24px; border-radius: 16px; width: 90%; max-width: 400px; text-align: center;
+}
+.results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 16px; margin: 20px 0; }
+.result-item {
+    display: flex; flex-direction: column; align-items: center; gap: 8px; border: 2px solid transparent;
+    border-radius: 8px; padding: 8px; cursor: pointer; transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.result-item.selected { border-color: #4CAF50; background-color: rgba(76, 175, 80, 0.1); }
+.result-item img { width: 60px; height: 60px; object-fit: contain; background-color: #3a4552; border-radius: 8px; padding: 5px; }
+#close-modal-btn {
+    width: 100%; padding: 12px; font-size: 16px; background-color: #0088cc; color: white; border: none; border-radius: 10px; cursor: pointer;
+}
+.results-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.results-actions .sell-button {
+    background-color: #f44336; padding: 12px; font-size: 16px; border: none; border-radius: 10px; cursor: pointer; color: white;
+}
+.results-actions .sell-button:disabled { background-color: #555; opacity: 0.7; cursor: not-allowed; }
