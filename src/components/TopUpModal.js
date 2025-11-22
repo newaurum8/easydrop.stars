@@ -10,24 +10,14 @@ const TopUpModal = () => {
     const wallet = useTonWallet();
     const [tonConnectUI] = useTonConnectUI();
     
-    // Состояние: открыто ли окно подключения кошелька (TonConnect)
     const [isConnectionModalOpen, setIsConnectionModalOpen] = useState(false);
 
-    // --- СЛЕЖИМ ЗА ОКНОМ TON CONNECT ---
     useEffect(() => {
-        // Подписываемся на изменение состояния модального окна TonConnect
         const unsubscribe = tonConnectUI.onModalStateChange((state) => {
-            // state может быть объектом { status: 'opened' } или просто 'opened' в зависимости от версии
             const isOpen = state && (state.status === 'opened' || state === 'opened');
             setIsConnectionModalOpen(isOpen);
         });
-
-        return () => {
-            // Отписываемся при размонтировании (если функция возвращает unsubscribe)
-            if (typeof unsubscribe === 'function') {
-                unsubscribe();
-            }
-        };
+        return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
     }, [tonConnectUI]);
 
     // Оплата Stars
@@ -65,7 +55,6 @@ const TopUpModal = () => {
         const val = parseFloat(amount);
         if (!val || val <= 0) return alert('Введите корректную сумму');
         
-        // ВАЖНО: Адрес вашего кошелька для приема средств
         const RECIPIENT_WALLET = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
         const transaction = {
@@ -98,7 +87,6 @@ const TopUpModal = () => {
         }
     };
 
-    // --- СКРЫВАЕМ НАШЕ ОКНО, ЕСЛИ ОТКРЫТО ОКНО ПОДКЛЮЧЕНИЯ КОШЕЛЬКА ---
     if (isConnectionModalOpen) {
         return null; 
     }
@@ -109,7 +97,6 @@ const TopUpModal = () => {
                 <button onClick={closeTopUpModal} className="close-modal-btn">&times;</button>
                 <h2>Пополнение баланса</h2>
                 
-                {/* Вкладки */}
                 <div className="top-up-tabs">
                     <button 
                         className={`top-up-tab ${activeTab === 'stars' ? 'active' : ''}`} 
@@ -126,7 +113,6 @@ const TopUpModal = () => {
                 </div>
 
                 <div className="tab-panel">
-                    {/* Кнопка подключения кошелька (только для TON) */}
                     {activeTab === 'ton' && (
                         <div style={{display:'flex', justifyContent:'center', marginBottom:15}}>
                             <TonConnectButton />
@@ -142,28 +128,32 @@ const TopUpModal = () => {
                         style={{marginBottom:15}} 
                         value={amount} 
                         onChange={e => setAmount(e.target.value)} 
-                        placeholder={activeTab === 'stars' ? "100" : "0.5"} 
+                        placeholder={activeTab === 'stars' ? "10" : "0.1"} 
                     />
                     
                     {activeTab === 'stars' ? (
-                        <button className="upgrade-button" onClick={handleTopUpStars}>
-                            Купить за Stars
-                        </button>
+                        <>
+                            <button className="upgrade-button" onClick={handleTopUpStars}>
+                                Купить за Stars
+                            </button>
+                            <p style={{textAlign:'center', fontSize:'12px', color:'#888', marginTop:'10px'}}>
+                                Курс: 1 Stars = 50 звёзд
+                            </p>
+                        </>
                     ) : (
-                        <button 
-                            className="upgrade-button" 
-                            onClick={handleTopUpTon} 
-                            disabled={!wallet} 
-                            style={{opacity: wallet ? 1 : 0.5}}
-                        >
-                            {wallet ? `Оплатить ${amount || 0} TON` : 'Подключите кошелек'}
-                        </button>
-                    )}
-                    
-                    {activeTab === 'ton' && (
-                         <p style={{textAlign:'center', fontSize:'12px', color:'#888', marginTop:'10px'}}>
-                            Курс: 1 TON = 10,000 внутренней валюты
-                         </p>
+                        <>
+                            <button 
+                                className="upgrade-button" 
+                                onClick={handleTopUpTon} 
+                                disabled={!wallet} 
+                                style={{opacity: wallet ? 1 : 0.5}}
+                            >
+                                {wallet ? `Оплатить ${amount || 0} TON` : 'Подключите кошелек'}
+                            </button>
+                            <p style={{textAlign:'center', fontSize:'12px', color:'#888', marginTop:'10px'}}>
+                                Курс: 0.1 TON = 300 звёзд
+                            </p>
+                        </>
                     )}
                 </div>
             </div>
