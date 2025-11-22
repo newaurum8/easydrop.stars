@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 
-// --- Модальное окно с выбором продажи (без изменений) ---
+// --- МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ ---
 const ResultsModal = ({ winners, onClose }) => {
     const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -79,13 +79,14 @@ const ResultsModal = ({ winners, onClose }) => {
     );
 };
 
-// --- Компонент Карусели (без изменений) ---
+// --- КОМПОНЕНТ КАРУСЕЛИ ---
 const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
     const totalCarouselItems = 100;
-    const stopIndex = 80;
+    const stopIndex = 80; // Индекс, на котором остановится лента
 
     const items = useMemo(() => {
         if (!prizes || prizes.length === 0) return [];
+        // Генерируем ленту, где на 80-й позиции всегда выигрышный предмет
         return Array.from({ length: totalCarouselItems }).map((_, i) =>
             i === stopIndex ? winningPrize : prizes[Math.floor(Math.random() * prizes.length)]
         )
@@ -95,7 +96,8 @@ const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
         <div className={`item-carousel-wrapper size-${quantity}`}>
             <div className="item-carousel" ref={ref}>
                 {items.map((item, index) => (
-                    <div className="carousel-item" key={`${item.id}-${index}`}>
+                    // Используем уникальный ключ с timestamp чтобы React перерисовывал при смене
+                    <div className="carousel-item" key={`${item.id}-${index}-${Date.now()}`}>
                         <img src={item.image} alt={item.name} />
                     </div>
                 ))}
@@ -105,21 +107,30 @@ const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
 });
 
 
-// Основной компонент страницы
+// --- ОСНОВНОЙ КОМПОНЕНТ СТРАНИЦЫ ---
 const CasePage = () => {
-    const { caseId } = useParams(); // Получаем ID кейса из URL
+    const { caseId } = useParams();
     const { balance, updateBalance, addToInventory, addToHistory, getWeightedRandomPrize, ALL_CASES, ALL_PRIZES } = useContext(AppContext);
 
-    // Находим данные текущего кейса по ID
+    // Находим текущий кейс
     const currentCase = useMemo(() => ALL_CASES.find(c => c.id === caseId), [caseId, ALL_CASES]);
 
-    // "Разрешаем" ID призов в полные объекты из ALL_PRIZES
+    // Собираем полный список предметов для этого кейса, объединяя данные из базы (ALL_PRIZES) 
+    // с индивидуальными шансами из настроек кейса (currentCase.prizeIds)
     const currentCasePrizes = useMemo(() => {
-        if (!currentCase || !ALL_PRIZES) return [];
-        // Находим каждый приз по ID в общей базе ALL_PRIZES
-        return currentCase.prizeIds
-            .map(id => ALL_PRIZES.find(p => p.id === id))
-            .filter(Boolean); // Отфильтровываем, если приз вдруг не найден
+        if (!currentCase || !ALL_PRIZES || !currentCase.prizeIds) return [];
+        
+        // prizeIds теперь массив объектов [{id: '...', chance: 10}, ...]
+        return currentCase.prizeIds.map(caseItemConfig => {
+            const baseItem = ALL_PRIZES.find(p => p.id === caseItemConfig.id);
+            if (!baseItem) return null;
+            
+            // Возвращаем объединенный объект: { ...ItemData, chance: 10 }
+            return { 
+                ...baseItem, 
+                chance: Number(caseItemConfig.chance) 
+            };
+        }).filter(Boolean); // Убираем null, если предмет не найден
     }, [currentCase, ALL_PRIZES]);
 
     const [quantity, setQuantity] = useState(1);
@@ -127,20 +138,23 @@ const CasePage = () => {
     const [isRolling, setIsRolling] = useState(false);
     const [winningPrizes, setWinningPrizes] = useState([]);
     const [showModal, setShowModal] = useState(false);
+    
+    // Для промокодов
     const [promoCode, setPromoCode] = useState('');
     const [isPromoValid, setIsPromoValid] = useState(false);
 
-
     const carouselRefs = useRef([]);
+    // Создаем рефы для каждой карусели (если открываем несколько сразу)
     carouselRefs.current = [...Array(quantity)].map((_, i) => carouselRefs.current[i] ?? React.createRef());
 
+    // Устанавливаем начальные "пустышки" для рендера карусели до прокрутки
     useEffect(() => {
-        // Устанавливаем призы по умолчанию для карусели при изменении кейса или количества
         if (currentCasePrizes?.length) {
             setWinningPrizes(Array(quantity).fill(currentCasePrizes[0]));
         }
     }, [quantity, currentCasePrizes]);
 
+    // Логика анимации прокрутки
     useEffect(() => {
         if (!isRolling) return;
 
@@ -156,16 +170,20 @@ const CasePage = () => {
                 const winnerEl = carouselTrack.querySelector('.winning-item');
                 if (winnerEl) winnerEl.classList.remove('winning-item');
 
+                // Сброс позиции
                 carouselTrack.classList.remove('is-rolling', 'fast');
                 carouselTrack.style.transform = 'translateX(0)';
-                void carouselTrack.offsetHeight;
+                void carouselTrack.offsetHeight; // Force reflow
 
+                // Расчет конечной позиции
                 const itemStyle = window.getComputedStyle(items[0]);
                 const itemWidth = items[0].offsetWidth + parseInt(itemStyle.marginLeft) + parseInt(itemStyle.marginRight);
                 const offsetToCenter = (carouselTrack.parentElement.offsetWidth / 2) - (itemWidth / 2);
                 const finalPosition = -(stopIndex * itemWidth - offsetToCenter);
+                // Небольшой рандомный сдвиг для реалистичности
                 const randomJitter = (Math.random() - 0.5) * (itemWidth * 0.4);
 
+                // Запуск анимации
                 carouselTrack.style.transform = `translateX(${finalPosition + randomJitter}px)`;
                 carouselTrack.classList.add('is-rolling');
                 if (isFastRoll) carouselTrack.classList.add('fast');
@@ -191,7 +209,6 @@ const CasePage = () => {
     const handlePromoCodeChange = (e) => {
         const code = e.target.value;
         setPromoCode(code);
-        // Здесь можно добавить более сложную логику проверки промокода
         if (code.toLowerCase() === 'promo') {
             setIsPromoValid(true);
         } else {
@@ -199,10 +216,10 @@ const CasePage = () => {
         }
     };
 
-
     const handleRoll = () => {
-        if (!currentCase || !currentCasePrizes) return;
+        if (!currentCase || !currentCasePrizes || currentCasePrizes.length === 0) return;
         
+        // Проверка баланса или промокода
         if (currentCase.isPromo) {
             if (!isPromoValid) return;
         } else {
@@ -211,10 +228,12 @@ const CasePage = () => {
             updateBalance(-cost);
         }
 
-
         setShowModal(false);
+        
+        // Определяем победителей, используя обновленную функцию рандома с учетом шансов
         const winners = Array.from({ length: quantity }).map(() => getWeightedRandomPrize(currentCasePrizes));
         setWinningPrizes(winners);
+        
         setIsRolling(true);
     };
 
@@ -223,11 +242,9 @@ const CasePage = () => {
         if (earnings > 0) {
             updateBalance(earnings);
         }
-
         if (itemsToKeep.length > 0) {
             addToInventory(itemsToKeep);
         }
-
         setShowModal(false);
         setIsRolling(false);
     };
@@ -243,7 +260,6 @@ const CasePage = () => {
 
     const isButtonDisabled = isRolling || (currentCase.isPromo ? !isPromoValid : balance < currentCase.price * quantity);
 
-
     return (
         <div className="app-container case-page-body">
             {showModal && <ResultsModal winners={winningPrizes} onClose={handleCloseResults} />}
@@ -252,7 +268,13 @@ const CasePage = () => {
             <div id="multi-roll-container">
                 <div className="carousel-indicator"></div>
                 {winningPrizes.map((prize, i) => (
-                    <Carousel key={`${quantity}-${i}`} ref={carouselRefs.current[i]} winningPrize={prize} prizes={currentCasePrizes} quantity={quantity} />
+                    <Carousel 
+                        key={`${quantity}-${i}`} 
+                        ref={carouselRefs.current[i]} 
+                        winningPrize={prize} 
+                        prizes={currentCasePrizes} 
+                        quantity={quantity} 
+                    />
                 ))}
                 <div className="carousel-indicator bottom"></div>
             </div>
@@ -268,7 +290,6 @@ const CasePage = () => {
                             className="promo-input"
                         />
                         <button
-                            id="roll-button"
                             className={`roll-button ${isButtonDisabled ? 'disabled' : ''}`}
                             onClick={handleRoll}
                             disabled={isButtonDisabled}
@@ -279,13 +300,15 @@ const CasePage = () => {
                 ) : (
                     <>
                         <button
-                            id="roll-button"
                             className={`roll-button ${isButtonDisabled ? 'disabled' : ''}`}
-                            onClick={handleRoll}>
+                            onClick={handleRoll}
+                            disabled={isButtonDisabled}
+                        >
                             <div className="roll-button-progress" style={{ width: '91.3%' }}></div>
-                            <span className="roll-button-text">Испытай удачу - {currentCase.price * quantity}</span>
+                            <span className="roll-button-text">Открыть за {currentCase.price * quantity}</span>
                             <img src="/images/stars.png" alt="star" className="star-icon small roll-button-star" />
                         </button>
+                        
                         <div className="roll-options">
                             <div className="quantity-selector">
                                 {[1, 2, 3, 4, 5].map(num => (
@@ -298,39 +321,28 @@ const CasePage = () => {
                                 ))}
                             </div>
                             
-                            {/* --- ОБНОВЛЕННЫЙ БЛОК "БЫСТРО" --- */}
                             <div className="fast-roll-toggle">
                                 <label className="switch">
                                     <input
                                         type="checkbox"
-                                        id="fast-roll-checkbox"
                                         checked={isFastRoll}
                                         onChange={(e) => setIsFastRoll(e.target.checked)}
-                                        disabled={isRolling} /* Блокируем во время прокрутки */
+                                        disabled={isRolling}
                                     />
-                                    <span className="slider round"></span> {/* Используем слайдер */}
+                                    <span className="slider round"></span>
                                 </label>
-                                <label htmlFor="fast-roll-checkbox" style={{cursor: isRolling ? 'not-allowed' : 'pointer'}}>
+                                <label style={{cursor: isRolling ? 'not-allowed' : 'pointer'}}>
                                     Быстро
                                 </label>
                             </div>
-                            {/* --- КОНЕЦ ОБНОВЛЕННОГО БЛОКА --- */}
-
                         </div>
                     </>
                 )}
-
-
-                <div className="demo-mode-toggle">
-                    <label className="switch">
-                        <input type="checkbox" />
-                        <span className="slider round"></span>
-                    </label>
-                    <span>Демо режим</span>
-                </div>
             </div>
+
             <div className="prize-list">
-                <h3 className="prize-list-header">Содержимое кейса: {currentCase.name}</h3>
+                <h3 className="prize-list-header">Содержимое кейса</h3>
+                {/* Сортируем предметы по шансу (от редких к частым) */}
                 {currentCasePrizes.sort((a,b) => a.chance - b.chance).map(prize => (
                     <div key={prize.id} className="prize-item">
                         <div className="prize-item-image-wrapper">
@@ -338,9 +350,15 @@ const CasePage = () => {
                         </div>
                         <div className="prize-item-info">
                             <span className="prize-name">{prize.name}</span>
-                            <div className="prize-value">
-                                <img src="/images/stars.png" alt="star" className="star-icon small" />
-                                <span>{prize.value.toLocaleString()}</span>
+                            <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                                <div className="prize-value">
+                                    <img src="/images/stars.png" alt="star" className="star-icon small" />
+                                    <span>{prize.value.toLocaleString()}</span>
+                                </div>
+                                {/* Отображаем шанс */}
+                                <span style={{fontSize: '12px', color: '#8a99a8'}}>
+                                    Шанс: {prize.chance}%
+                                </span>
                             </div>
                         </div>
                     </div>
