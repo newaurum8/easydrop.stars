@@ -278,4 +278,37 @@ app.post('/api/admin/case/update', async (req, res) => {
 app.use(express.static(path.join(__dirname, '..', 'build')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
 
+
 app.listen(PORT, () => console.log(`Server started on ${PORT}`));
+
+bot.on('pre_checkout_query', async (query) => {
+    try {
+        // Всегда отвечаем "ok: true", чтобы разрешить оплату
+        await bot.answerPreCheckoutQuery(query.id, true);
+        console.log('✅ Pre-checkout approved for:', query.id);
+    } catch (error) {
+        console.error('❌ Pre-checkout error:', error.message);
+        // Если ошибка, отменяем платеж с текстом ошибки
+        await bot.answerPreCheckoutQuery(query.id, false, { error_message: "Server error" });
+    }
+});
+
+// Обработчик Успешного Платежа (Срабатывает после оплаты)
+bot.on('successful_payment', async (msg) => {
+    try {
+        const payment = msg.successful_payment;
+        const payload = JSON.parse(payment.invoice_payload);
+        
+        console.log('💰 Payment received:', payment.total_amount, 'XTR from user', payload.userId);
+
+        // Начисляем баланс
+        await creditUserBalance(
+            payload.userId, 
+            payment.total_amount, 
+            payment.telegram_payment_charge_id, 
+            'XTR'
+        );
+    } catch (error) {
+        console.error('❌ Payment processing error:', error);
+    }
+});
