@@ -1,0 +1,84 @@
+/* upgrade.css */
+.upgrade-content {
+    display: flex; flex-direction: column; align-items: center; padding: 24px 0; gap: 24px;
+}
+
+.upgrade-wheel-container {
+    display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 10px; box-sizing: border-box;
+}
+.stat-display { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.stat-label { font-size: 14px; color: #8a99a8; }
+.stat-value { font-size: 22px; font-weight: 700; }
+
+/* Колесо */
+.wheel {
+    position: relative; width: 160px; height: 160px; display: flex; justify-content: center; align-items: center;
+    border-radius: 50%; border: 3px solid #3a4552; padding: 3px; box-sizing: border-box;
+    background: conic-gradient(#00aaff 0%, #00aaff var(--chance, 0%), #2c3641 var(--chance, 0%), #2c3641 100%);
+}
+.wheel-outer-ring {
+    width: 100%; height: 100%; border-radius: 50%; background-color: #2c3641;
+    display: flex; justify-content: center; align-items: center; padding: 3px; box-sizing: border-box;
+}
+.wheel-inner-ring {
+    width: 100%; height: 100%; border-radius: 50%; border: 7px solid #212a31;
+    display: flex; justify-content: center; align-items: center; box-sizing: border-box; background-color: #212a31;
+}
+.wheel-indicator-container {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; transition: transform 4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.wheel-indicator-arrow {
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0;
+    border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 15px solid #ffc107;
+    filter: drop-shadow(0 -2px 4px rgba(0,0,0,0.5));
+}
+.wheel-item {
+    width: 50%; height: auto; transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; opacity: 1; transform: scale(1);
+}
+.wheel-item.is-fading { opacity: 0; transform: scale(0.8); }
+.wheel-item.roll-success { animation: upgrade-success-effect 1.5s ease-out forwards; }
+.wheel-item.roll-fail { animation: upgrade-fail-effect 0.8s ease-out forwards; }
+
+/* Анимации колеса */
+@keyframes upgrade-success-effect {
+    0% { transform: scale(1); filter: drop-shadow(0 0 0 #00aaff); }
+    50% { transform: scale(1.15); filter: drop-shadow(0 0 25px #00aaff) drop-shadow(0 0 10px #ffffff); }
+    100% { transform: scale(1.1); filter: drop-shadow(0 0 15px #00aaff) drop-shadow(0 0 5px #ffffff); }
+}
+@keyframes upgrade-fail-effect {
+    0%, 100% { transform: translateX(0) scale(1); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px) scale(1.02); }
+    20%, 40%, 60%, 80% { transform: translateX(4px) scale(1.02); }
+    50% { filter: drop-shadow(0 0 15px #f44336); }
+    100% { filter: drop-shadow(0 0 0 #f44336); }
+}
+
+/* Выбор предметов */
+.selection-area { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
+.selection-box {
+    background-color: #2c3641; border: 2px solid #2c3641; border-radius: 16px; height: 140px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px;
+    font-weight: 500; cursor: pointer; transition: border-color 0.2s ease;
+}
+.selection-box.active-border { border-color: #00aaff; }
+.selection-box img { width: 60px; height: 60px; object-fit: contain; }
+.plus-icon { font-size: 32px; color: #8a99a8; }
+
+.inventory-tabs {
+    display: flex; background-color: #2c3641; border-radius: 20px; padding: 4px; width: 100%; box-sizing: border-box;
+}
+.tab-btn {
+    flex: 1; padding: 8px 16px; border: none; background-color: transparent; color: #8a99a8;
+    border-radius: 16px; font-weight: 500; cursor: pointer; transition: all 0.2s ease;
+}
+.tab-btn.active { background-color: #3a4552; color: #e0e0e0; }
+
+.inventory-content { width: 100%; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.upgrade-content .inventory-grid {
+    max-height: 250px; overflow-y: auto; padding: 10px; background-color: #212a31; border-radius: 8px;
+}
+.upgrade-content .inventory-item { cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s ease; }
+.upgrade-content .inventory-item.active-border, .upgrade-content .inventory-item:hover { border-color: #00aaff; }
