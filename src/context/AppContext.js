@@ -16,7 +16,8 @@ export const AppProvider = ({ children }) => {
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
     // 1. ЗАГРУЗКА КОНФИГУРАЦИИ (КЕЙСЫ И ПРЕДМЕТЫ)
-    useEffect(() => {
+    // Выносим в отдельную функцию, чтобы можно было вызывать из Админки для обновления
+    const refreshConfig = useCallback(() => {
         fetch('/api/config')
             .then(res => res.json())
             .then(data => {
@@ -26,6 +27,10 @@ export const AppProvider = ({ children }) => {
             })
             .catch(err => console.error("Config fetch error:", err));
     }, []);
+
+    useEffect(() => {
+        refreshConfig();
+    }, [refreshConfig]);
 
     // 2. АВТОРИЗАЦИЯ И СИНХРОНИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ
     useEffect(() => {
@@ -172,7 +177,8 @@ export const AppProvider = ({ children }) => {
         performUpgrade,
         isTopUpModalOpen,
         openTopUpModal,
-        closeTopUpModal
+        closeTopUpModal,
+        refreshConfig // <-- Добавили для админки
     };
 
     return (
