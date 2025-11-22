@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useTonConnectUI, useTonWallet, TonConnectButton } from '@tonconnect/ui-react';
 import { toNano } from '@ton/core';
@@ -9,13 +9,32 @@ const TopUpModal = () => {
     const [amount, setAmount] = useState('');
     const wallet = useTonWallet();
     const [tonConnectUI] = useTonConnectUI();
+    
+    // Состояние: открыто ли окно подключения кошелька (TonConnect)
+    const [isConnectionModalOpen, setIsConnectionModalOpen] = useState(false);
 
-    // --- ОПЛАТА STARS ---
+    // --- СЛЕЖИМ ЗА ОКНОМ TON CONNECT ---
+    useEffect(() => {
+        // Подписываемся на изменение состояния модального окна TonConnect
+        const unsubscribe = tonConnectUI.onModalStateChange((state) => {
+            // state может быть объектом { status: 'opened' } или просто 'opened' в зависимости от версии
+            const isOpen = state && (state.status === 'opened' || state === 'opened');
+            setIsConnectionModalOpen(isOpen);
+        });
+
+        return () => {
+            // Отписываемся при размонтировании (если функция возвращает unsubscribe)
+            if (typeof unsubscribe === 'function') {
+                unsubscribe();
+            }
+        };
+    }, [tonConnectUI]);
+
+    // Оплата Stars
     const handleTopUpStars = async () => {
         if (!user || !amount || amount <= 0) return alert('Введите корректную сумму');
         
         try {
-            // 1. Создаем инвойс на сервере
             const res = await fetch('/api/create-invoice', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -24,12 +43,11 @@ const TopUpModal = () => {
             const data = await res.json();
             
             if (data.invoiceLink) {
-                // 2. Открываем форму оплаты Telegram
                 window.Telegram.WebApp.openInvoice(data.invoiceLink, (status) => {
                     if (status === 'paid') {
                         alert('Оплата прошла успешно! Баланс скоро обновится.');
                         closeTopUpModal();
-                        window.location.reload(); // Обновляем страницу, чтобы увидеть новый баланс
+                        window.location.reload();
                     }
                 });
             } else {
@@ -40,7 +58,7 @@ const TopUpModal = () => {
         }
     };
 
-    // --- ОПЛАТА TON ---
+    // Оплата TON
     const handleTopUpTon = async () => {
         if (!wallet) return alert('Пожалуйста, подключите кошелек');
         
@@ -50,22 +68,19 @@ const TopUpModal = () => {
         // ВАЖНО: Адрес вашего кошелька для приема средств
         const RECIPIENT_WALLET = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
-        // Формируем транзакцию
         const transaction = {
-            validUntil: Math.floor(Date.now() / 1000) + 600, // Срок жизни 10 мин
+            validUntil: Math.floor(Date.now() / 1000) + 600, 
             messages: [
                 {
                     address: RECIPIENT_WALLET,
-                    amount: toNano(val).toString(), // Конвертируем TON в нанотоны
+                    amount: toNano(val).toString(),
                 }
             ]
         };
 
         try {
-            // 1. Отправляем транзакцию через TonConnect
             const result = await tonConnectUI.sendTransaction(transaction);
             
-            // 2. Отправляем подтверждение (boc) на сервер
             await fetch('/api/verify-ton-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -76,13 +91,17 @@ const TopUpModal = () => {
                 }),
             });
 
-            alert('Транзакция отправлена! Средства зачислятся после проверки в блокчейне.');
+            alert('Транзакция отправлена! Средства зачислятся после проверки.');
             closeTopUpModal();
         } catch (e) { 
             console.error(e);
-            // Если пользователь отменил, ничего не делаем или показываем алерт
         }
     };
+
+    // --- СКРЫВАЕМ НАШЕ ОКНО, ЕСЛИ ОТКРЫТО ОКНО ПОДКЛЮЧЕНИЯ КОШЕЛЬКА ---
+    if (isConnectionModalOpen) {
+        return null; 
+    }
 
     return (
         <div className="top-up-modal">
