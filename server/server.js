@@ -8,7 +8,7 @@ const { TonClient, Cell } = require('ton');
 
 // --- КОНФИГУРАЦИЯ ---
 
-// 1. ТОКЕН БОТА (Вставьте НОВЫЙ токен от @BotFather)
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAH4r5kWjNvBpMgmcg3F7JClrTu64QASXJg'; 
 
 // 2. ВАШ КОШЕЛЕК (Куда приходят TON)
@@ -312,3 +312,4 @@ bot.on('successful_payment', async (msg) => {
         console.error('❌ Payment processing error:', error);
     }
 });
+
