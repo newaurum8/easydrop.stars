@@ -8,18 +8,20 @@ const { TonClient, Cell } = require('ton');
 
 // --- КОНФИГУРАЦИЯ ---
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+// 1. Токен бота (объявляем ДО использования)
 const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAH4r5kWjNvBpMgmcg3F7JClrTu64QASXJg'; 
 
-// 2. ВАШ КОШЕЛЕК (Куда приходят TON)
+// 2. Кошелек админа (куда приходят TON)
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
-// 3. БАЗА ДАННЫХ (Ваша ссылка на NeonDB)
+// 3. База данных
 const DATABASE_URL = 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const bot = new TelegramBot(BOT_TOKEN, { polling: false });
+
+// !!! ВАЖНО: Включаем polling: true для работы Stars !!!
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 app.use(cors());
 app.use(express.json());
@@ -163,7 +165,46 @@ async function creditUserBalance(userId, amount, txHash, currency) {
     }
 }
 
-// --- API: STARS ---
+// ============================================
+// === ЛОГИКА TELEGRAM STARS (BOT EVENTS) ===
+// ============================================
+
+// 1. Обработчик Pre-Checkout (ОБЯЗАТЕЛЕН для оплаты)
+bot.on('pre_checkout_query', async (query) => {
+    try {
+        // Отвечаем "ok: true", чтобы разрешить списание
+        await bot.answerPreCheckoutQuery(query.id, true);
+        console.log(`✅ Pre-checkout approved for user ${query.from.id}`);
+    } catch (error) {
+        console.error('❌ Pre-checkout error:', error.message);
+        await bot.answerPreCheckoutQuery(query.id, false, { error_message: "Internal Server Error" });
+    }
+});
+
+// 2. Обработчик Успешного Платежа (для начисления баланса)
+bot.on('successful_payment', async (msg) => {
+    try {
+        const payment = msg.successful_payment;
+        const payload = JSON.parse(payment.invoice_payload); // Достаем ID пользователя
+        
+        console.log('💰 Payment received:', payment.total_amount, 'XTR');
+
+        // Начисляем баланс
+        await creditUserBalance(
+            payload.userId, 
+            payment.total_amount, 
+            payment.telegram_payment_charge_id, 
+            'XTR'
+        );
+    } catch (error) {
+        console.error('❌ Payment processing error:', error);
+    }
+});
+
+
+// --- API ENDPOINTS ---
+
+// Создание ссылки на оплату (Stars)
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, userId } = req.body;
     if (!amount || !userId) return res.status(400).json({ error: 'Missing data' });
@@ -175,7 +216,6 @@ app.post('/api/create-invoice', async (req, res) => {
         const currency = "XTR";
         const prices = [{ label: "Stars", amount: parseInt(amount) }];
 
-        // Исправленный вызов createInvoiceLink
         const link = await bot.createInvoiceLink(title, description, payload, "", currency, prices);
         res.json({ invoiceLink: link });
     } catch (err) {
@@ -184,19 +224,7 @@ app.post('/api/create-invoice', async (req, res) => {
     }
 });
 
-app.post('/webhook', async (req, res) => {
-    const update = req.body;
-    if (update.pre_checkout_query) {
-        bot.answerPreCheckoutQuery(update.pre_checkout_query.id, true).catch(() => {});
-    } else if (update.message && update.message.successful_payment) {
-        const payment = update.message.successful_payment;
-        const payload = JSON.parse(payment.invoice_payload);
-        await creditUserBalance(payload.userId, payment.total_amount, payment.telegram_payment_charge_id, 'XTR');
-    }
-    res.sendStatus(200);
-});
-
-// --- API: TON ---
+// API для TON (проверка и начисление)
 app.post('/api/verify-ton-payment', async (req, res) => {
     const { boc, userId, amount } = req.body;
     if (!boc || !userId || !amount) return res.status(400).json({ error: 'Missing data' });
@@ -219,7 +247,7 @@ app.post('/api/verify-ton-payment', async (req, res) => {
     }
 });
 
-// --- API: CONFIG & USERS ---
+// Конфиг и Пользователи
 app.get('/api/config', async (req, res) => {
     try {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
@@ -254,7 +282,7 @@ app.post('/api/user/save', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- API: ADMIN ---
+// Admin API
 app.get('/api/admin/user/:id', async (req, res) => {
     const r = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
     if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
@@ -274,42 +302,8 @@ app.post('/api/admin/case/update', async (req, res) => {
     res.json(r.rows[0]);
 });
 
-// --- STATIC ---
+// Static
 app.use(express.static(path.join(__dirname, '..', 'build')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
 
-
 app.listen(PORT, () => console.log(`Server started on ${PORT}`));
-
-bot.on('pre_checkout_query', async (query) => {
-    try {
-        // Всегда отвечаем "ok: true", чтобы разрешить оплату
-        await bot.answerPreCheckoutQuery(query.id, true);
-        console.log('✅ Pre-checkout approved for:', query.id);
-    } catch (error) {
-        console.error('❌ Pre-checkout error:', error.message);
-        // Если ошибка, отменяем платеж с текстом ошибки
-        await bot.answerPreCheckoutQuery(query.id, false, { error_message: "Server error" });
-    }
-});
-
-// Обработчик Успешного Платежа (Срабатывает после оплаты)
-bot.on('successful_payment', async (msg) => {
-    try {
-        const payment = msg.successful_payment;
-        const payload = JSON.parse(payment.invoice_payload);
-        
-        console.log('💰 Payment received:', payment.total_amount, 'XTR from user', payload.userId);
-
-        // Начисляем баланс
-        await creditUserBalance(
-            payload.userId, 
-            payment.total_amount, 
-            payment.telegram_payment_charge_id, 
-            'XTR'
-        );
-    } catch (error) {
-        console.error('❌ Payment processing error:', error);
-    }
-});
-
