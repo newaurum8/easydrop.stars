@@ -2256,5 +2256,19 @@ input:checked + .slider:before {
         grid-template-columns: 1fr;
     }
 }
+.tc-root {
+    z-index: 10000 !important;
+    position: relative; /* На всякий случай */
+}
 
+/* На случай, если библиотека использует другие ID или классы для порталов */
+div[id^="tc-"], 
+div[class^="tc-"] {
+    z-index: 10000 !important;
+}
+
+/* Также убедимся, что выпадающие списки внутри кнопки тоже видны */
+.go3974562317 {
+    z-index: 10000 !important;
+}
 
