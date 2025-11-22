@@ -2,39 +2,52 @@ import React, { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 
+// Компонент ленты живых дропов
 const LiveFeed = () => {
     const { ALL_PRIZES } = useContext(AppContext);
     const [liveItems, setLiveItems] = useState([]);
-    const maxItems = 8;
 
     useEffect(() => {
+        // Если призы еще не загрузились, ничего не делаем
         if (!ALL_PRIZES || ALL_PRIZES.length === 0) return;
 
-        const initialItems = [];
-        for (let i = 0; i < maxItems; i++) {
-            initialItems.push(ALL_PRIZES[Math.floor(Math.random() * ALL_PRIZES.length)]);
-        }
+        // Инициализация ленты случайными предметами
+        const initialItems = Array(8).fill(null).map(() => 
+            ALL_PRIZES[Math.floor(Math.random() * ALL_PRIZES.length)]
+        );
         setLiveItems(initialItems);
 
+        // Эмуляция выпадения новых предметов каждые 2.5 секунды
         const interval = setInterval(() => {
             setLiveItems(prevItems => {
                 const newItems = [...prevItems];
-                newItems.shift();
-                newItems.push(ALL_PRIZES[Math.floor(Math.random() * ALL_PRIZES.length)]);
+                newItems.shift(); // Удаляем старый
+                newItems.push(ALL_PRIZES[Math.floor(Math.random() * ALL_PRIZES.length)]); // Добавляем новый
                 return newItems;
             });
-        }, 2000);
+        }, 2500);
 
         return () => clearInterval(interval);
     }, [ALL_PRIZES]);
 
+    // Функция для определения цвета обводки в ленте (по цене)
+    const getRarityClass = (value) => {
+        if (value >= 50000) return 'rarity-gold';
+        if (value >= 10000) return 'rarity-red';
+        if (value >= 2000) return 'rarity-purple';
+        return 'rarity-blue';
+    };
+
     return (
-        <section className="live-feed">
-            <span className="live-indicator">LIVE</span>
-            <div className="live-icons">
+        <section className="live-feed-container">
+            <div className="live-label">LIVE DROPS</div>
+            <div className="live-track">
                 {liveItems.map((item, index) => (
-                    <div className="live-icon-item" key={index}>
-                        <img src={item.image} alt={item.name} />
+                    <div 
+                        key={`${item.id}-${index}`} 
+                        className={`live-card ${getRarityClass(item.value)}`}
+                    >
+                        <img src={item.image} alt="" />
                     </div>
                 ))}
             </div>
@@ -42,43 +55,68 @@ const LiveFeed = () => {
     );
 };
 
-
 const MainPage = () => {
     const { ALL_CASES } = useContext(AppContext);
+
+    // Хелпер для перевода тегов на русский
+    const getTagLabel = (tag) => {
+        switch(tag) {
+            case 'promo': return 'ПРОМО';
+            case 'limited': return 'ЛИМИТ';
+            case 'legendary': return 'ЛЕГЕНДА';
+            case 'rare': return 'РЕДКИЙ';
+            default: return null;
+        }
+    };
 
     return (
         <>
             <LiveFeed />
 
-            <section className="sorting-controls">
-                <span className="sort-label">Сортировка</span>
-                <div className="sort-dropdown">
-                    <span>Лимитированные</span>
-                    <span className="sort-arrows">▲▼</span>
-                </div>
-            </section>
+            <div className="hero-banner">
+                <h2>Испытай удачу</h2>
+                <p>Открывай кейсы и выигрывай реальные призы</p>
+            </div>
 
             <main className="content-grid">
-                {/* Используем optional chaining (?.) для безопасного вызова .map на случай, если данные еще не пришли */}
-                {ALL_CASES?.map((caseItem, index) => (
-                    <Link to={`/case/${caseItem.id}`} className="case-card" key={caseItem.id}>
-                        <div className="card-header">
-                            <span className="case-title">{caseItem.name}</span>
-                            {caseItem.isPromo ? (
-                                <span className="tag tag-promo">Промо</span>
-                            ) : index === 0 ? (
-                                <span className="tag tag-limit">Лимит</span>
-                            ) : (
-                                <span className="tag tag-rare">Редкий</span>
-                            )}
-                        </div>
-                        <img src={caseItem.image} alt={`${caseItem.name} Case`} className="card-image" />
-                        <div className="card-footer">
-                             <img src="/images/stars.png" alt="Star" className="star-icon small" />
-                            <span>{caseItem.price > 0 ? caseItem.price : 'Бесплатно'}</span>
-                        </div>
-                    </Link>
-                ))}
+                {/* Проверка на наличие данных перед маппингом */}
+                {ALL_CASES && ALL_CASES.length > 0 ? (
+                    ALL_CASES.map((caseItem) => (
+                        <Link 
+                            to={`/case/${caseItem.id}`} 
+                            // Класс card-rarity-... задает цвет рамки и свечения
+                            className={`case-card card-rarity-${caseItem.tag || 'common'}`} 
+                            key={caseItem.id}
+                        >
+                            {/* Эффект свечения на фоне */}
+                            <div className="card-glow"></div>
+                            
+                            <div className="card-header">
+                                <span className="case-title">{caseItem.name}</span>
+                                {caseItem.tag && caseItem.tag !== 'common' && (
+                                    <span className={`tag tag-${caseItem.tag}`}>
+                                        {getTagLabel(caseItem.tag)}
+                                    </span>
+                                )}
+                            </div>
+                            
+                            <div className="card-img-container">
+                                <img src={caseItem.image} alt={caseItem.name} className="card-image" />
+                            </div>
+                            
+                            <div className="card-footer">
+                                <img src="/images/stars.png" alt="Star" className="star-icon small" />
+                                <span>
+                                    {caseItem.price > 0 ? caseItem.price.toLocaleString() : 'FREE'}
+                                </span>
+                            </div>
+                        </Link>
+                    ))
+                ) : (
+                    <p style={{textAlign: 'center', gridColumn: '1 / -1', color: '#888'}}>
+                        Загрузка кейсов...
+                    </p>
+                )}
             </main>
         </>
     );
