@@ -7,13 +7,12 @@ import ProfilePage from './pages/ProfilePage';
 import HistoryPage from './pages/HistoryPage';
 import CasePage from './pages/CasePage';
 import LeadersPage from './pages/LeaderPage';
-import AdminPage from './pages/AdminPage';
+import AdminPage from './pages/AdminPage'; // 1. Импортируем
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* --- Маршруты ВНУТРИ Layout (с шапкой и меню) --- */}
         <Route path="/" element={<Layout><MainPage /></Layout>} />
         <Route path="/upgrade" element={<Layout><UpgradePage /></Layout>} />
         <Route path="/profile" element={<Layout><ProfilePage /></Layout>} />
@@ -21,8 +20,9 @@ function App() {
         <Route path="/leaders" element={<Layout><LeadersPage /></Layout>} />
         <Route path="/case/:caseId" element={<Layout><CasePage /></Layout>} />
         
-        {/* --- Отдельный маршрут БЕЗ Layout --- */}
-        <Route path="/admin" element={<AdminPage />} /> 
+        {/* 2. Добавляем простой путь /admin без Layout (чтобы не было меню снизу) 
+            или с Layout, если хотите видеть шапку */}
+        <Route path="/admin" element={<AdminPage />} />
       </Routes>
     </Router>
   );
