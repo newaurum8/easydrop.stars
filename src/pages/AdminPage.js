@@ -27,6 +27,7 @@ const AdminPage = () => {
                     />
                     <button 
                         className="modern-button primary full-width" 
+                        style={{marginTop: '15px'}}
                         onClick={() => password === SECRET_PASSWORD ? setIsAuthorized(true) : alert('Неверный пароль')}
                     >
                         Войти
@@ -175,6 +176,7 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
     const handleServerUpdate = async (formData) => {
         const url = isCreating ? '/api/admin/case/create' : '/api/admin/case/update';
         try {
+            // FormData сама выставляет нужный Content-Type с boundary
             const res = await fetch(url, { method: 'POST', body: formData });
             if (res.ok) {
                 onUpdate();
@@ -250,7 +252,7 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
         return items.map(item => typeof item === 'string' ? { id: item, chance: 0 } : item);
     });
 
-    // Очистка URL объекта при размонтировании
+    // Очистка URL объекта при размонтировании или смене картинки
     useEffect(() => {
         return () => {
             if (previewUrl && previewUrl.startsWith('blob:')) {
@@ -258,6 +260,17 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
             }
         };
     }, [previewUrl]);
+
+    // Обновление preview при выборе кейса из списка
+    useEffect(() => {
+        setFormData({...caseItem});
+        setPreviewUrl(caseItem.image);
+        setSelectedFile(null);
+        setSelectedPrizeIds(() => {
+            const items = caseItem.prizeIds || [];
+            return items.map(item => typeof item === 'string' ? { id: item, chance: 0 } : item);
+        });
+    }, [caseItem]);
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
@@ -424,6 +437,9 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
     );
 };
 
+// ==================================================
+// 3. МЕНЕДЖЕР ПОЛЬЗОВАТЕЛЕЙ
+// ==================================================
 const UserManager = () => {
     const [searchId, setSearchId] = useState('');
     const [foundUser, setFoundUser] = useState(null);
