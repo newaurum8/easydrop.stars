@@ -6,53 +6,68 @@ const TelegramBot = require('node-telegram-bot-api');
 const { getHttpEndpoint } = require('@orbs-network/ton-access');
 const { TonClient, Cell } = require('ton');
 
-// --- КОНФИГУРАЦИЯ ---
+// ==================================================
+// === КОНФИГУРАЦИЯ ===
+// ==================================================
 
 // 1. Токен бота
 const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAGMH6gGvb-tamh6W6sa47jBXUQ8Tl4pans'; 
 
-// 2. Кошелек админа
+// 2. Кошелек админа (куда приходят TON)
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
-// 3. База данных (Используем "чистую" ссылку без лишних параметров, которые могут конфликтовать)
+// 3. База данных (Neon DB)
+// Мы используем "чистую" ссылку без параметров ?sslmode=..., чтобы избежать конфликтов.
+// Параметры SSL передаются отдельно в настройках подключения ниже.
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb';
 
-// 4. URL вашего приложения
+// 4. URL вашего приложения (для Webhook)
 const APP_URL = process.env.APP_URL || 'https://easydrop-stars-1.onrender.com';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// --- ИНИЦИАЛИЗАЦИЯ БОТА ---
+// ==================================================
+// === НАСТРОЙКА БОТА И СЕРВЕРА ===
+// ==================================================
+
+// ВАЖНО: polling: false, так как мы используем Webhook
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
 app.use(cors());
 app.use(express.json());
 
-// --- МАРШРУТ ДЛЯ WEBHOOK ---
+// Маршрут для приема обновлений от Telegram (Webhook)
 app.post(`/bot${BOT_TOKEN}`, (req, res) => {
     bot.processUpdate(req.body);
     res.sendStatus(200);
 });
 
-// --- ПОДКЛЮЧЕНИЕ К БД ---
+// ==================================================
+// === ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ ===
+// ==================================================
+
 const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false 
+        rejectUnauthorized: false // Обязательно для работы с Neon/Render
     }
 });
 
+// Проверка подключения при запуске
 pool.connect((err, client, release) => {
     if (err) {
-        console.error('🚨 ОШИБКА ПОДКЛЮЧЕНИЯ К БД:', err.message);
+        console.error('🚨 КРИТИЧЕСКАЯ ОШИБКА ПОДКЛЮЧЕНИЯ К БД:', err.message);
     } else {
         console.log('✅ Успешное подключение к базе данных!');
         release();
     }
 });
 
-// --- ДАННЫЕ ДЛЯ ИНИЦИАЛИЗАЦИИ (SEEDING) ---
+// ==================================================
+// === ДАННЫЕ ПО УМОЛЧАНИЮ (SEEDING) ===
+// ==================================================
+
 const INITIAL_PRIZES = [
     { id: 'c1_item_1', name: 'Золотые часы', image: '/images/case/item.png', value: 250000, chance: 1 },
     { id: 'c1_item_2', name: 'Кепка Telegram', image: '/images/case/item1.png', value: 12000, chance: 5 },
@@ -85,16 +100,19 @@ const INITIAL_CASES = [
     { id: 'promo_case', name: 'Промо-кейс', image: '/images/case8.png', price: 0, prizeIds: ['c1_item_4','c1_item_5','c1_item_6','c2_item_7','c2_item_8'], isPromo: true, tag: 'promo' }
 ];
 
-// --- ИНИЦИАЛИЗАЦИЯ ТАБЛИЦ БД ---
+// ==================================================
+// === ИНИЦИАЛИЗАЦИЯ И МИГРАЦИЯ БД ===
+// ==================================================
+
 const initDB = async () => {
     try {
-        // Создаем таблицы, если их нет
+        // 1. Создание таблиц (если их нет)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id BIGINT PRIMARY KEY, 
                 first_name TEXT, 
                 username TEXT, 
-                photo_url TEXT, 
+                photo_url TEXT,
                 balance INT DEFAULT 0, 
                 inventory JSONB DEFAULT '[]', 
                 history JSONB DEFAULT '[]', 
@@ -105,10 +123,10 @@ const initDB = async () => {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS transactions (
                 id SERIAL PRIMARY KEY, 
-                tx_hash TEXT UNIQUE NOT NULL, 
-                user_id BIGINT NOT NULL, 
-                amount DECIMAL NOT NULL, 
-                currency TEXT NOT NULL, 
+                tx_hash TEXT UNIQUE, 
+                user_id BIGINT, 
+                amount DECIMAL, 
+                currency TEXT, 
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `);
@@ -116,28 +134,29 @@ const initDB = async () => {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS prizes (
                 id TEXT PRIMARY KEY, 
-                name TEXT NOT NULL, 
-                image TEXT NOT NULL, 
-                value INT NOT NULL, 
-                chance FLOAT NOT NULL
+                name TEXT, 
+                image TEXT, 
+                value INT, 
+                chance FLOAT
             );
         `);
         
         await pool.query(`
             CREATE TABLE IF NOT EXISTS cases (
                 id TEXT PRIMARY KEY, 
-                name TEXT NOT NULL, 
-                image TEXT NOT NULL, 
-                price INT NOT NULL, 
-                prize_ids JSONB NOT NULL, 
+                name TEXT, 
+                image TEXT, 
+                price INT, 
+                prize_ids JSONB, 
                 is_promo BOOLEAN DEFAULT FALSE, 
                 tag TEXT DEFAULT 'common'
             );
         `);
         
-        // --- ВАЖНО: АВТО-МИГРАЦИЯ ДЛЯ ИСПРАВЛЕНИЯ ВАШЕЙ ОШИБКИ ---
+        // 2. ПРИНУДИТЕЛЬНАЯ МИГРАЦИЯ КОЛОНОК
+        // Этот блок исправляет ошибку "column does not exist", если таблицы были созданы давно
         try {
-            console.log('🔄 Проверка структуры БД...');
+            console.log('🔄 Проверка и обновление структуры БД...');
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INT DEFAULT 0`);
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inventory JSONB DEFAULT '[]'`);
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'`);
@@ -145,43 +164,43 @@ const initDB = async () => {
             
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`);
-            console.log('✅ Структура БД обновлена');
+            console.log('✅ Структура БД обновлена (Миграция успешна)');
         } catch (e) { 
-            console.log('⚠️ Info: ' + e.message); 
+            console.log('⚠️ Info (Migration): ' + e.message); 
         }
 
-        // --- ЗАПОЛНЕНИЕ (SEEDING) ---
-        // Если предметы не грузятся, возможно, таблица пустая. Этот код исправит.
-        const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
-        if (parseInt(prizeCount.rows[0].count) === 0) {
-            console.log('Seeding prizes...');
-            for (const item of INITIAL_PRIZES) {
-                await pool.query(
-                    'INSERT INTO prizes (id, name, image, value, chance) VALUES ($1, $2, $3, $4, $5)', 
-                    [item.id, item.name, item.image, item.value, item.chance]
-                );
-            }
-        }
+        // 3. ПЕРЕЗАЛИВКА ДАННЫХ (RESEED)
+        // Это исправляет "пустые кейсы". Мы удаляем старые записи кейсов/призов и заливаем эталонные.
+        console.log('🧹 Очистка старых/сломанных кейсов и призов...');
+        await pool.query('DELETE FROM prizes');
+        await pool.query('DELETE FROM cases');
 
-        const caseCount = await pool.query('SELECT COUNT(*) FROM cases');
-        if (parseInt(caseCount.rows[0].count) === 0) {
-            console.log('Seeding cases...');
-            for (const c of INITIAL_CASES) {
-                await pool.query(
-                    'INSERT INTO cases (id, name, image, price, prize_ids, is_promo, tag) VALUES ($1, $2, $3, $4, $5, $6, $7)', 
-                    [c.id, c.name, c.image, c.price, JSON.stringify(c.prizeIds), c.isPromo || false, c.tag || 'common']
-                );
-            }
+        console.log('🌱 Загрузка свежих данных...');
+        for (const item of INITIAL_PRIZES) {
+            await pool.query(
+                'INSERT INTO prizes (id, name, image, value, chance) VALUES ($1, $2, $3, $4, $5)', 
+                [item.id, item.name, item.image, item.value, item.chance]
+            );
         }
-        console.log('>>> DB initialized successfully');
+        for (const c of INITIAL_CASES) {
+            await pool.query(
+                'INSERT INTO cases (id, name, image, price, prize_ids, is_promo, tag) VALUES ($1, $2, $3, $4, $5, $6, $7)', 
+                [c.id, c.name, c.image, c.price, JSON.stringify(c.prizeIds), c.isPromo || false, c.tag || 'common']
+            );
+        }
+        console.log('>>> БД полностью готова к работе!');
+
     } catch (err) { 
-        console.error('🚨 DB Init Error:', err.message); 
+        console.error('🚨 ОШИБКА ИНИЦИАЛИЗАЦИИ:', err.message); 
     }
 };
 
 initDB();
 
-// --- ЛОГИКА НАЧИСЛЕНИЯ БАЛАНСА ---
+// ==================================================
+// === ЛОГИКА БАЛАНСА И ТРАНЗАКЦИЙ ===
+// ==================================================
+
 async function creditUserBalance(userId, amount, txHash, currency) {
     const client = await pool.connect();
     try {
@@ -190,7 +209,7 @@ async function creditUserBalance(userId, amount, txHash, currency) {
         const check = await client.query('SELECT id FROM transactions WHERE tx_hash = $1', [txHash]);
         if (check.rows.length > 0) {
             await client.query('ROLLBACK');
-            return { success: false, message: 'Transaction already processed' };
+            return { success: false, message: 'Транзакция уже обработана' };
         }
         
         await client.query(
@@ -211,24 +230,26 @@ async function creditUserBalance(userId, amount, txHash, currency) {
         );
         
         await client.query('COMMIT');
-        console.log(`User ${userId} credited with ${starsToAdd} stars (${amount} ${currency})`);
+        console.log(`Пользователь ${userId} получил ${starsToAdd} звезд за ${amount} ${currency}`);
         return { success: true };
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('Credit Balance Error:', err);
-        return { success: false, message: 'DB Error' };
+        console.error('Ошибка начисления баланса:', err);
+        return { success: false, message: 'Ошибка БД' };
     } finally {
         client.release();
     }
 }
 
-// --- TELEGRAM HANDLERS ---
+// ==================================================
+// === ОБРАБОТЧИКИ TELEGRAM (ОПЛАТА STARS) ===
+// ==================================================
+
 bot.on('pre_checkout_query', async (query) => {
     try {
         await bot.answerPreCheckoutQuery(query.id, true);
-        console.log(`✅ Pre-checkout allowed for ${query.id}`);
     } catch (error) {
-        console.error('❌ Pre-checkout failed:', error.message);
+        console.error('Pre-checkout failed:', error.message);
     }
 });
 
@@ -237,7 +258,7 @@ bot.on('message', async (msg) => {
         const payment = msg.successful_payment;
         const payload = JSON.parse(payment.invoice_payload);
         
-        console.log(`💰 Payment success: ${payment.total_amount} XTR from user ${payload.userId}`);
+        console.log(`💰 Оплата получена: ${payment.total_amount} XTR от ${payload.userId}`);
         
         await creditUserBalance(
             payload.userId, 
@@ -248,51 +269,11 @@ bot.on('message', async (msg) => {
     }
 });
 
-// --- API ENDPOINTS ---
+// ==================================================
+// === API ENDPOINTS ===
+// ==================================================
 
-app.post('/api/create-invoice', async (req, res) => {
-    const { amount, userId } = req.body;
-    try {
-        const balanceAmount = amount * 50; 
-        const title = `Пополнение на ${balanceAmount} звезд`;
-        const description = `Оплата ${amount} Telegram Stars`;
-
-        const link = await bot.createInvoiceLink(
-            title, 
-            description, 
-            JSON.stringify({ userId, amount, ts: Date.now() }), 
-            "", 
-            "XTR", 
-            [{ label: "Stars", amount: parseInt(amount) }]
-        );
-        res.json({ invoiceLink: link });
-    } catch (err) {
-        console.error("Invoice Error:", err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/verify-ton-payment', async (req, res) => {
-    const { boc, userId, amount } = req.body;
-    try {
-        const cell = Cell.fromBase64(boc);
-        const endpoint = await getHttpEndpoint({ network: 'mainnet' });
-        const client = new TonClient({ endpoint });
-        
-        await client.sendFile(cell.toBoc());
-        
-        const txHash = cell.hash().toString('hex');
-        
-        const result = await creditUserBalance(userId, amount, txHash, 'TON');
-        if(result.success) res.json({ success: true });
-        else res.status(409).json({ error: 'Transaction already processed' });
-    } catch (err) { 
-        console.error("TON Verify Error:", err);
-        res.status(500).json({ error: 'Verify failed' }); 
-    }
-});
-
-// Конфигурация (Кейсы и Призы)
+// Получение конфигурации (Кейсы и Призы)
 app.get('/api/config', async (req, res) => {
     try {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
@@ -314,10 +295,11 @@ app.get('/api/config', async (req, res) => {
     }
 });
 
-// Синхронизация пользователя
+// Синхронизация пользователя при входе
 app.post('/api/user/sync', async (req, res) => {
     const { id, first_name, username, photo_url } = req.body;
     try {
+        // Используем ON CONFLICT для создания или обновления
         const query = `
             INSERT INTO users (id, first_name, username, photo_url, balance) 
             VALUES ($1, $2, $3, $4, 0) 
@@ -333,6 +315,7 @@ app.post('/api/user/sync', async (req, res) => {
     }
 });
 
+// Сохранение состояния пользователя (инвентарь, история)
 app.post('/api/user/save', async (req, res) => {
     const { id, balance, inventory, history } = req.body;
     try {
@@ -344,6 +327,49 @@ app.post('/api/user/save', async (req, res) => {
     } catch (err) { 
         console.error('Error /api/user/save:', err.message);
         res.status(500).json({ error: err.message }); 
+    }
+});
+
+// Создание счета на оплату Stars
+app.post('/api/create-invoice', async (req, res) => {
+    const { amount, userId } = req.body;
+    try {
+        const title = `Пополнение на ${amount * 50} звезд`;
+        const description = `Оплата ${amount} Telegram Stars`;
+
+        const link = await bot.createInvoiceLink(
+            title, 
+            description, 
+            JSON.stringify({ userId, amount, ts: Date.now() }), 
+            "", 
+            "XTR", 
+            [{ label: "Stars", amount: parseInt(amount) }]
+        );
+        res.json({ invoiceLink: link });
+    } catch (err) {
+        console.error("Invoice Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Верификация платежа TON
+app.post('/api/verify-ton-payment', async (req, res) => {
+    const { boc, userId, amount } = req.body;
+    try {
+        const cell = Cell.fromBase64(boc);
+        const endpoint = await getHttpEndpoint({ network: 'mainnet' });
+        const client = new TonClient({ endpoint });
+        
+        await client.sendFile(cell.toBoc());
+        
+        const txHash = cell.hash().toString('hex');
+        
+        const result = await creditUserBalance(userId, amount, txHash, 'TON');
+        if(result.success) res.json({ success: true });
+        else res.status(409).json({ error: 'Транзакция уже обработана' });
+    } catch (err) { 
+        console.error("TON Verify Error:", err);
+        res.status(500).json({ error: 'Ошибка проверки TON' }); 
     }
 });
 
@@ -407,20 +433,25 @@ app.post('/api/admin/prize/update', async (req, res) => {
     }
 });
 
-// --- ЗАПУСК СЕРВЕРА ---
+// ==================================================
+// === ЗАПУСК СЕРВЕРА ===
+// ==================================================
 
+// Раздача статики (фронтенд React)
 app.use(express.static(path.join(__dirname, '..', 'build')));
+
+// Любой другой запрос возвращает index.html (для SPA)
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
 
 app.listen(PORT, async () => {
-    console.log(`Server started on port ${PORT}`);
+    console.log(`🚀 Server started on port ${PORT}`);
     
     // Установка вебхука
     try {
         const webhookUrl = `${APP_URL}/bot${BOT_TOKEN}`;
         console.log('Setting Webhook to:', webhookUrl);
         await bot.setWebHook(webhookUrl);
-        console.log(`>>> Webhook установлен на: ${webhookUrl}`);
+        console.log(`>>> Webhook успешно установлен!`);
     } catch (error) {
         console.error('>>> Ошибка установки Webhook:', error.message);
     }
