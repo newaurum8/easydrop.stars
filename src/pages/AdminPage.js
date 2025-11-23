@@ -15,7 +15,6 @@ const AdminPage = () => {
     if (!isAuthorized) {
         return (
             <div className="login-wrapper">
-                {/* Заглушка для мобильных */}
                 <div className="mobile-restriction">
                     <h2>Только для ПК</h2>
                     <p>Админ-панель недоступна на мобильных устройствах.</p>
@@ -87,57 +86,137 @@ const AdminPage = () => {
 };
 
 // ==================================================
-// 1. МЕНЕДЖЕР ПРЕДМЕТОВ
+// 1. МЕНЕДЖЕР ПРЕДМЕТОВ (СПИСОК + РЕДАКТОР)
 // ==================================================
 const ItemManager = ({ prizes, onUpdate }) => {
-    const [editId, setEditId] = useState(null);
-    const [formData, setFormData] = useState({});
-    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedItemId, setSelectedItemId] = useState(null);
+    const [isCreating, setIsCreating] = useState(false);
+    
+    const selectedItem = useMemo(() => prizes.find(p => p.id === selectedItemId), [prizes, selectedItemId]);
 
-    const filtered = prizes.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const startEdit = (item) => { setEditId(item.id); setFormData({ value: item.value, chance: item.chance }); };
-    const saveItem = async () => {
-        await fetch('/api/admin/prize/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: editId, ...formData }) });
-        setEditId(null); onUpdate();
+    const handleServerUpdate = async (formData) => {
+        const url = isCreating ? '/api/admin/prize/create' : '/api/admin/prize/update';
+        try {
+            const res = await fetch(url, { method: 'POST', body: formData });
+            if(res.ok) { 
+                onUpdate(); 
+                setIsCreating(false); 
+                alert('Предмет сохранен!'); 
+            } else { 
+                alert('Ошибка при сохранении'); 
+            }
+        } catch(e) { console.error(e); alert('Ошибка сети'); }
     };
 
     return (
-        <div className="admin-panel">
-            <div className="panel-header">
-                <h2>База предметов ({prizes.length})</h2>
-                <input className="modern-input search" placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-            </div>
-            <div className="table-container">
-                <div className="table-header-row">
-                    <span>Img</span><span>Название</span><span>Цена</span><span>Шанс</span><span>Action</span>
+        <div className="cases-layout">
+            {/* САЙДБАР ПРЕДМЕТОВ */}
+            <div className="cases-sidebar">
+                <div className="cases-sidebar-header">
+                    <button className="modern-button primary full-width" onClick={() => {setSelectedItemId(null); setIsCreating(true);}}>
+                        + Добавить предмет
+                    </button>
                 </div>
-                <div className="table-body">
-                    {filtered.map(item => (
-                        <div key={item.id} className="table-row">
-                            <img src={item.image} className="row-img" alt="" />
-                            <div className="row-info">
-                                <div className="row-title">{item.name}</div>
-                                <div className="row-subtitle">{item.id}</div>
+                <div className="cases-list">
+                    {prizes.map(p => (
+                        <div 
+                            key={p.id} 
+                            className={`case-list-item ${selectedItemId === p.id ? 'active' : ''}`} 
+                            onClick={() => {setSelectedItemId(p.id); setIsCreating(false);}}
+                        >
+                            <img src={p.image} alt="" />
+                            <div className="case-list-info">
+                                <span className="case-name">{p.name}</span>
+                                <span className="case-meta">{p.value} stars</span>
                             </div>
-                            {editId === item.id ? (
-                                <>
-                                    <input type="number" className="modern-input small" value={formData.value} onChange={e => setFormData({...formData, value: Number(e.target.value)})} />
-                                    <input type="number" className="modern-input small" value={formData.chance} onChange={e => setFormData({...formData, chance: Number(e.target.value)})} />
-                                    <div className="row-actions">
-                                        <button className="icon-btn success" onClick={saveItem}>✓</button>
-                                        <button className="icon-btn danger" onClick={() => setEditId(null)}>✕</button>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="row-value">{item.value.toLocaleString()}</div>
-                                    <div>{item.chance}%</div>
-                                    <button className="modern-button secondary" style={{fontSize:11, padding:'4px 8px'}} onClick={() => startEdit(item)}>Edit</button>
-                                </>
-                            )}
                         </div>
                     ))}
+                </div>
+            </div>
+
+            {/* ОБЛАСТЬ РЕДАКТИРОВАНИЯ */}
+            <div className="cases-content">
+                {(selectedItem || isCreating) ? (
+                    <ItemEditor 
+                        key={selectedItem ? selectedItem.id : 'new'}
+                        item={selectedItem || { name: 'Новый предмет', value: 100, chance: 1, image: '/images/case/item.png' }} 
+                        onSave={handleServerUpdate} 
+                        isNew={isCreating}
+                    />
+                ) : (
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'#8b949e'}}>
+                        Выберите предмет из списка слева
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const ItemEditor = ({ item, onSave, isNew }) => {
+    const [formData, setFormData] = useState({ ...item });
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(item.image);
+
+    useEffect(() => { return () => { if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); }; }, [previewUrl]);
+    
+    useEffect(() => { 
+        setFormData({...item}); 
+        setPreviewUrl(item.image); 
+        setSelectedFile(null); 
+    }, [item]);
+
+    const handleFile = (e) => {
+        if (e.target.files[0]) {
+            setSelectedFile(e.target.files[0]);
+            setPreviewUrl(URL.createObjectURL(e.target.files[0]));
+        }
+    };
+
+    const handleSave = () => {
+        const data = new FormData();
+        if(!isNew) data.append('id', formData.id);
+        data.append('name', formData.name);
+        data.append('value', formData.value);
+        data.append('chance', formData.chance);
+        data.append('existingImage', formData.image);
+        if(selectedFile) data.append('imageFile', selectedFile);
+        onSave(data);
+    };
+
+    return (
+        <div className="editor-wrapper">
+            <div className="editor-header-row">
+                <h2>{isNew ? 'Создание предмета' : 'Редактирование'}</h2>
+                <button className="modern-button primary" onClick={handleSave}>Сохранить</button>
+            </div>
+
+            <div className="editor-form-grid">
+                <div className="image-upload-section">
+                    <div className="img-preview-box">
+                        <img src={previewUrl} alt="Preview" />
+                    </div>
+                    <label className="modern-button secondary" style={{width:'100%', textAlign:'center', display:'block'}}>
+                        Загрузить фото
+                        <input type="file" hidden accept="image/*" onChange={handleFile} />
+                    </label>
+                </div>
+
+                <div className="fields-section">
+                    <div className="form-group full-row">
+                        <label>Название</label>
+                        <input className="modern-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    </div>
+                    
+                    <div className="form-group">
+                        <label>Цена (Stars)</label>
+                        <input type="number" className="modern-input" value={formData.value} onChange={e => setFormData({...formData, value: parseInt(e.target.value)})} />
+                    </div>
+                    
+                    <div className="form-group">
+                        <label>Базовый шанс (%)</label>
+                        <input type="number" className="modern-input" value={formData.chance} onChange={e => setFormData({...formData, chance: parseFloat(e.target.value)})} />
+                    </div>
                 </div>
             </div>
         </div>
@@ -145,7 +224,7 @@ const ItemManager = ({ prizes, onUpdate }) => {
 };
 
 // ==================================================
-// 2. МЕНЕДЖЕР КЕЙСОВ
+// 2. МЕНЕДЖЕР КЕЙСОВ (СПИСОК + РЕДАКТОР)
 // ==================================================
 const CaseManager = ({ cases, allPrizes, onUpdate }) => {
     const [selectedCaseId, setSelectedCaseId] = useState(null);
@@ -156,12 +235,18 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
         const url = isCreating ? '/api/admin/case/create' : '/api/admin/case/update';
         try {
             const res = await fetch(url, { method: 'POST', body: formData });
-            if(res.ok) { onUpdate(); setIsCreating(false); if(isCreating) { const d = await res.json(); setSelectedCaseId(d.id); } alert('Сохранено'); }
-        } catch(e) { console.error(e); }
+            if(res.ok) { 
+                onUpdate(); 
+                setIsCreating(false); 
+                if(isCreating) { const d = await res.json(); setSelectedCaseId(d.id); } 
+                alert('Кейс сохранен!'); 
+            }
+        } catch(e) { console.error(e); alert('Ошибка'); }
     };
 
     return (
         <div className="cases-layout">
+            {/* САЙДБАР КЕЙСОВ */}
             <div className="cases-sidebar">
                 <div className="cases-sidebar-header">
                     <button className="modern-button primary full-width" onClick={() => {setSelectedCaseId(null); setIsCreating(true);}}>
@@ -170,7 +255,11 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
                 </div>
                 <div className="cases-list">
                     {cases.map(c => (
-                        <div key={c.id} className={`case-list-item ${selectedCaseId === c.id ? 'active' : ''}`} onClick={() => {setSelectedCaseId(c.id); setIsCreating(false);}}>
+                        <div 
+                            key={c.id} 
+                            className={`case-list-item ${selectedCaseId === c.id ? 'active' : ''}`} 
+                            onClick={() => {setSelectedCaseId(c.id); setIsCreating(false);}}
+                        >
                             <img src={c.image} alt="" />
                             <div className="case-list-info">
                                 <span className="case-name">{c.name}</span>
@@ -181,6 +270,7 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
                 </div>
             </div>
 
+            {/* ОБЛАСТЬ РЕДАКТИРОВАНИЯ КЕЙСА */}
             <div className="cases-content">
                 {(selectedCase || isCreating) ? (
                     <CaseEditor 
@@ -210,7 +300,9 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
     useEffect(() => { return () => { if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); }; }, [previewUrl]);
     
     useEffect(() => {
-        setFormData({...caseItem}); setPreviewUrl(caseItem.image); setSelectedFile(null);
+        setFormData({...caseItem}); 
+        setPreviewUrl(caseItem.image); 
+        setSelectedFile(null);
         setSelectedPrizeIds((caseItem.prizeIds || []).map(i => typeof i === 'string' ? { id: i, chance: 0 } : i));
     }, [caseItem]);
 
@@ -326,118 +418,6 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                         {availablePrizes.map(item => (
                             <div key={item.id} className="picker-item"><img src={item.image} alt="" /><div className="picker-info"><div className="picker-name">{item.name}</div><div className="picker-sub">База: {item.chance}%</div></div><button className="mini-btn add" onClick={() => setSelectedPrizeIds([...selectedPrizeIds, {id:item.id, chance:item.chance}])}>+</button></div>
                         ))}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// ==================================================
-// 3. МЕНЕДЖЕР ПРЕДМЕТОВ (НОВЫЙ - С СОЗДАНИЕМ)
-// ==================================================
-const ItemManager = ({ prizes, onUpdate }) => {
-    const [selectedItemId, setSelectedItemId] = useState(null);
-    const [isCreating, setIsCreating] = useState(false);
-    const selectedItem = useMemo(() => prizes.find(p => p.id === selectedItemId), [prizes, selectedItemId]);
-
-    const handleServerUpdate = async (formData) => {
-        const url = isCreating ? '/api/admin/prize/create' : '/api/admin/prize/update';
-        try {
-            const res = await fetch(url, { method: 'POST', body: formData });
-            if(res.ok) { onUpdate(); setIsCreating(false); alert('Сохранено'); }
-            else { alert('Ошибка'); }
-        } catch(e) { console.error(e); }
-    };
-
-    return (
-        <div className="cases-layout">
-            <div className="cases-sidebar">
-                <div className="cases-sidebar-header">
-                    <button className="modern-button primary full-width" onClick={() => {setSelectedItemId(null); setIsCreating(true);}}>+ Добавить предмет</button>
-                </div>
-                <div className="cases-list">
-                    {prizes.map(p => (
-                        <div key={p.id} className={`case-list-item ${selectedItemId === p.id ? 'active' : ''}`} onClick={() => {setSelectedItemId(p.id); setIsCreating(false);}}>
-                            <img src={p.image} alt="" />
-                            <div className="case-list-info">
-                                <span className="case-name">{p.name}</span>
-                                <span className="case-meta">{p.value} stars</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <div className="cases-content">
-                {(selectedItem || isCreating) ? (
-                    <ItemEditor 
-                        key={selectedItem ? selectedItem.id : 'new'}
-                        item={selectedItem || { name: 'Новый предмет', value: 100, chance: 1, image: '/images/case/item.png' }} 
-                        onSave={handleServerUpdate} 
-                        isNew={isCreating}
-                    />
-                ) : (
-                    <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'#8b949e'}}>
-                        Выберите предмет из списка
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-const ItemEditor = ({ item, onSave, isNew }) => {
-    const [formData, setFormData] = useState({ ...item });
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(item.image);
-
-    useEffect(() => { return () => { if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); }; }, [previewUrl]);
-    useEffect(() => { setFormData({...item}); setPreviewUrl(item.image); setSelectedFile(null); }, [item]);
-
-    const handleFile = (e) => {
-        if (e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
-            setPreviewUrl(URL.createObjectURL(e.target.files[0]));
-        }
-    };
-
-    const handleSave = () => {
-        const data = new FormData();
-        if(!isNew) data.append('id', formData.id);
-        data.append('name', formData.name);
-        data.append('value', formData.value);
-        data.append('chance', formData.chance);
-        data.append('existingImage', formData.image);
-        if(selectedFile) data.append('imageFile', selectedFile);
-        onSave(data);
-    };
-
-    return (
-        <div className="editor-wrapper">
-            <div className="editor-header-row">
-                <h2>{isNew ? 'Создание предмета' : 'Редактирование'}</h2>
-                <button className="modern-button primary" onClick={handleSave}>Сохранить</button>
-            </div>
-            <div className="editor-form-grid">
-                <div className="image-upload-section">
-                    <div className="img-preview-box"><img src={previewUrl} alt="Preview" /></div>
-                    <label className="modern-button secondary" style={{width:'100%', textAlign:'center', display:'block'}}>
-                        Загрузить фото
-                        <input type="file" hidden accept="image/*" onChange={handleFile} />
-                    </label>
-                </div>
-                <div className="fields-section">
-                    <div className="form-group full-row">
-                        <label>Название</label>
-                        <input className="modern-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                    </div>
-                    <div className="form-group">
-                        <label>Цена (Stars)</label>
-                        <input type="number" className="modern-input" value={formData.value} onChange={e => setFormData({...formData, value: parseInt(e.target.value)})} />
-                    </div>
-                    <div className="form-group">
-                        <label>Базовый шанс (%)</label>
-                        <input type="number" className="modern-input" value={formData.chance} onChange={e => setFormData({...formData, chance: parseFloat(e.target.value)})} />
                     </div>
                 </div>
             </div>
