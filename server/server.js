@@ -6,14 +6,13 @@ const TelegramBot = require('node-telegram-bot-api');
 const { getHttpEndpoint } = require('@orbs-network/ton-access');
 const { TonClient, Cell } = require('ton');
 const multer = require('multer');
-const fs = require('fs'); // Оставляем fs для проверки папок, если понадобится, но для картинок кейсов он не используется
+const fs = require('fs');
 
 // ==================================================
 // === КОНФИГУРАЦИЯ ===
 // ==================================================
 
 const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAGMH6gGvb-tamh6W6sa47jBXUQ8Tl4pans'; 
-const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb';
 const APP_URL = process.env.APP_URL || 'https://easydrop-stars-1.onrender.com';
 
@@ -21,17 +20,17 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // --- НАСТРОЙКА ЗАГРУЗКИ ФАЙЛОВ (Multer - Memory Storage) ---
-// Используем память, чтобы не зависеть от файловой системы облака
+// Используем память вместо диска, чтобы файлы не пропадали на Render
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 app.use(cors());
-// Увеличиваем лимит JSON, так как Base64 картинки могут быть большими
+// Увеличиваем лимит, так как Base64 картинки занимают место в теле запроса
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Раздача статических файлов (для стандартных картинок, которые лежат в проекте)
+// Раздача статики (для встроенных картинок)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'build', 'uploads')));
 
 app.post(`/bot${BOT_TOKEN}`, (req, res) => {
@@ -39,41 +38,34 @@ app.post(`/bot${BOT_TOKEN}`, (req, res) => {
     res.sendStatus(200);
 });
 
+// --- ПОДКЛЮЧЕНИЕ К БД ---
 const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-// !!! ДОБАВЬТЕ ЭТОТ БЛОК !!!
-// Это предотвратит падение сервера при разрыве соединения с БД
+// ВАЖНО: Обработка ошибок соединения, чтобы сервер не падал
 pool.on('error', (err, client) => {
     console.error('🚨 Ошибка в пуле БД (idle client):', err.message);
-    // Не выходим из процесса, пул сам пересоздаст соединение
 });
 
-// Ваша старая проверка начального соединения (можно оставить)
 pool.connect((err) => {
-    if (err) console.error('🚨 ОШИБКА ПОДКЛЮЧЕНИЯ К БД:', err.message);
+    if (err) console.error('🚨 ОШИБКА БД:', err.message);
     else console.log('✅ Подключение к БД успешно');
 });
 
 // ==================================================
-// === ДАННЫЕ ПО УМОЛЧАНИЮ ===
+// === ИНИЦИАЛИЗАЦИЯ БД ===
 // ==================================================
 
 const INITIAL_PRIZES = [
     { id: 'c1_item_1', name: 'Золотые часы', image: '/images/case/item.png', value: 250000, chance: 1 },
     { id: 'c1_item_2', name: 'Кепка Telegram', image: '/images/case/item1.png', value: 12000, chance: 5 },
-    // ... (остальные призы по желанию)
 ];
 
 const INITIAL_CASES = [
     { id: 'case_1', name: 'Классический', image: '/images/case.png', price: 2500, prizeIds: ['c1_item_1','c1_item_2'], isPromo: false, tag: 'common' }
 ];
-
-// ==================================================
-// === ИНИЦИАЛИЗАЦИЯ БД ===
-// ==================================================
 
 const initDB = async () => {
     try {
@@ -95,18 +87,19 @@ const initDB = async () => {
             );
         `);
 
-        // Миграции для совместимости
+        // Миграции (для обновления старых таблиц)
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inventory JSONB DEFAULT '[]'`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_top_up INT DEFAULT 0`); } catch(e){}
+        
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`); } catch(e){}
         
-        // Заливка начальных данных
+        // Заливка начальных данных (если таблицы пустые)
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
         if (parseInt(prizeCount.rows[0].count) === 0) {
             console.log('🌱 Заливка начальных призов...');
@@ -149,10 +142,10 @@ app.get('/api/config', async (req, res) => {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
         const cases = await pool.query('SELECT * FROM cases ORDER BY price ASC');
         
-        // Скрываем кейсы, у которых закончился лимит
+        // Фильтруем кейсы: если лимит исчерпан, скрываем их
         const activeCases = cases.rows.filter(c => {
             if (c.max_activations > 0 && c.current_activations >= c.max_activations) {
-                return false;
+                return false; 
             }
             return true;
         });
@@ -183,7 +176,7 @@ app.get('/api/config', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Спин (увеличение счетчика прокрутов)
+// Фиксация прокрута
 app.post('/api/case/spin', async (req, res) => {
     const { caseId } = req.body;
     try {
@@ -235,14 +228,13 @@ app.post('/api/admin/user/balance', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// СОЗДАНИЕ КЕЙСА (Base64 Картинка)
+// --- КЕЙСЫ (С загрузкой фото) ---
+
 app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) => {
     const { name, price, prizeIds, tag, isPromo, promoCode, maxActivations } = req.body;
     const id = `case_${Date.now()}`;
     
     let imagePath = '/images/case.png';
-    
-    // Если файл загружен, конвертируем его в Base64
     if (req.file) {
         const b64 = Buffer.from(req.file.buffer).toString('base64');
         const mimeType = req.file.mimetype; 
@@ -259,13 +251,10 @@ app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) 
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ОБНОВЛЕНИЕ КЕЙСА (Base64 Картинка)
 app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) => {
     const { id, name, price, prizeIds, tag, isPromo, promoCode, maxActivations, existingImage } = req.body;
 
     let imagePath = existingImage;
-    
-    // Если загружен новый файл - берем его
     if (req.file) {
         const b64 = Buffer.from(req.file.buffer).toString('base64');
         const mimeType = req.file.mimetype;
@@ -282,15 +271,49 @@ app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) 
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/admin/prize/update', async (req, res) => {
-    const { id, value, chance } = req.body;
+// --- ПРЕДМЕТЫ (С загрузкой фото и созданием) ---
+
+app.post('/api/admin/prize/create', upload.single('imageFile'), async (req, res) => {
+    const { name, value, chance } = req.body;
+    const id = `item_${Date.now()}`;
+    
+    let imagePath = '/images/case/item.png';
+    if (req.file) {
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        const mimeType = req.file.mimetype;
+        imagePath = `data:${mimeType};base64,${b64}`;
+    }
+
     try {
-        const r = await pool.query('UPDATE prizes SET value=$1, chance=$2 WHERE id=$3 RETURNING *', [value, chance, id]);
+        const r = await pool.query(
+            'INSERT INTO prizes (id, name, image, value, chance) VALUES ($1, $2, $3, $4, $5) RETURNING *', 
+            [id, name, imagePath, parseInt(value), parseFloat(chance)]
+        );
+        res.json(r.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/prize/update', upload.single('imageFile'), async (req, res) => {
+    const { id, name, value, chance, existingImage } = req.body;
+    
+    let imagePath = existingImage;
+    if (req.file) {
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        const mimeType = req.file.mimetype;
+        imagePath = `data:${mimeType};base64,${b64}`;
+    }
+
+    try {
+        const r = await pool.query(
+            'UPDATE prizes SET name=$1, value=$2, chance=$3, image=$4 WHERE id=$5 RETURNING *', 
+            [name, parseInt(value), parseFloat(chance), imagePath, id]
+        );
         res.json(r.rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // --- ОПЛАТА ---
+
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, userId } = req.body;
     try {
@@ -341,4 +364,3 @@ app.listen(PORT, async () => {
     console.log(`Server started on port ${PORT}`);
     try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`Webhook OK`); } catch (e) { console.error(e.message); }
 });
-
