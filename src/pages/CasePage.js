@@ -115,22 +115,24 @@ const CasePage = () => {
     // Находим текущий кейс
     const currentCase = useMemo(() => ALL_CASES.find(c => c.id === caseId), [caseId, ALL_CASES]);
 
-    // Собираем полный список предметов для этого кейса, объединяя данные из базы (ALL_PRIZES) 
-    // с индивидуальными шансами из настроек кейса (currentCase.prizeIds)
+    // ИСПРАВЛЕНИЕ ЗДЕСЬ: Универсальная обработка prizeIds (строки или объекты)
     const currentCasePrizes = useMemo(() => {
         if (!currentCase || !ALL_PRIZES || !currentCase.prizeIds) return [];
         
-        // prizeIds теперь массив объектов [{id: '...', chance: 10}, ...]
-        return currentCase.prizeIds.map(caseItemConfig => {
-            const baseItem = ALL_PRIZES.find(p => p.id === caseItemConfig.id);
+        return currentCase.prizeIds.map(config => {
+            // Проверяем: config это строка (ID) или объект ({id, chance})
+            const prizeId = typeof config === 'object' ? config.id : config;
+            const customChance = typeof config === 'object' ? config.chance : null;
+
+            const baseItem = ALL_PRIZES.find(p => p.id === prizeId);
             if (!baseItem) return null;
             
-            // Возвращаем объединенный объект: { ...ItemData, chance: 10 }
+            // Если есть кастомный шанс - берем его, иначе берем стандартный из предмета
             return { 
                 ...baseItem, 
-                chance: Number(caseItemConfig.chance) 
+                chance: customChance !== null ? Number(customChance) : baseItem.chance 
             };
-        }).filter(Boolean); // Убираем null, если предмет не найден
+        }).filter(Boolean); // Убираем null (если предмет не найден)
     }, [currentCase, ALL_PRIZES]);
 
     const [quantity, setQuantity] = useState(1);
@@ -144,10 +146,10 @@ const CasePage = () => {
     const [isPromoValid, setIsPromoValid] = useState(false);
 
     const carouselRefs = useRef([]);
-    // Создаем рефы для каждой карусели (если открываем несколько сразу)
+    // Создаем рефы для каждой карусели
     carouselRefs.current = [...Array(quantity)].map((_, i) => carouselRefs.current[i] ?? React.createRef());
 
-    // Устанавливаем начальные "пустышки" для рендера карусели до прокрутки
+    // Устанавливаем начальные "пустышки"
     useEffect(() => {
         if (currentCasePrizes?.length) {
             setWinningPrizes(Array(quantity).fill(currentCasePrizes[0]));
@@ -180,7 +182,6 @@ const CasePage = () => {
                 const itemWidth = items[0].offsetWidth + parseInt(itemStyle.marginLeft) + parseInt(itemStyle.marginRight);
                 const offsetToCenter = (carouselTrack.parentElement.offsetWidth / 2) - (itemWidth / 2);
                 const finalPosition = -(stopIndex * itemWidth - offsetToCenter);
-                // Небольшой рандомный сдвиг для реалистичности
                 const randomJitter = (Math.random() - 0.5) * (itemWidth * 0.4);
 
                 // Запуск анимации
@@ -219,7 +220,6 @@ const CasePage = () => {
     const handleRoll = () => {
         if (!currentCase || !currentCasePrizes || currentCasePrizes.length === 0) return;
         
-        // Проверка баланса или промокода
         if (currentCase.isPromo) {
             if (!isPromoValid) return;
         } else {
@@ -230,7 +230,6 @@ const CasePage = () => {
 
         setShowModal(false);
         
-        // Определяем победителей, используя обновленную функцию рандома с учетом шансов
         const winners = Array.from({ length: quantity }).map(() => getWeightedRandomPrize(currentCasePrizes));
         setWinningPrizes(winners);
         
@@ -342,7 +341,6 @@ const CasePage = () => {
 
             <div className="prize-list">
                 <h3 className="prize-list-header">Содержимое кейса</h3>
-                {/* Сортируем предметы по шансу (от редких к частым) */}
                 {currentCasePrizes.sort((a,b) => a.chance - b.chance).map(prize => (
                     <div key={prize.id} className="prize-item">
                         <div className="prize-item-image-wrapper">
@@ -355,7 +353,6 @@ const CasePage = () => {
                                     <img src="/images/stars.png" alt="star" className="star-icon small" />
                                     <span>{prize.value.toLocaleString()}</span>
                                 </div>
-                                {/* Отображаем шанс */}
                                 <span style={{fontSize: '12px', color: '#8a99a8'}}>
                                     Шанс: {prize.chance}%
                                 </span>
