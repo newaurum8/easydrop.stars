@@ -182,7 +182,7 @@ const ItemManager = ({ prizes, onUpdate }) => {
 };
 
 // ==================================================
-// 2. МЕНЕДЖЕР КЕЙСОВ (С НАСТРОЙКОЙ ШАНСОВ)
+// 2. МЕНЕДЖЕР КЕЙСОВ (ОБНОВЛЕННЫЙ)
 // ==================================================
 const CaseManager = ({ cases, allPrizes, onUpdate }) => {
     const [selectedCaseId, setSelectedCaseId] = useState(null);
@@ -190,22 +190,26 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
 
     const selectedCase = useMemo(() => cases.find(c => c.id === selectedCaseId), [cases, selectedCaseId]);
 
-    const handleServerUpdate = async (updatedCase) => {
+    const handleServerUpdate = async (formData) => {
         const url = isCreating ? '/api/admin/case/create' : '/api/admin/case/update';
         try {
+            // ВАЖНО: Не устанавливаем Content-Type вручную при отправке FormData, браузер сделает это сам с boundary
             const res = await fetch(url, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(updatedCase)
+                body: formData 
             });
             
             if (res.ok) {
                 onUpdate();
                 setIsCreating(false);
-                if (isCreating) setSelectedCaseId(updatedCase.id);
+                if (isCreating) {
+                    const newCase = await res.json();
+                    setSelectedCaseId(newCase.id);
+                }
                 alert('Кейс успешно сохранен!');
             } else {
-                alert('Ошибка сервера при сохранении');
+                const err = await res.json();
+                alert('Ошибка сервера: ' + (err.error || 'Unknown'));
             }
         } catch (err) { 
             console.error(err);
@@ -234,7 +238,11 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
                             <img src={c.image} alt={c.name} />
                             <div>
                                 <div style={{fontWeight:'500', color:'#fff', fontSize:'14px'}}>{c.name}</div>
-                                <div style={{fontSize:'12px', color:'#ffc107'}}>{c.price > 0 ? c.price : 'Бесплатно'}</div>
+                                <div style={{fontSize:'12px', color:'#ffc107'}}>
+                                    {c.maxActivations > 0 
+                                        ? `Лимит: ${c.currentActivations || 0}/${c.maxActivations}` 
+                                        : (c.price > 0 ? c.price : 'Бесплатно')}
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -246,13 +254,15 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
                     <CaseEditor 
                         key={selectedCase ? selectedCase.id : 'new'}
                         caseItem={selectedCase || { 
-                            id: `case_${Date.now()}`, 
                             name: 'Новый кейс', 
                             price: 100, 
                             image: '/images/case.png', 
                             prizeIds: [], 
                             tag: 'common', 
-                            isPromo: false 
+                            isPromo: false,
+                            promoCode: '',
+                            maxActivations: 0,
+                            currentActivations: 0
                         }} 
                         onSave={handleServerUpdate} 
                         allPrizes={allPrizes}
@@ -275,25 +285,52 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
 const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
     const [formData, setFormData] = useState({ ...caseItem });
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedFile, setSelectedFile] = useState(null); // Для новой картинки
     
-    // selectedPrizeIds теперь хранит объекты { id, chance }
+    // selectedPrizeIds хранит { id, chance }
     const [selectedPrizeIds, setSelectedPrizeIds] = useState(() => {
         const items = caseItem.prizeIds || [];
-        // Если пришли старые данные (строки), конвертируем в объекты
         return items.map(item => 
             typeof item === 'string' ? { id: item, chance: 0 } : item
         );
     });
 
-    // Фильтрация доступных предметов (исключаем те, что уже добавлены)
     const availablePrizes = allPrizes.filter(p => 
         !selectedPrizeIds.some(added => added.id === p.id) && 
         p.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setSelectedFile(e.target.files[0]);
+        }
+    };
+
     const handleSave = () => {
-        if (!formData.id || !formData.name) return alert('Заполните ID и название');
-        onSave({ ...formData, prizeIds: selectedPrizeIds });
+        if (!formData.name) return alert('Название обязательно');
+        if (formData.isPromo && !formData.promoCode) return alert('Укажите промокод!');
+
+        // Собираем FormData
+        const data = new FormData();
+        if (!isNew) data.append('id', formData.id);
+        
+        data.append('name', formData.name);
+        data.append('price', formData.price);
+        data.append('tag', formData.tag);
+        data.append('isPromo', formData.isPromo);
+        data.append('promoCode', formData.promoCode || '');
+        data.append('maxActivations', formData.maxActivations || 0);
+        data.append('prizeIds', JSON.stringify(selectedPrizeIds));
+        
+        // Передаем путь к текущей картинке на случай, если новую не загрузили
+        data.append('existingImage', formData.image); 
+
+        // Если выбрали новый файл, добавляем его
+        if (selectedFile) {
+            data.append('imageFile', selectedFile);
+        }
+
+        onSave(data);
     };
 
     const updateChance = (id, newVal) => {
@@ -303,7 +340,6 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
     };
 
     const addItem = (item) => {
-        // При добавлении берем дефолтный шанс из базы предметов
         setSelectedPrizeIds(prev => [...prev, { id: item.id, chance: item.chance }]);
     };
 
@@ -328,30 +364,44 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                         value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} 
                     />
                 </div>
-                <div>
-                    <label>ID {isNew ? '' : '(readonly)'}</label>
-                    <input 
-                        type="text" className="admin-input" 
-                        disabled={!isNew} 
-                        value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} 
-                    />
-                </div>
+                
+                {/* ID показываем только если это редактирование, но не даем менять */}
+                {!isNew && (
+                    <div>
+                        <label>ID (Readonly)</label>
+                        <input 
+                            type="text" className="admin-input" 
+                            disabled 
+                            value={formData.id} 
+                        />
+                    </div>
+                )}
+                
                 <div>
                     <label>Цена</label>
                     <input 
                         type="number" className="admin-input" 
-                        value={formData.price} onChange={e => setFormData({...formData, price: parseInt(e.target.value)})} 
+                        value={formData.price} onChange={e => setFormData({...formData, price: parseInt(e.target.value)})}
+                        disabled={formData.isPromo} // Если промо, цена не важна (обычно 0)
                     />
                 </div>
+                
+                {/* Загрузка картинки */}
                 <div>
-                    <label>Картинка (URL)</label>
+                    <label>Картинка (Файл)</label>
                     <input 
-                        type="text" className="admin-input" 
-                        value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} 
+                        type="file" 
+                        accept="image/*"
+                        className="admin-input" 
+                        onChange={handleFileChange}
                     />
+                    <div style={{marginTop: 5, fontSize: 12, color: '#888'}}>
+                        Текущая: {selectedFile ? selectedFile.name : formData.image}
+                    </div>
                 </div>
+
                 <div>
-                    <label>Редкость</label>
+                    <label>Редкость (стиль)</label>
                     <select 
                         className="admin-input" 
                         value={formData.tag || 'common'} 
@@ -365,22 +415,63 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                         <option value="promo">Промо</option>
                     </select>
                 </div>
-                <div style={{paddingTop:25}}>
-                    <label style={{display:'flex', alignItems:'center', gap:'10px', cursor:'pointer'}}>
+
+                {/* Блок настроек Промо и Лимитов */}
+                <div style={{
+                    gridColumn: '1 / -1', 
+                    background: '#212a31', 
+                    padding: '15px', 
+                    borderRadius: '8px', 
+                    border: '1px solid #3a4552',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '20px'
+                }}>
+                    <div>
+                        <label style={{display:'flex', alignItems:'center', gap:'10px', cursor:'pointer', marginBottom: '10px', fontWeight: 'bold', color: '#ffc107'}}>
+                            <input 
+                                type="checkbox" 
+                                style={{width:20, height:20}} 
+                                checked={formData.isPromo} 
+                                onChange={e => setFormData({...formData, isPromo: e.target.checked})} 
+                            />
+                            <span>Это Промо-кейс?</span>
+                        </label>
+                        
+                        {formData.isPromo && (
+                            <div>
+                                <label>Промокод для открытия:</label>
+                                <input 
+                                    type="text" 
+                                    className="admin-input" 
+                                    placeholder="Введите код (например: FREE)" 
+                                    value={formData.promoCode || ''} 
+                                    onChange={e => setFormData({...formData, promoCode: e.target.value})} 
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div>
+                        <label style={{display:'block', marginBottom:'5px'}}>Лимит прокрутов (Всего):</label>
                         <input 
-                            type="checkbox" 
-                            style={{width:20, height:20}} 
-                            checked={formData.isPromo} 
-                            onChange={e => setFormData({...formData, isPromo: e.target.checked})} 
+                            type="number" 
+                            className="admin-input" 
+                            placeholder="0 = Безлимит" 
+                            value={formData.maxActivations || 0} 
+                            onChange={e => setFormData({...formData, maxActivations: parseInt(e.target.value)})} 
                         />
-                        <span>Это Промо-кейс</span>
-                    </label>
+                        <small style={{color:'#888', display:'block', marginTop:5}}>
+                            {!isNew && `Текущих активаций: ${formData.currentActivations || 0}`}
+                            {isNew && "Кейс исчезнет после исчерпания лимита."}
+                        </small>
+                    </div>
                 </div>
             </div>
 
             <h4 style={{marginTop:'20px', marginBottom:'10px'}}>Содержимое ({selectedPrizeIds.length} предм.)</h4>
             <div className="item-picker-container">
-                {/* ЛЕВАЯ КОЛОНКА: ЧТО В КЕЙСЕ (С НАСТРОЙКОЙ ШАНСА) */}
+                {/* ЛЕВАЯ КОЛОНКА: ЧТО В КЕЙСЕ */}
                 <div className="picker-column">
                     <div className="picker-header" style={{color:'#4CAF50'}}>В КЕЙСЕ (Настройте шанс)</div>
                     <div className="picker-list">
