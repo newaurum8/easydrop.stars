@@ -3,11 +3,10 @@ import { AppContext } from '../context/AppContext';
 import { Link } from 'react-router-dom';
 import '../styles/admin.css';
 
-const SECRET_PASSWORD = "admin"; // Пароль для входа
+const SECRET_PASSWORD = "admin"; 
 
 const AdminPage = () => {
     const { ALL_CASES, ALL_PRIZES, refreshConfig } = useContext(AppContext);
-
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [password, setPassword] = useState('');
     const [activeTab, setActiveTab] = useState('items');
@@ -15,67 +14,76 @@ const AdminPage = () => {
     // --- АВТОРИЗАЦИЯ ---
     if (!isAuthorized) {
         return (
-            <div className="app-container" style={{display:'flex', justifyContent:'center', alignItems:'center', height:'100vh'}}>
-                <div className="admin-login-card">
-                    <h2>Админ-панель</h2>
+            <div className="login-wrapper">
+                {/* Заглушка для мобильных */}
+                <div className="mobile-restriction">
+                    <h2>Только для ПК</h2>
+                    <p>Админ-панель недоступна на мобильных устройствах. Пожалуйста, зайдите с компьютера.</p>
+                    <Link to="/" className="mobile-back-btn">Вернуться в приложение</Link>
+                </div>
+
+                <div className="login-card admin-layout">
+                    <h2 style={{margin:'0 0 20px 0', color:'#fff'}}>EasyDrop Admin</h2>
                     <input 
                         type="password" 
                         className="modern-input"
-                        placeholder="Введите пароль"
+                        placeholder="Пароль доступа"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        style={{marginBottom:'15px', textAlign:'center'}}
                     />
                     <button 
                         className="modern-button primary full-width" 
-                        style={{marginTop: '15px'}}
-                        onClick={() => password === SECRET_PASSWORD ? setIsAuthorized(true) : alert('Неверный пароль')}
+                        onClick={() => password === SECRET_PASSWORD ? setIsAuthorized(true) : alert('Неверно')}
                     >
-                        Войти
+                        Войти в панель
                     </button>
-                    <Link to="/" className="back-link">Вернуться в приложение</Link>
+                    <Link to="/" style={{display:'block', marginTop:'20px', color:'#58a6ff', fontSize:'13px', textDecoration:'none'}}>
+                        ← Вернуться на сайт
+                    </Link>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="admin-layout">
-            <aside className="admin-sidebar">
-                <div className="sidebar-header">
-                    <h1>EasyDrop</h1>
-                    <span>Admin</span>
-                </div>
-                <nav className="sidebar-nav">
-                    <button 
-                        className={`nav-btn ${activeTab === 'items' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('items')}
-                    >
-                        💎 Предметы
-                    </button>
-                    <button 
-                        className={`nav-btn ${activeTab === 'cases' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('cases')}
-                    >
-                        🎒 Кейсы
-                    </button>
-                    <button 
-                        className={`nav-btn ${activeTab === 'users' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('users')}
-                    >
-                        👥 Пользователи
-                    </button>
-                </nav>
-                <div className="sidebar-footer">
-                    <Link to="/" className="nav-btn logout">← В приложение</Link>
-                </div>
-            </aside>
+        <>
+            {/* Заглушка для мобильных (показывается только через CSS media query) */}
+            <div className="mobile-restriction">
+                <h2>Только для ПК</h2>
+                <p>Админ-панель оптимизирована для работы на больших экранах. Функционал редактирования недоступен на телефоне.</p>
+                <Link to="/" className="mobile-back-btn">На главную</Link>
+            </div>
 
-            <main className="admin-main">
-                {activeTab === 'items' && <ItemManager prizes={ALL_PRIZES} onUpdate={refreshConfig} />}
-                {activeTab === 'cases' && <CaseManager cases={ALL_CASES} allPrizes={ALL_PRIZES} onUpdate={refreshConfig} />}
-                {activeTab === 'users' && <UserManager />}
-            </main>
-        </div>
+            <div className="admin-layout">
+                <aside className="admin-sidebar">
+                    <div className="sidebar-header">
+                        <h1>EasyDrop</h1>
+                        <span>Control Panel</span>
+                    </div>
+                    <nav className="sidebar-nav">
+                        <button className={`nav-btn ${activeTab === 'items' ? 'active' : ''}`} onClick={() => setActiveTab('items')}>
+                            💎 Предметы
+                        </button>
+                        <button className={`nav-btn ${activeTab === 'cases' ? 'active' : ''}`} onClick={() => setActiveTab('cases')}>
+                            🎒 Кейсы
+                        </button>
+                        <button className={`nav-btn ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
+                            👥 Пользователи
+                        </button>
+                    </nav>
+                    <div className="sidebar-footer">
+                        <Link to="/" className="nav-btn logout">Выйти</Link>
+                    </div>
+                </aside>
+
+                <main className="admin-main">
+                    {activeTab === 'items' && <ItemManager prizes={ALL_PRIZES} onUpdate={refreshConfig} />}
+                    {activeTab === 'cases' && <CaseManager cases={ALL_CASES} allPrizes={ALL_PRIZES} onUpdate={refreshConfig} />}
+                    {activeTab === 'users' && <UserManager />}
+                </main>
+            </div>
+        </>
     );
 };
 
@@ -87,73 +95,46 @@ const ItemManager = ({ prizes, onUpdate }) => {
     const [formData, setFormData] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
 
-    const filteredPrizes = prizes.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        p.id.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filtered = prizes.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const startEdit = (item) => {
-        setEditId(item.id);
-        setFormData({ value: item.value, chance: item.chance });
-    };
-
-    const cancelEdit = () => {
-        setEditId(null);
-        setFormData({});
-    };
-
+    const startEdit = (item) => { setEditId(item.id); setFormData({ value: item.value, chance: item.chance }); };
     const saveItem = async () => {
-        try {
-            const res = await fetch('/api/admin/prize/update', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ id: editId, ...formData })
-            });
-            if (res.ok) { setEditId(null); onUpdate(); } 
-            else { alert('Ошибка при сохранении'); }
-        } catch (e) { console.error(e); alert('Ошибка соединения'); }
+        await fetch('/api/admin/prize/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: editId, ...formData }) });
+        setEditId(null); onUpdate();
     };
 
     return (
         <div className="admin-panel">
             <div className="panel-header">
-                <h2>База предметов</h2>
-                <input 
-                    type="text" 
-                    className="modern-input search" 
-                    placeholder="🔍 Поиск предмета..." 
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                />
+                <h2>База предметов ({prizes.length})</h2>
+                <input className="modern-input search" placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
             </div>
-            
             <div className="table-container">
                 <div className="table-header-row">
-                    <span>Фото</span><span>Название</span><span>Цена</span><span>Баз. Шанс</span><span>Действие</span>
+                    <span>Img</span><span>Название</span><span>Цена</span><span>Шанс</span><span>Action</span>
                 </div>
                 <div className="table-body">
-                    {filteredPrizes.map(item => (
+                    {filtered.map(item => (
                         <div key={item.id} className="table-row">
-                            <img src={item.image} alt="" className="row-img" />
+                            <img src={item.image} className="row-img" alt="" />
                             <div className="row-info">
                                 <div className="row-title">{item.name}</div>
                                 <div className="row-subtitle">{item.id}</div>
                             </div>
-                            
                             {editId === item.id ? (
                                 <>
                                     <input type="number" className="modern-input small" value={formData.value} onChange={e => setFormData({...formData, value: Number(e.target.value)})} />
                                     <input type="number" className="modern-input small" value={formData.chance} onChange={e => setFormData({...formData, chance: Number(e.target.value)})} />
                                     <div className="row-actions">
                                         <button className="icon-btn success" onClick={saveItem}>✓</button>
-                                        <button className="icon-btn danger" onClick={cancelEdit}>✕</button>
+                                        <button className="icon-btn danger" onClick={() => setEditId(null)}>✕</button>
                                     </div>
                                 </>
                             ) : (
                                 <>
                                     <div className="row-value">{item.value.toLocaleString()}</div>
-                                    <div>{item.chance}</div>
-                                    <button className="modern-button small secondary" onClick={() => startEdit(item)}>Edit</button>
+                                    <div>{item.chance}%</div>
+                                    <button className="modern-button secondary" style={{fontSize:11, padding:'4px 8px'}} onClick={() => startEdit(item)}>Edit</button>
                                 </>
                             )}
                         </div>
@@ -170,48 +151,31 @@ const ItemManager = ({ prizes, onUpdate }) => {
 const CaseManager = ({ cases, allPrizes, onUpdate }) => {
     const [selectedCaseId, setSelectedCaseId] = useState(null);
     const [isCreating, setIsCreating] = useState(false);
-
     const selectedCase = useMemo(() => cases.find(c => c.id === selectedCaseId), [cases, selectedCaseId]);
 
     const handleServerUpdate = async (formData) => {
         const url = isCreating ? '/api/admin/case/create' : '/api/admin/case/update';
         try {
-            // FormData сама выставляет нужный Content-Type с boundary
             const res = await fetch(url, { method: 'POST', body: formData });
-            if (res.ok) {
-                onUpdate();
-                setIsCreating(false);
-                if (isCreating) {
-                    const newCase = await res.json();
-                    setSelectedCaseId(newCase.id);
-                }
-                alert('Успешно сохранено!');
-            } else {
-                const err = await res.json();
-                alert('Ошибка: ' + (err.error || 'Unknown'));
-            }
-        } catch (err) { console.error(err); alert('Ошибка соединения'); }
+            if(res.ok) { onUpdate(); setIsCreating(false); if(isCreating) { const d = await res.json(); setSelectedCaseId(d.id); } alert('Сохранено'); }
+        } catch(e) { console.error(e); }
     };
 
     return (
         <div className="cases-layout">
             <div className="cases-sidebar">
-                <button className="modern-button primary full-width" onClick={() => {setSelectedCaseId(null); setIsCreating(true);}}>
-                    + Новый кейс
-                </button>
+                <div className="cases-sidebar-header">
+                    <button className="modern-button primary full-width" onClick={() => {setSelectedCaseId(null); setIsCreating(true);}}>
+                        + Добавить кейс
+                    </button>
+                </div>
                 <div className="cases-list">
                     {cases.map(c => (
-                        <div 
-                            key={c.id} 
-                            className={`case-list-item ${selectedCaseId === c.id ? 'active' : ''}`} 
-                            onClick={() => {setSelectedCaseId(c.id); setIsCreating(false);}}
-                        >
-                            <img src={c.image} alt={c.name} />
+                        <div key={c.id} className={`case-list-item ${selectedCaseId === c.id ? 'active' : ''}`} onClick={() => {setSelectedCaseId(c.id); setIsCreating(false);}}>
+                            <img src={c.image} alt="" />
                             <div className="case-list-info">
-                                <div className="case-list-name">{c.name}</div>
-                                <div className="case-list-meta">
-                                    {c.isPromo ? <span className="badge promo">Promo</span> : <span className="badge price">{c.price}</span>}
-                                </div>
+                                <span className="case-name">{c.name}</span>
+                                <span className="case-meta">{c.isPromo ? 'PROMO' : `${c.price} stars`}</span>
                             </div>
                         </div>
                     ))}
@@ -222,18 +186,14 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
                 {(selectedCase || isCreating) ? (
                     <CaseEditor 
                         key={selectedCase ? selectedCase.id : 'new'}
-                        caseItem={selectedCase || { 
-                            name: 'Новый кейс', price: 100, image: '/images/case.png', prizeIds: [], 
-                            tag: 'common', isPromo: false, promoCode: '', maxActivations: 0, currentActivations: 0
-                        }} 
+                        caseItem={selectedCase || { name: 'Новый кейс', price: 100, image: '/images/case.png', prizeIds: [], tag: 'common', isPromo: false, promoCode: '', maxActivations: 0 }} 
                         onSave={handleServerUpdate} 
                         allPrizes={allPrizes}
                         isNew={isCreating}
                     />
                 ) : (
-                    <div className="empty-selection">
-                        <h3>Выберите кейс для настройки</h3>
-                        <p>или создайте новый</p>
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'#8b949e'}}>
+                        Выберите кейс из списка слева
                     </div>
                 )}
             </div>
@@ -246,51 +206,29 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(caseItem.image);
-    
     const [selectedPrizeIds, setSelectedPrizeIds] = useState(() => {
-        const items = caseItem.prizeIds || [];
-        return items.map(item => typeof item === 'string' ? { id: item, chance: 0 } : item);
+        return (caseItem.prizeIds || []).map(i => typeof i === 'string' ? { id: i, chance: 0 } : i);
     });
 
-    // Очистка URL объекта при размонтировании или смене картинки
     useEffect(() => {
-        return () => {
-            if (previewUrl && previewUrl.startsWith('blob:')) {
-                URL.revokeObjectURL(previewUrl);
-            }
-        };
+        return () => { if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); };
     }, [previewUrl]);
 
-    // Обновление preview при выборе кейса из списка
     useEffect(() => {
-        setFormData({...caseItem});
-        setPreviewUrl(caseItem.image);
-        setSelectedFile(null);
-        setSelectedPrizeIds(() => {
-            const items = caseItem.prizeIds || [];
-            return items.map(item => typeof item === 'string' ? { id: item, chance: 0 } : item);
-        });
+        setFormData({...caseItem}); setPreviewUrl(caseItem.image); setSelectedFile(null);
+        setSelectedPrizeIds((caseItem.prizeIds || []).map(i => typeof i === 'string' ? { id: i, chance: 0 } : i));
     }, [caseItem]);
 
-    const handleFileChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setSelectedFile(file);
-            setPreviewUrl(URL.createObjectURL(file));
+    const handleFile = (e) => {
+        if (e.target.files[0]) {
+            setSelectedFile(e.target.files[0]);
+            setPreviewUrl(URL.createObjectURL(e.target.files[0]));
         }
     };
 
-    const availablePrizes = allPrizes.filter(p => 
-        !selectedPrizeIds.some(added => added.id === p.id) && 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
     const handleSave = () => {
-        if (!formData.name) return alert('Введите название');
-        if (formData.isPromo && !formData.promoCode) return alert('Введите промокод');
-
         const data = new FormData();
-        if (!isNew) data.append('id', formData.id);
+        if(!isNew) data.append('id', formData.id);
         data.append('name', formData.name);
         data.append('price', formData.price);
         data.append('tag', formData.tag);
@@ -298,136 +236,119 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
         data.append('promoCode', formData.promoCode || '');
         data.append('maxActivations', formData.maxActivations || 0);
         data.append('prizeIds', JSON.stringify(selectedPrizeIds));
-        data.append('existingImage', formData.image); 
-        if (selectedFile) data.append('imageFile', selectedFile);
-
+        data.append('existingImage', formData.image);
+        if(selectedFile) data.append('imageFile', selectedFile);
         onSave(data);
     };
 
-    const updateChance = (id, val) => setSelectedPrizeIds(prev => prev.map(i => i.id === id ? { ...i, chance: parseFloat(val) || 0 } : i));
-    const addItem = (item) => setSelectedPrizeIds(prev => [...prev, { id: item.id, chance: item.chance }]);
-    const removeItem = (id) => setSelectedPrizeIds(prev => prev.filter(i => i.id !== id));
+    const availablePrizes = allPrizes.filter(p => !selectedPrizeIds.some(s => s.id === p.id) && p.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return (
-        <div className="editor-container">
-            <div className="editor-header">
-                <h2>{isNew ? 'Создание кейса' : `Настройка: ${formData.name}`}</h2>
-                <button className="modern-button success" onClick={handleSave}>Сохранить изменения</button>
+        <div className="editor-wrapper">
+            <div className="editor-header-row">
+                <h2>{isNew ? 'Создание' : 'Редактирование'}</h2>
+                <button className="modern-button primary" onClick={handleSave}>Сохранить изменения</button>
             </div>
 
-            <div className="editor-grid">
-                {/* Блок 1: Основное */}
-                <div className="editor-card">
-                    <h3>Основное</h3>
+            <div className="editor-form-grid">
+                {/* Картинка */}
+                <div className="image-upload-section">
+                    <div className="img-preview-box">
+                        <img src={previewUrl} alt="Preview" />
+                    </div>
+                    <label className="modern-button secondary" style={{width:'100%', textAlign:'center', display:'block'}}>
+                        Загрузить
+                        <input type="file" hidden accept="image/*" onChange={handleFile} />
+                    </label>
+                </div>
+
+                {/* Поля */}
+                <div className="fields-section">
+                    <div className="form-group full-row">
+                        <label>Название кейса</label>
+                        <input className="modern-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    </div>
+                    
                     <div className="form-group">
-                        <label>Название</label>
-                        <input type="text" className="modern-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                        <label>Цена</label>
+                        <input type="number" className="modern-input" value={formData.price} onChange={e => setFormData({...formData, price: parseInt(e.target.value)})} disabled={formData.isPromo} />
                     </div>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label>Цена</label>
-                            <input type="number" className="modern-input" value={formData.price} onChange={e => setFormData({...formData, price: parseInt(e.target.value)})} disabled={formData.isPromo} />
-                        </div>
-                        <div className="form-group">
-                            <label>Редкость</label>
-                            <select className="modern-input" value={formData.tag || 'common'} onChange={e => setFormData({...formData, tag: e.target.value})}>
-                                <option value="common">Обычный</option>
-                                <option value="rare">Редкий</option>
-                                <option value="epic">Эпик</option>
-                                <option value="legendary">Легендарный</option>
-                                <option value="limited">Лимит</option>
-                                <option value="promo">Промо</option>
-                            </select>
-                        </div>
+                    
+                    <div className="form-group">
+                        <label>Редкость</label>
+                        <select className="modern-input" value={formData.tag || 'common'} onChange={e => setFormData({...formData, tag: e.target.value})}>
+                            <option value="common">Обычный</option>
+                            <option value="rare">Редкий</option>
+                            <option value="epic">Эпик</option>
+                            <option value="legendary">Легендарный</option>
+                            <option value="promo">Промо</option>
+                        </select>
                     </div>
-                </div>
 
-                {/* Блок 2: Визуал */}
-                <div className="editor-card visual-card">
-                    <h3>Изображение</h3>
-                    <div className="image-uploader">
-                        <div className="image-preview">
-                            <img src={previewUrl} alt="Preview" />
-                        </div>
-                        <label className="upload-btn">
-                            Загрузить файл
-                            <input type="file" accept="image/*" hidden onChange={handleFileChange} />
-                        </label>
-                    </div>
-                </div>
-
-                {/* Блок 3: Промо и Лимиты */}
-                <div className="editor-card full-width">
-                    <div className="settings-grid">
-                        <div className="setting-item">
-                            <label className="toggle-switch">
+                    <div className="form-group full-row">
+                        <div className="toggle-row">
+                            <label className="switch">
                                 <input type="checkbox" checked={formData.isPromo} onChange={e => setFormData({...formData, isPromo: e.target.checked})} />
-                                <span className="toggle-slider"></span>
+                                <span className="slider"></span>
                             </label>
-                            <span className="setting-label">Промо-кейс</span>
+                            <span style={{fontSize:13}}>Это промо-кейс</span>
                         </div>
+                    </div>
 
-                        {formData.isPromo && (
-                            <div className="form-group">
-                                <label>Промокод</label>
-                                <input type="text" className="modern-input" placeholder="CODE123" value={formData.promoCode || ''} onChange={e => setFormData({...formData, promoCode: e.target.value})} />
-                            </div>
-                        )}
-
-                        <div className="form-group">
-                            <label>Лимит прокрутов (0 = бесконечно)</label>
-                            <input type="number" className="modern-input" value={formData.maxActivations || 0} onChange={e => setFormData({...formData, maxActivations: parseInt(e.target.value)})} />
-                            {!isNew && formData.maxActivations > 0 && (
-                                <small className="hint">Использовано: {formData.currentActivations}</small>
-                            )}
+                    {formData.isPromo && (
+                        <div className="form-group full-row">
+                            <label>Промокод</label>
+                            <input className="modern-input" placeholder="CODE2024" value={formData.promoCode || ''} onChange={e => setFormData({...formData, promoCode: e.target.value})} />
                         </div>
+                    )}
+
+                    <div className="form-group full-row">
+                        <label>Лимит открытий (0 = безлимит)</label>
+                        <input type="number" className="modern-input" value={formData.maxActivations || 0} onChange={e => setFormData({...formData, maxActivations: parseInt(e.target.value)})} />
                     </div>
                 </div>
             </div>
 
-            {/* Пикер предметов */}
-            <div className="item-picker-layout">
-                <div className="picker-col">
-                    <div className="picker-head">
-                        <span>Содержимое ({selectedPrizeIds.length})</span>
-                        <small>Настройте шанс выпадения</small>
-                    </div>
-                    <div className="picker-body">
-                        {selectedPrizeIds.length === 0 && <div className="empty-text">Кейс пуст</div>}
-                        {selectedPrizeIds.map(pc => {
-                            const item = allPrizes.find(p => p.id === pc.id);
+            <div className="picker-container">
+                <div className="picker-box">
+                    <div className="picker-title">В КЕЙСЕ ({selectedPrizeIds.length})</div>
+                    <div className="picker-list">
+                        {selectedPrizeIds.map(p => {
+                            const item = allPrizes.find(ap => ap.id === p.id);
                             if(!item) return null;
                             return (
-                                <div key={pc.id} className="picker-item">
-                                    <button className="remove-btn" onClick={() => removeItem(pc.id)}>−</button>
+                                <div key={p.id} className="picker-item">
                                     <img src={item.image} alt="" />
-                                    <div className="p-info">
-                                        <b>{item.name}</b>
-                                        <div className="chance-input-wrapper">
-                                            <input type="number" value={pc.chance} onChange={(e) => updateChance(pc.id, e.target.value)} />
-                                            <span>%</span>
-                                        </div>
+                                    <div className="picker-info">
+                                        <div className="picker-name">{item.name}</div>
+                                        <div className="picker-sub">Шанс:</div>
                                     </div>
+                                    <input className="chance-input" value={p.chance} onChange={e => {
+                                        const val = e.target.value;
+                                        setSelectedPrizeIds(prev => prev.map(x => x.id === p.id ? {...x, chance: val} : x))
+                                    }} />
+                                    <span style={{fontSize:12, color:'#8b949e'}}>%</span>
+                                    <button className="mini-btn remove" onClick={() => setSelectedPrizeIds(prev => prev.filter(x => x.id !== p.id))}>&times;</button>
                                 </div>
                             )
                         })}
                     </div>
                 </div>
 
-                <div className="picker-col">
-                    <div className="picker-head search-head">
-                        <span>Добавить предмет</span>
-                        <input type="text" placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                <div className="picker-box">
+                    <div className="picker-title">
+                        ДОСТУПНО
+                        <input className="modern-input" style={{width:100, padding:'2px 6px', fontSize:11}} placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                     </div>
-                    <div className="picker-body">
+                    <div className="picker-list">
                         {availablePrizes.map(item => (
-                            <div key={item.id} className="picker-item available" onClick={() => addItem(item)}>
+                            <div key={item.id} className="picker-item">
                                 <img src={item.image} alt="" />
-                                <div className="p-info">
-                                    <b>{item.name}</b>
-                                    <small>База: {item.chance}%</small>
+                                <div className="picker-info">
+                                    <div className="picker-name">{item.name}</div>
+                                    <div className="picker-sub">База: {item.chance}%</div>
                                 </div>
-                                <button className="add-btn">+</button>
+                                <button className="mini-btn add" onClick={() => setSelectedPrizeIds([...selectedPrizeIds, {id:item.id, chance:item.chance}])}>+</button>
                             </div>
                         ))}
                     </div>
@@ -438,65 +359,49 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
 };
 
 // ==================================================
-// 3. МЕНЕДЖЕР ПОЛЬЗОВАТЕЛЕЙ
+// 3. МЕНЕДЖЕР ЮЗЕРОВ
 // ==================================================
 const UserManager = () => {
     const [searchId, setSearchId] = useState('');
-    const [foundUser, setFoundUser] = useState(null);
-    const [newBalance, setNewBalance] = useState('');
+    const [user, setUser] = useState(null);
+    const [balance, setBalance] = useState('');
 
-    const findUser = async () => {
+    const find = async () => {
         if(!searchId) return;
-        try {
-            const res = await fetch(`/api/admin/user/${searchId}`);
-            if(res.ok) {
-                const data = await res.json();
-                setFoundUser(data);
-                setNewBalance(data.balance);
-            } else {
-                alert('Пользователь не найден');
-                setFoundUser(null);
-            }
-        } catch (e) { alert('Ошибка'); }
+        const res = await fetch(`/api/admin/user/${searchId}`);
+        if(res.ok) { const u = await res.json(); setUser(u); setBalance(u.balance); }
+        else { alert('Не найден'); setUser(null); }
     };
 
-    const saveBalance = async () => {
-        if(!foundUser) return;
-        await fetch('/api/admin/user/balance', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ id: foundUser.id, amount: newBalance, type: 'set' })
-        });
-        alert('Баланс обновлен');
-        findUser();
+    const save = async () => {
+        if(!user) return;
+        await fetch('/api/admin/user/balance', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: user.id, amount: balance, type: 'set'}) });
+        alert('Обновлено');
+        find();
     };
 
     return (
         <div className="admin-panel small-panel">
-            <h2>Управление пользователями</h2>
-            <div className="search-user-row">
-                <input className="modern-input" placeholder="ID пользователя" value={searchId} onChange={e => setSearchId(e.target.value)} />
-                <button className="modern-button primary" onClick={findUser}>Найти</button>
-            </div>
-            
-            {foundUser && (
-                <div className="user-card-admin">
-                    <div className="user-head">
-                        <img src={foundUser.photo_url || '/images/profile.png'} alt="" />
-                        <div>
-                            <h3>{foundUser.first_name}</h3>
-                            <span>@{foundUser.username || 'no_username'}</span>
-                        </div>
-                    </div>
-                    <div className="balance-edit">
-                        <label>Баланс Stars:</label>
-                        <div className="balance-row">
-                            <input type="number" className="modern-input" value={newBalance} onChange={e => setNewBalance(e.target.value)} />
-                            <button className="modern-button success" onClick={saveBalance}>Сохранить</button>
-                        </div>
-                    </div>
+            <div className="panel-header"><h2>Пользователи</h2></div>
+            <div style={{padding:'20px'}}>
+                <div style={{display:'flex', gap:10, marginBottom:20}}>
+                    <input className="modern-input" placeholder="ID пользователя" value={searchId} onChange={e => setSearchId(e.target.value)} />
+                    <button className="modern-button primary" onClick={find}>Найти</button>
                 </div>
-            )}
+                {user && (
+                    <div style={{background:'#0d1117', padding:15, borderRadius:8, border:'1px solid #30363d'}}>
+                        <div style={{display:'flex', alignItems:'center', gap:15, marginBottom:15}}>
+                            <img src={user.photo_url || '/images/profile.png'} style={{width:50, height:50, borderRadius:'50%'}} alt="" />
+                            <div><div style={{fontWeight:'bold'}}>{user.first_name}</div><div style={{color:'#8b949e', fontSize:12}}>@{user.username}</div></div>
+                        </div>
+                        <label style={{fontSize:12, color:'#8b949e', display:'block', marginBottom:5}}>Баланс</label>
+                        <div style={{display:'flex', gap:10}}>
+                            <input className="modern-input" value={balance} onChange={e => setBalance(e.target.value)} />
+                            <button className="modern-button success" onClick={save}>Сохранить</button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
