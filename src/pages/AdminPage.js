@@ -54,13 +54,13 @@ const AdminPage = () => {
                     className={`admin-tab-button ${activeTab === 'items' ? 'active' : ''}`}
                     onClick={() => setActiveTab('items')}
                 >
-                    💎 Предметы
+                    💎 Предметы (База)
                 </button>
                 <button 
                     className={`admin-tab-button ${activeTab === 'cases' ? 'active' : ''}`}
                     onClick={() => setActiveTab('cases')}
                 >
-                    🎒 Кейсы
+                    🎒 Кейсы и Шансы
                 </button>
                 <button 
                     className={`admin-tab-button ${activeTab === 'users' ? 'active' : ''}`}
@@ -80,7 +80,7 @@ const AdminPage = () => {
 };
 
 // ==================================================
-// 1. МЕНЕДЖЕР ПРЕДМЕТОВ (ЦЕНЫ И ШАНСЫ)
+// 1. МЕНЕДЖЕР ПРЕДМЕТОВ (БАЗОВЫЕ ЦЕНЫ)
 // ==================================================
 const ItemManager = ({ prizes, onUpdate }) => {
     const [editId, setEditId] = useState(null);
@@ -112,7 +112,7 @@ const ItemManager = ({ prizes, onUpdate }) => {
             
             if (res.ok) {
                 setEditId(null);
-                onUpdate(); // Обновляем глобальный контекст
+                onUpdate(); 
             } else {
                 alert('Ошибка при сохранении');
             }
@@ -124,7 +124,8 @@ const ItemManager = ({ prizes, onUpdate }) => {
 
     return (
         <div className="admin-section">
-            <h3>Настройка предметов</h3>
+            <h3>База предметов</h3>
+            <p style={{fontSize:12, color:'#888', marginBottom:10}}>Здесь настраивается цена и "стандартный" шанс. Шанс в конкретном кейсе настраивается во вкладке "Кейсы".</p>
             <input 
                 type="text" 
                 className="admin-input" 
@@ -136,7 +137,7 @@ const ItemManager = ({ prizes, onUpdate }) => {
             
             <div style={{maxHeight: '600px', overflowY: 'auto'}}>
                 <div className="items-table-header">
-                    <span>Фото</span><span>Название</span><span>Цена (Stars)</span><span>Шанс (%)</span><span>Действие</span>
+                    <span>Фото</span><span>Название</span><span>Цена</span><span>Баз. Шанс</span><span>Действие</span>
                 </div>
                 {filteredPrizes.map(item => (
                     <div key={item.id} className="admin-table-row">
@@ -181,7 +182,7 @@ const ItemManager = ({ prizes, onUpdate }) => {
 };
 
 // ==================================================
-// 2. МЕНЕДЖЕР КЕЙСОВ
+// 2. МЕНЕДЖЕР КЕЙСОВ (С НАСТРОЙКОЙ ШАНСОВ)
 // ==================================================
 const CaseManager = ({ cases, allPrizes, onUpdate }) => {
     const [selectedCaseId, setSelectedCaseId] = useState(null);
@@ -274,17 +275,40 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
 const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
     const [formData, setFormData] = useState({ ...caseItem });
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedPrizeIds, setSelectedPrizeIds] = useState(caseItem.prizeIds || []);
+    
+    // selectedPrizeIds теперь хранит объекты { id, chance }
+    const [selectedPrizeIds, setSelectedPrizeIds] = useState(() => {
+        const items = caseItem.prizeIds || [];
+        // Если пришли старые данные (строки), конвертируем в объекты
+        return items.map(item => 
+            typeof item === 'string' ? { id: item, chance: 0 } : item
+        );
+    });
 
-    // Фильтрация предметов для добавления (исключаем уже добавленные)
+    // Фильтрация доступных предметов (исключаем те, что уже добавлены)
     const availablePrizes = allPrizes.filter(p => 
-        !selectedPrizeIds.includes(p.id) && 
+        !selectedPrizeIds.some(added => added.id === p.id) && 
         p.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const handleSave = () => {
         if (!formData.id || !formData.name) return alert('Заполните ID и название');
         onSave({ ...formData, prizeIds: selectedPrizeIds });
+    };
+
+    const updateChance = (id, newVal) => {
+        setSelectedPrizeIds(prev => prev.map(item => 
+            item.id === id ? { ...item, chance: parseFloat(newVal) || 0 } : item
+        ));
+    };
+
+    const addItem = (item) => {
+        // При добавлении берем дефолтный шанс из базы предметов
+        setSelectedPrizeIds(prev => [...prev, { id: item.id, chance: item.chance }]);
+    };
+
+    const removeItem = (id) => {
+        setSelectedPrizeIds(prev => prev.filter(item => item.id !== id));
     };
 
     return (
@@ -298,14 +322,14 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
 
             <div className="editor-grid">
                 <div>
-                    <label>Название кейса</label>
+                    <label>Название</label>
                     <input 
                         type="text" className="admin-input" 
                         value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} 
                     />
                 </div>
                 <div>
-                    <label>Уникальный ID {isNew ? '' : '(нельзя изменить)'}</label>
+                    <label>ID {isNew ? '' : '(readonly)'}</label>
                     <input 
                         type="text" className="admin-input" 
                         disabled={!isNew} 
@@ -313,32 +337,32 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                     />
                 </div>
                 <div>
-                    <label>Цена открытия</label>
+                    <label>Цена</label>
                     <input 
                         type="number" className="admin-input" 
                         value={formData.price} onChange={e => setFormData({...formData, price: parseInt(e.target.value)})} 
                     />
                 </div>
                 <div>
-                    <label>Ссылка на картинку</label>
+                    <label>Картинка (URL)</label>
                     <input 
                         type="text" className="admin-input" 
                         value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} 
                     />
                 </div>
                 <div>
-                    <label>Редкость (Тег)</label>
+                    <label>Редкость</label>
                     <select 
                         className="admin-input" 
                         value={formData.tag || 'common'} 
                         onChange={e => setFormData({...formData, tag: e.target.value})}
                     >
-                        <option value="common">Обычный (Серый)</option>
-                        <option value="rare">Редкий (Синий/Красный)</option>
-                        <option value="epic">Эпик (Фиолетовый)</option>
-                        <option value="legendary">Легендарный (Золотой)</option>
-                        <option value="limited">Лимит (Оранжевый)</option>
-                        <option value="promo">Промо (Розовый)</option>
+                        <option value="common">Обычный</option>
+                        <option value="rare">Редкий</option>
+                        <option value="epic">Эпик</option>
+                        <option value="legendary">Легендарный</option>
+                        <option value="limited">Лимит</option>
+                        <option value="promo">Промо</option>
                     </select>
                 </div>
                 <div style={{paddingTop:25}}>
@@ -356,20 +380,32 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
 
             <h4 style={{marginTop:'20px', marginBottom:'10px'}}>Содержимое ({selectedPrizeIds.length} предм.)</h4>
             <div className="item-picker-container">
-                {/* ЛЕВАЯ КОЛОНКА: ЧТО В КЕЙСЕ */}
+                {/* ЛЕВАЯ КОЛОНКА: ЧТО В КЕЙСЕ (С НАСТРОЙКОЙ ШАНСА) */}
                 <div className="picker-column">
-                    <div className="picker-header" style={{color:'#4CAF50'}}>ДОБАВЛЕНО</div>
+                    <div className="picker-header" style={{color:'#4CAF50'}}>В КЕЙСЕ (Настройте шанс)</div>
                     <div className="picker-list">
                         {selectedPrizeIds.length === 0 && <div style={{padding:10, color:'#666', textAlign:'center'}}>Пусто</div>}
-                        {selectedPrizeIds.map(id => {
-                            const item = allPrizes.find(p => p.id === id);
+                        {selectedPrizeIds.map(prizeConfig => {
+                            const item = allPrizes.find(p => p.id === prizeConfig.id);
                             if (!item) return null;
                             return (
-                                <div key={id} className="picker-item">
-                                    <button className="action-btn-small btn-remove" onClick={() => setSelectedPrizeIds(prev => prev.filter(pid => pid !== id))}>−</button>
+                                <div key={prizeConfig.id} className="picker-item">
+                                    <button className="action-btn-small btn-remove" onClick={() => removeItem(prizeConfig.id)}>−</button>
                                     <img src={item.image} alt="" />
-                                    <span>{item.name}</span>
-                                    <small style={{color:'#ffc107'}}>{item.value}</small>
+                                    <div className="picker-info">
+                                        <span>{item.name}</span>
+                                        <div style={{display:'flex', alignItems:'center', gap:'5px', marginTop:'4px'}}>
+                                            <small style={{color:'#8a99a8'}}>Шанс:</small>
+                                            <input 
+                                                type="number" 
+                                                className="admin-input-small"
+                                                style={{width:'60px', borderColor: '#00aaff'}}
+                                                value={prizeConfig.chance}
+                                                onChange={(e) => updateChance(prizeConfig.id, e.target.value)}
+                                            />
+                                            <small>%</small>
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         })}
@@ -386,11 +422,13 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                     />
                     <div className="picker-list">
                         {availablePrizes.map(item => (
-                            <div key={item.id} className="picker-item" style={{opacity: 0.8}}>
+                            <div key={item.id} className="picker-item" style={{opacity: 0.8}} onClick={() => addItem(item)}>
                                 <img src={item.image} alt="" />
-                                <span>{item.name}</span>
-                                <small style={{color:'#888'}}>{item.value}</small>
-                                <button className="action-btn-small btn-add" onClick={() => setSelectedPrizeIds(prev => [...prev, item.id])}>+</button>
+                                <div className="picker-info">
+                                    <span>{item.name}</span>
+                                    <small style={{color:'#888'}}>Баз. шанс: {item.chance}%</small>
+                                </div>
+                                <button className="action-btn-small btn-add">+</button>
                             </div>
                         ))}
                     </div>
@@ -421,7 +459,7 @@ const UserManager = () => {
             setStatusMsg('');
         } catch (err) {
             setFoundUser(null);
-            setStatusMsg('Пользователь не найден (убедитесь, что он заходил в приложение)');
+            setStatusMsg('Пользователь не найден');
         }
     };
 
@@ -476,10 +514,6 @@ const UserManager = () => {
                             />
                             <button className="upgrade-button" style={{width:'auto', background:'#4CAF50'}} onClick={saveBalance}>Сохранить</button>
                         </div>
-                    </div>
-                    
-                    <div style={{marginTop:'15px', fontSize:'12px', color:'#888'}}>
-                        Всего пополнений: {foundUser.total_top_up} stars
                     </div>
                 </div>
             )}
