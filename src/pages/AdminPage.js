@@ -18,11 +18,11 @@ const AdminPage = () => {
                 {/* Заглушка для мобильных */}
                 <div className="mobile-restriction">
                     <h2>Только для ПК</h2>
-                    <p>Админ-панель недоступна на мобильных устройствах. Пожалуйста, зайдите с компьютера.</p>
-                    <Link to="/" className="mobile-back-btn">Вернуться в приложение</Link>
+                    <p>Админ-панель недоступна на мобильных устройствах.</p>
+                    <Link to="/" className="mobile-back-btn">На главную</Link>
                 </div>
 
-                <div className="login-card admin-layout">
+                <div className="login-card">
                     <h2 style={{margin:'0 0 20px 0', color:'#fff'}}>EasyDrop Admin</h2>
                     <input 
                         type="password" 
@@ -48,10 +48,9 @@ const AdminPage = () => {
 
     return (
         <>
-            {/* Заглушка для мобильных (показывается только через CSS media query) */}
             <div className="mobile-restriction">
                 <h2>Только для ПК</h2>
-                <p>Админ-панель оптимизирована для работы на больших экранах. Функционал редактирования недоступен на телефоне.</p>
+                <p>Пожалуйста, зайдите с компьютера для управления проектом.</p>
                 <Link to="/" className="mobile-back-btn">На главную</Link>
             </div>
 
@@ -206,14 +205,10 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(caseItem.image);
-    const [selectedPrizeIds, setSelectedPrizeIds] = useState(() => {
-        return (caseItem.prizeIds || []).map(i => typeof i === 'string' ? { id: i, chance: 0 } : i);
-    });
+    const [selectedPrizeIds, setSelectedPrizeIds] = useState(() => (caseItem.prizeIds || []).map(i => typeof i === 'string' ? { id: i, chance: 0 } : i));
 
-    useEffect(() => {
-        return () => { if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); };
-    }, [previewUrl]);
-
+    useEffect(() => { return () => { if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); }; }, [previewUrl]);
+    
     useEffect(() => {
         setFormData({...caseItem}); setPreviewUrl(caseItem.image); setSelectedFile(null);
         setSelectedPrizeIds((caseItem.prizeIds || []).map(i => typeof i === 'string' ? { id: i, chance: 0 } : i));
@@ -251,18 +246,16 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
             </div>
 
             <div className="editor-form-grid">
-                {/* Картинка */}
                 <div className="image-upload-section">
                     <div className="img-preview-box">
                         <img src={previewUrl} alt="Preview" />
                     </div>
                     <label className="modern-button secondary" style={{width:'100%', textAlign:'center', display:'block'}}>
-                        Загрузить
+                        Загрузить обложку
                         <input type="file" hidden accept="image/*" onChange={handleFile} />
                     </label>
                 </div>
 
-                {/* Поля */}
                 <div className="fields-section">
                     <div className="form-group full-row">
                         <label>Название кейса</label>
@@ -309,9 +302,9 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                 </div>
             </div>
 
-            <div className="picker-container">
-                <div className="picker-box">
-                    <div className="picker-title">В КЕЙСЕ ({selectedPrizeIds.length})</div>
+            <div className="item-picker-layout">
+                <div className="picker-col">
+                    <div className="picker-head"><span>В КЕЙСЕ ({selectedPrizeIds.length})</span></div>
                     <div className="picker-list">
                         {selectedPrizeIds.map(p => {
                             const item = allPrizes.find(ap => ap.id === p.id);
@@ -319,37 +312,19 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                             return (
                                 <div key={p.id} className="picker-item">
                                     <img src={item.image} alt="" />
-                                    <div className="picker-info">
-                                        <div className="picker-name">{item.name}</div>
-                                        <div className="picker-sub">Шанс:</div>
-                                    </div>
-                                    <input className="chance-input" value={p.chance} onChange={e => {
-                                        const val = e.target.value;
-                                        setSelectedPrizeIds(prev => prev.map(x => x.id === p.id ? {...x, chance: val} : x))
-                                    }} />
-                                    <span style={{fontSize:12, color:'#8b949e'}}>%</span>
+                                    <div className="picker-info"><div className="picker-name">{item.name}</div></div>
+                                    <input className="chance-input" value={p.chance} onChange={e => setSelectedPrizeIds(prev => prev.map(x => x.id === p.id ? {...x, chance: e.target.value} : x))} /><span style={{fontSize:12, color:'#8b949e'}}>%</span>
                                     <button className="mini-btn remove" onClick={() => setSelectedPrizeIds(prev => prev.filter(x => x.id !== p.id))}>&times;</button>
                                 </div>
                             )
                         })}
                     </div>
                 </div>
-
-                <div className="picker-box">
-                    <div className="picker-title">
-                        ДОСТУПНО
-                        <input className="modern-input" style={{width:100, padding:'2px 6px', fontSize:11}} placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-                    </div>
+                <div className="picker-col">
+                    <div className="picker-head search-head"><span>Добавить</span><input className="modern-input" style={{width:100, padding:'2px 6px', fontSize:11}} placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
                     <div className="picker-list">
                         {availablePrizes.map(item => (
-                            <div key={item.id} className="picker-item">
-                                <img src={item.image} alt="" />
-                                <div className="picker-info">
-                                    <div className="picker-name">{item.name}</div>
-                                    <div className="picker-sub">База: {item.chance}%</div>
-                                </div>
-                                <button className="mini-btn add" onClick={() => setSelectedPrizeIds([...selectedPrizeIds, {id:item.id, chance:item.chance}])}>+</button>
-                            </div>
+                            <div key={item.id} className="picker-item"><img src={item.image} alt="" /><div className="picker-info"><div className="picker-name">{item.name}</div><div className="picker-sub">База: {item.chance}%</div></div><button className="mini-btn add" onClick={() => setSelectedPrizeIds([...selectedPrizeIds, {id:item.id, chance:item.chance}])}>+</button></div>
                         ))}
                     </div>
                 </div>
@@ -359,7 +334,7 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
 };
 
 // ==================================================
-// 3. МЕНЕДЖЕР ЮЗЕРОВ
+// 3. МЕНЕДЖЕР ПОЛЬЗОВАТЕЛЕЙ
 // ==================================================
 const UserManager = () => {
     const [searchId, setSearchId] = useState('');
@@ -368,16 +343,17 @@ const UserManager = () => {
 
     const find = async () => {
         if(!searchId) return;
-        const res = await fetch(`/api/admin/user/${searchId}`);
-        if(res.ok) { const u = await res.json(); setUser(u); setBalance(u.balance); }
-        else { alert('Не найден'); setUser(null); }
+        try {
+            const res = await fetch(`/api/admin/user/${searchId}`);
+            if(res.ok) { const u = await res.json(); setUser(u); setBalance(u.balance); }
+            else { alert('Не найден'); setUser(null); }
+        } catch (e) { alert('Ошибка'); }
     };
 
     const save = async () => {
         if(!user) return;
         await fetch('/api/admin/user/balance', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: user.id, amount: balance, type: 'set'}) });
-        alert('Обновлено');
-        find();
+        alert('Обновлено'); find();
     };
 
     return (
@@ -389,15 +365,20 @@ const UserManager = () => {
                     <button className="modern-button primary" onClick={find}>Найти</button>
                 </div>
                 {user && (
-                    <div style={{background:'#0d1117', padding:15, borderRadius:8, border:'1px solid #30363d'}}>
-                        <div style={{display:'flex', alignItems:'center', gap:15, marginBottom:15}}>
-                            <img src={user.photo_url || '/images/profile.png'} style={{width:50, height:50, borderRadius:'50%'}} alt="" />
-                            <div><div style={{fontWeight:'bold'}}>{user.first_name}</div><div style={{color:'#8b949e', fontSize:12}}>@{user.username}</div></div>
+                    <div className="user-card-admin">
+                        <div className="user-head">
+                            <img src={user.photo_url || '/images/profile.png'} alt="" />
+                            <div>
+                                <h3>{user.first_name}</h3>
+                                <span>@{user.username || 'no_username'}</span>
+                            </div>
                         </div>
-                        <label style={{fontSize:12, color:'#8b949e', display:'block', marginBottom:5}}>Баланс</label>
-                        <div style={{display:'flex', gap:10}}>
-                            <input className="modern-input" value={balance} onChange={e => setBalance(e.target.value)} />
-                            <button className="modern-button success" onClick={save}>Сохранить</button>
+                        <div className="balance-edit">
+                            <label>Баланс Stars:</label>
+                            <div className="balance-row">
+                                <input type="number" className="modern-input" value={balance} onChange={e => setBalance(e.target.value)} />
+                                <button className="modern-button success" onClick={save}>Сохранить</button>
+                            </div>
                         </div>
                     </div>
                 )}
