@@ -14,8 +14,8 @@ const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAGMH6gGvb-tamh6W6sa47jBX
 // 2. Кошелек админа
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
-// 3. База данных
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+// 3. База данных (ИСПРАВЛЕНО: убраны параметры ?sslmode=... которые ломали подключение)
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb';
 
 // 4. URL вашего приложения
 const APP_URL = process.env.APP_URL || 'https://easydrop-stars-1.onrender.com';
@@ -23,7 +23,7 @@ const APP_URL = process.env.APP_URL || 'https://easydrop-stars-1.onrender.com';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// --- ИНИЦИАЛИЗАЦИЯ БОТА (WEBHOOK) ---
+// --- ИНИЦИАЛИЗАЦИЯ БОТА ---
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
 app.use(cors());
@@ -35,8 +35,8 @@ app.post(`/bot${BOT_TOKEN}`, (req, res) => {
     res.sendStatus(200);
 });
 
-// --- ПОДКЛЮЧЕНИЕ К БД (ИСПРАВЛЕНО) ---
-// ВАЖНО: rejectUnauthorized: false обязателен для Neon/Render, иначе будет ошибка 500
+// --- ПОДКЛЮЧЕНИЕ К БД ---
+// Настройка SSL передается здесь явно
 const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: {
@@ -44,12 +44,13 @@ const pool = new Pool({
     }
 });
 
-// Проверка подключения при старте (вывод ошибки в консоль Render)
+// Диагностика подключения (Результат смотрите в логах Render)
 pool.connect((err, client, release) => {
     if (err) {
-        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА БД:', err.message);
+        console.error('🚨 ОШИБКА ПОДКЛЮЧЕНИЯ К БД:', err.message);
+        console.error('Проверьте DATABASE_URL и доступность базы Neon!');
     } else {
-        console.log('✅ Успешное подключение к БД');
+        console.log('✅ Успешное подключение к базе данных!');
         release();
     }
 });
@@ -136,6 +137,7 @@ const initDB = async () => {
             );
         `);
         
+        // Миграции для старых БД
         try {
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`);
@@ -166,7 +168,7 @@ const initDB = async () => {
         }
         console.log('>>> DB initialized successfully');
     } catch (err) { 
-        console.error('❌ DB Init Error:', err.message); // Выводим точную ошибку
+        console.error('🚨 DB Init Error:', err.message); 
     }
 };
 
@@ -300,7 +302,7 @@ app.get('/api/config', async (req, res) => {
         }));
         res.json({ prizes: prizes.rows, cases: mappedCases });
     } catch (err) { 
-        console.error('❌ Error /api/config:', err.message); // Логирование ошибки
+        console.error('❌ Error /api/config:', err.message);
         res.status(500).json({ error: err.message }); 
     }
 });
@@ -319,7 +321,7 @@ app.post('/api/user/sync', async (req, res) => {
         const result = await pool.query(query, [id, first_name, username, photo_url]);
         res.json(result.rows[0]);
     } catch (err) { 
-        console.error('❌ Error /api/user/sync:', err.message); // Логирование ошибки
+        console.error('❌ Error /api/user/sync:', err.message);
         res.status(500).json({ error: err.message }); 
     }
 });
