@@ -8,23 +8,34 @@ const { TonClient, Cell } = require('ton');
 
 // --- КОНФИГУРАЦИЯ ---
 
-// 1. Токен бота (Укажите свой токен)
+// 1. Токен бота
 const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAFWYi3WOr05YliMALym8klSl5zX8qK01tQ'; 
 
-// 2. Кошелек админа (Для справки, переводы идут на кошелек, указанный в клиенте)
+// 2. Кошелек админа
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
-// 3. База данных (Строка подключения к PostgreSQL)
+// 3. База данных
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+
+// 4. URL вашего приложения (Взято из ваших логов Render)
+// Если вы используете переменную окружения APP_URL в Render, она будет приоритетной
+const APP_URL = process.env.APP_URL || 'https://easydrop-stars-1.onrender.com';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Инициализация бота (polling для обработки платежей Stars)
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+// --- ИНИЦИАЛИЗАЦИЯ БОТА (WEBHOOK) ---
+// ВАЖНО: polling должен быть false, чтобы не было конфликта (ошибка 409)
+const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
 app.use(cors());
 app.use(express.json());
+
+// --- МАРШРУТ ДЛЯ WEBHOOK (Принимает обновления от Telegram) ---
+app.post(`/bot${BOT_TOKEN}`, (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+});
 
 // --- ПОДКЛЮЧЕНИЕ К БД ---
 const pool = new Pool({
@@ -33,7 +44,6 @@ const pool = new Pool({
 });
 
 // --- ДАННЫЕ ДЛЯ ИНИЦИАЛИЗАЦИИ (SEEDING) ---
-// Используются только если база данных пустая
 const INITIAL_PRIZES = [
     { id: 'c1_item_1', name: 'Золотые часы', image: '/images/case/item.png', value: 250000, chance: 1 },
     { id: 'c1_item_2', name: 'Кепка Telegram', image: '/images/case/item1.png', value: 12000, chance: 5 },
@@ -69,7 +79,6 @@ const INITIAL_CASES = [
 // --- ИНИЦИАЛИЗАЦИЯ ТАБЛИЦ БД ---
 const initDB = async () => {
     try {
-        // Таблица пользователей
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id BIGINT PRIMARY KEY, 
@@ -83,7 +92,6 @@ const initDB = async () => {
             );
         `);
         
-        // Таблица транзакций
         await pool.query(`
             CREATE TABLE IF NOT EXISTS transactions (
                 id SERIAL PRIMARY KEY, 
@@ -95,7 +103,6 @@ const initDB = async () => {
             );
         `);
         
-        // Таблица предметов (призов)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS prizes (
                 id TEXT PRIMARY KEY, 
@@ -106,7 +113,6 @@ const initDB = async () => {
             );
         `);
         
-        // Таблица кейсов
         await pool.query(`
             CREATE TABLE IF NOT EXISTS cases (
                 id TEXT PRIMARY KEY, 
@@ -119,17 +125,13 @@ const initDB = async () => {
             );
         `);
         
-        // --- МИГРАЦИИ (для обновления существующих таблиц) ---
         try {
-            // Добавляем колонку tag, если её нет (для редкости кейса)
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
-            // Добавляем колонку image, если её нет
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`);
         } catch (e) { 
             console.log('Migration info:', e.message); 
         }
 
-        // --- ЗАПОЛНЕНИЕ ДАННЫМИ (SEEDING) ---
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
         if (parseInt(prizeCount.rows[0].count) === 0) {
             console.log('Seeding prizes...');
@@ -165,30 +167,24 @@ async function creditUserBalance(userId, amount, txHash, currency) {
     try {
         await client.query('BEGIN');
         
-        // Проверка на дубликаты транзакций
         const check = await client.query('SELECT id FROM transactions WHERE tx_hash = $1', [txHash]);
         if (check.rows.length > 0) {
             await client.query('ROLLBACK');
             return { success: false, message: 'Transaction already processed' };
         }
         
-        // Запись транзакции
         await client.query(
             'INSERT INTO transactions (tx_hash, user_id, amount, currency) VALUES ($1, $2, $3, $4)', 
             [txHash, userId, amount, currency]
         );
 
-        // Расчет звезд (Курс конвертации)
         let starsToAdd = 0;
         if (currency === 'TON') {
-            // 1 TON = 3000 звезд
             starsToAdd = amount * 3000; 
         } else {
-            // 1 Telegram Star (XTR) = 50 внутренних звезд
             starsToAdd = amount * 50; 
         }
 
-        // Обновление баланса пользователя
         await client.query(
             'UPDATE users SET balance = balance + $1, total_top_up = total_top_up + $1 WHERE id = $2', 
             [Math.floor(starsToAdd), userId]
@@ -219,6 +215,8 @@ bot.on('pre_checkout_query', async (query) => {
     }
 });
 
+// Обработка успешного платежа
+// Важно: При использовании Webhook это сообщение также приходит через bot.processUpdate
 bot.on('message', async (msg) => {
     if (msg.successful_payment) {
         const payment = msg.successful_payment;
@@ -239,7 +237,6 @@ bot.on('message', async (msg) => {
 // === API ENDPOINTS ===
 // ==================================================
 
-// Создание счета на оплату в Stars
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, userId } = req.body;
     try {
@@ -262,7 +259,6 @@ app.post('/api/create-invoice', async (req, res) => {
     }
 });
 
-// Проверка оплаты TON (через фронтенд и смарт-контракт)
 app.post('/api/verify-ton-payment', async (req, res) => {
     const { boc, userId, amount } = req.body;
     try {
@@ -270,10 +266,8 @@ app.post('/api/verify-ton-payment', async (req, res) => {
         const endpoint = await getHttpEndpoint({ network: 'mainnet' });
         const client = new TonClient({ endpoint });
         
-        // Отправляем BOC в сеть (если еще не отправлен)
         await client.sendFile(cell.toBoc());
         
-        // Используем хеш ячейки как ID транзакции
         const txHash = cell.hash().toString('hex');
         
         const result = await creditUserBalance(userId, amount, txHash, 'TON');
@@ -285,7 +279,6 @@ app.post('/api/verify-ton-payment', async (req, res) => {
     }
 });
 
-// Получение конфигурации (кейсы и предметы) для фронтенда
 app.get('/api/config', async (req, res) => {
     try {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
@@ -304,7 +297,6 @@ app.get('/api/config', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Синхронизация данных пользователя при входе
 app.post('/api/user/sync', async (req, res) => {
     const { id, first_name, username, photo_url } = req.body;
     try {
@@ -320,7 +312,6 @@ app.post('/api/user/sync', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Сохранение состояния пользователя (инвентарь, история, баланс)
 app.post('/api/user/save', async (req, res) => {
     const { id, balance, inventory, history } = req.body;
     try {
@@ -333,10 +324,9 @@ app.post('/api/user/save', async (req, res) => {
 });
 
 // ==================================================
-// === АДМИНСКИЕ API (Новые функции) ===
+// === АДМИНСКИЕ API ===
 // ==================================================
 
-// 1. Получение информации о пользователе по ID
 app.get('/api/admin/user/:id', async (req, res) => {
     try {
         const r = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
@@ -345,7 +335,6 @@ app.get('/api/admin/user/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 2. Изменение баланса пользователя
 app.post('/api/admin/user/balance', async (req, res) => {
     const { id, amount, type } = req.body;
     try {
@@ -357,7 +346,6 @@ app.post('/api/admin/user/balance', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 3. Обновление параметров кейса (название, цена, предметы, редкость, картинка)
 app.post('/api/admin/case/update', async (req, res) => {
     const { id, name, price, prizeIds, tag, image, isPromo } = req.body;
     try {
@@ -371,7 +359,6 @@ app.post('/api/admin/case/update', async (req, res) => {
     }
 });
 
-// 4. Создание нового кейса
 app.post('/api/admin/case/create', async (req, res) => {
     const { id, name, image, price, prizeIds, tag, isPromo } = req.body;
     try {
@@ -385,7 +372,6 @@ app.post('/api/admin/case/create', async (req, res) => {
     }
 });
 
-// 5. Обновление предмета (цена и шанс выпадения)
 app.post('/api/admin/prize/update', async (req, res) => {
     const { id, value, chance } = req.body;
     try {
@@ -407,5 +393,16 @@ app.use(express.static(path.join(__dirname, '..', 'build')));
 // Любой другой запрос отправляет index.html (для React Router)
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
 
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
-
+// Запуск сервера + Установка вебхука
+app.listen(PORT, async () => {
+    console.log(`Server started on port ${PORT}`);
+    
+    // Устанавливаем Webhook для Telegram
+    try {
+        const webhookUrl = `${APP_URL}/bot${BOT_TOKEN}`;
+        await bot.setWebHook(webhookUrl);
+        console.log(`>>> Webhook успешно установлен на: ${webhookUrl}`);
+    } catch (error) {
+        console.error('>>> Ошибка установки Webhook:', error.message);
+    }
+});
