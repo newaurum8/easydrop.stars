@@ -23,7 +23,6 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 app.use(cors());
 app.use(express.json());
 
-// Маршрут для Webhook
 app.post(`/bot${BOT_TOKEN}`, (req, res) => {
     bot.processUpdate(req.body);
     res.sendStatus(200);
@@ -82,7 +81,6 @@ const INITIAL_CASES = [
 
 const initDB = async () => {
     try {
-        // 1. Создаем таблицы
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (id BIGINT PRIMARY KEY, first_name TEXT, username TEXT, photo_url TEXT);
             CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, tx_hash TEXT UNIQUE, user_id BIGINT, amount DECIMAL, currency TEXT, created_at TIMESTAMP DEFAULT NOW());
@@ -90,8 +88,7 @@ const initDB = async () => {
             CREATE TABLE IF NOT EXISTS cases (id TEXT PRIMARY KEY, name TEXT, image TEXT, price INT, prize_ids JSONB, is_promo BOOLEAN, tag TEXT);
         `);
 
-        // 2. Миграция (добавляем недостающие колонки)
-        console.log('🔄 Проверка структуры БД...');
+        // Миграция (добавляем недостающие колонки)
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inventory JSONB DEFAULT '[]'`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'`); } catch(e){}
@@ -99,34 +96,39 @@ const initDB = async () => {
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`); } catch(e){}
 
-        // 3. RESEED (Очистка и перезаливка данных)
-        console.log('🧹 Очистка старых данных...');
-        await pool.query('DELETE FROM prizes');
-        await pool.query('DELETE FROM cases');
+        // ВАЖНОЕ ИЗМЕНЕНИЕ:
+        // Мы больше НЕ удаляем данные при каждом запуске.
+        // Заполняем только если таблицы пустые.
+        
+        const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
+        if (parseInt(prizeCount.rows[0].count) === 0) {
+            console.log('🌱 Заливка начальных призов...');
+            for (const item of INITIAL_PRIZES) {
+                await pool.query(
+                    'INSERT INTO prizes (id, name, image, value, chance) VALUES ($1, $2, $3, $4, $5)', 
+                    [item.id, item.name, item.image, item.value, item.chance]
+                );
+            }
+        }
 
-        console.log('🌱 Заливка свежих данных...');
-        for (const item of INITIAL_PRIZES) {
-            await pool.query(
-                'INSERT INTO prizes (id, name, image, value, chance) VALUES ($1, $2, $3, $4, $5)', 
-                [item.id, item.name, item.image, item.value, item.chance]
-            );
+        const caseCount = await pool.query('SELECT COUNT(*) FROM cases');
+        if (parseInt(caseCount.rows[0].count) === 0) {
+            console.log('🌱 Заливка начальных кейсов...');
+            // При первой заливке превращаем строковые ID в объекты для совместимости
+            for (const c of INITIAL_CASES) {
+                const formattedPrizeIds = c.prizeIds.map(pid => {
+                    const p = INITIAL_PRIZES.find(prize => prize.id === pid);
+                    return { id: pid, chance: p ? p.chance : 0 };
+                });
+
+                await pool.query(
+                    'INSERT INTO cases (id, name, image, price, prize_ids, is_promo, tag) VALUES ($1, $2, $3, $4, $5, $6, $7)', 
+                    [c.id, c.name, c.image, c.price, JSON.stringify(formattedPrizeIds), c.isPromo || false, c.tag || 'common']
+                );
+            }
         }
         
-        // Превращаем строковые ID в объекты перед сохранением, чтобы исправить проблему "пустых кейсов"
-        for (const c of INITIAL_CASES) {
-            // Находим шанс для каждого предмета
-            const formattedPrizeIds = c.prizeIds.map(pid => {
-                const p = INITIAL_PRIZES.find(prize => prize.id === pid);
-                // Сохраняем как объект: { id: "...", chance: ... }
-                return { id: pid, chance: p ? p.chance : 0 };
-            });
-
-            await pool.query(
-                'INSERT INTO cases (id, name, image, price, prize_ids, is_promo, tag) VALUES ($1, $2, $3, $4, $5, $6, $7)', 
-                [c.id, c.name, c.image, c.price, JSON.stringify(formattedPrizeIds), c.isPromo || false, c.tag || 'common']
-            );
-        }
-        console.log('>>> БД готова и исправлена!');
+        console.log('>>> БД готова!');
     } catch (err) { console.error('🚨 Init Error:', err.message); }
 };
 
@@ -141,10 +143,8 @@ app.get('/api/config', async (req, res) => {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
         const cases = await pool.query('SELECT * FROM cases ORDER BY price ASC');
         
-        // Умная обработка для фронтенда: гарантируем, что prizeIds это объекты
         const mappedCases = cases.rows.map(c => {
             let items = c.prize_ids;
-            // Если вдруг в базе остались старые строки ['id'], превращаем их в объекты на лету
             if (Array.isArray(items) && items.length > 0 && typeof items[0] === 'string') {
                 items = items.map(pid => {
                     const p = prizes.rows.find(pz => pz.id === pid);
@@ -157,7 +157,7 @@ app.get('/api/config', async (req, res) => {
                 name: c.name, 
                 image: c.image || '/images/case.png', 
                 price: c.price, 
-                prizeIds: items, // Отдаем всегда правильный формат
+                prizeIds: items,
                 isPromo: c.is_promo,
                 tag: c.tag || 'common'
             };
@@ -203,8 +203,6 @@ app.post('/api/admin/user/balance', async (req, res) => {
 });
 
 app.post('/api/admin/case/update', async (req, res) => {
-    // Здесь мы не меняем логику записи (пусть пишет строки или объекты),
-    // так как GET /api/config теперь умеет читать всё.
     const { id, name, price, prizeIds, tag, image, isPromo } = req.body;
     try {
         const r = await pool.query('UPDATE cases SET name=$1, price=$2, prize_ids=$3, tag=$4, image=$5, is_promo=$6 WHERE id=$7 RETURNING *', [name, price, JSON.stringify(prizeIds), tag, image, isPromo, id]);
