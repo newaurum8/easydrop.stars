@@ -39,14 +39,21 @@ app.post(`/bot${BOT_TOKEN}`, (req, res) => {
     res.sendStatus(200);
 });
 
-// --- ПОДКЛЮЧЕНИЕ К БД ---
 const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
+// !!! ДОБАВЬТЕ ЭТОТ БЛОК !!!
+// Это предотвратит падение сервера при разрыве соединения с БД
+pool.on('error', (err, client) => {
+    console.error('🚨 Ошибка в пуле БД (idle client):', err.message);
+    // Не выходим из процесса, пул сам пересоздаст соединение
+});
+
+// Ваша старая проверка начального соединения (можно оставить)
 pool.connect((err) => {
-    if (err) console.error('🚨 ОШИБКА БД:', err.message);
+    if (err) console.error('🚨 ОШИБКА ПОДКЛЮЧЕНИЯ К БД:', err.message);
     else console.log('✅ Подключение к БД успешно');
 });
 
@@ -334,3 +341,4 @@ app.listen(PORT, async () => {
     console.log(`Server started on port ${PORT}`);
     try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`Webhook OK`); } catch (e) { console.error(e.message); }
 });
+
