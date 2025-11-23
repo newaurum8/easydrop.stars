@@ -9,7 +9,7 @@ const { TonClient, Cell } = require('ton');
 // --- КОНФИГУРАЦИЯ ---
 
 // 1. Токен бота
-const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAFWYi3WOr05YliMALym8klSl5zX8qK01tQ'; 
+const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAGMH6gGvb-tamh6W6sa47jBXUQ8Tl4pans'; 
 
 // 2. Кошелек админа
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
@@ -406,3 +406,4 @@ app.listen(PORT, async () => {
         console.error('>>> Ошибка установки Webhook:', error.message);
     }
 });
+
