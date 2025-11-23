@@ -14,7 +14,8 @@ const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAGMH6gGvb-tamh6W6sa47jBX
 // 2. Кошелек админа
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
-// 3. База данных (ИСПРАВЛЕНО: убраны параметры ?sslmode=... которые ломали подключение)
+// 3. База данных
+// Убраны лишние параметры sslmode, чтобы не было конфликтов
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb';
 
 // 4. URL вашего приложения
@@ -36,7 +37,6 @@ app.post(`/bot${BOT_TOKEN}`, (req, res) => {
 });
 
 // --- ПОДКЛЮЧЕНИЕ К БД ---
-// Настройка SSL передается здесь явно
 const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: {
@@ -44,11 +44,9 @@ const pool = new Pool({
     }
 });
 
-// Диагностика подключения (Результат смотрите в логах Render)
 pool.connect((err, client, release) => {
     if (err) {
         console.error('🚨 ОШИБКА ПОДКЛЮЧЕНИЯ К БД:', err.message);
-        console.error('Проверьте DATABASE_URL и доступность базы Neon!');
     } else {
         console.log('✅ Успешное подключение к базе данных!');
         release();
@@ -91,6 +89,7 @@ const INITIAL_CASES = [
 // --- ИНИЦИАЛИЗАЦИЯ ТАБЛИЦ БД ---
 const initDB = async () => {
     try {
+        // Создаем таблицы, если их нет
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id BIGINT PRIMARY KEY, 
@@ -137,12 +136,20 @@ const initDB = async () => {
             );
         `);
         
-        // Миграции для старых БД
+        // --- ВАЖНО: МИГРАЦИЯ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ ---
+        // Этот блок добавит колонки balance, inventory и т.д., если их нет
         try {
+            console.log('🔄 Запуск миграции БД...');
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INT DEFAULT 0`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inventory JSONB DEFAULT '[]'`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_top_up INT DEFAULT 0`);
+            
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`);
+            console.log('✅ Миграция завершена успешно');
         } catch (e) { 
-            console.log('Migration info:', e.message); 
+            console.log('⚠️ Info: ' + e.message); 
         }
 
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
