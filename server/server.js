@@ -14,8 +14,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAGMH6gGvb-tamh6W6sa47jBX
 // 2. Кошелек админа
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
 
-// 3. База данных
-// Убраны лишние параметры sslmode, чтобы не было конфликтов
+// 3. База данных (Используем "чистую" ссылку без лишних параметров, которые могут конфликтовать)
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb';
 
 // 4. URL вашего приложения
@@ -136,10 +135,9 @@ const initDB = async () => {
             );
         `);
         
-        // --- ВАЖНО: МИГРАЦИЯ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ ---
-        // Этот блок добавит колонки balance, inventory и т.д., если их нет
+        // --- ВАЖНО: АВТО-МИГРАЦИЯ ДЛЯ ИСПРАВЛЕНИЯ ВАШЕЙ ОШИБКИ ---
         try {
-            console.log('🔄 Запуск миграции БД...');
+            console.log('🔄 Проверка структуры БД...');
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INT DEFAULT 0`);
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inventory JSONB DEFAULT '[]'`);
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'`);
@@ -147,11 +145,13 @@ const initDB = async () => {
             
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`);
-            console.log('✅ Миграция завершена успешно');
+            console.log('✅ Структура БД обновлена');
         } catch (e) { 
             console.log('⚠️ Info: ' + e.message); 
         }
 
+        // --- ЗАПОЛНЕНИЕ (SEEDING) ---
+        // Если предметы не грузятся, возможно, таблица пустая. Этот код исправит.
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
         if (parseInt(prizeCount.rows[0].count) === 0) {
             console.log('Seeding prizes...');
