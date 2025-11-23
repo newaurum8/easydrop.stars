@@ -231,15 +231,13 @@ const CasePage = () => {
             
             if (data.error === 'Case limit reached') {
                 if (!currentCase.isPromo) {
-                    // Возвращаем деньги, если спин не прошел
-                    updateBalance(currentCase.price * quantity);
+                    updateBalance(currentCase.price * quantity); // Возврат денег
                 }
                 return alert('К сожалению, лимит активаций этого кейса исчерпан.');
             }
         } catch (e) {
             console.error(e);
-            // Если ошибка сети, лучше не крутить, чтобы не рассинхронизироваться
-            // Но для упрощения можно продолжить или вернуть деньги
+            return;
         }
 
         setShowModal(false);
@@ -272,6 +270,13 @@ const CasePage = () => {
     }
 
     const isButtonDisabled = isRolling || (currentCase.isPromo ? !isPromoValid : balance < currentCase.price * quantity);
+    
+    // --- ЛОГИКА ОТОБРАЖЕНИЯ ПОЛОСКИ ЛИМИТА ---
+    const isLimited = currentCase.maxActivations > 0;
+    // Считаем процент заполнения (текущие / макс * 100)
+    const progressPercent = isLimited 
+        ? Math.min(100, (currentCase.currentActivations / currentCase.maxActivations) * 100) 
+        : 0;
 
     return (
         <div className="app-container case-page-body">
@@ -293,67 +298,85 @@ const CasePage = () => {
             </div>
 
             <div className="controls-panel">
-                {currentCase.isPromo ? (
-                    <div className="promo-container">
-                        <div style={{color:'#ffc107', fontSize:'14px', marginBottom:'5px', textAlign:'center', fontWeight:'bold'}}>
-                            {currentCase.maxActivations > 0 && 
-                             `Осталось активаций: ${Math.max(0, currentCase.maxActivations - currentCase.currentActivations)}`}
-                        </div>
-                         <input
-                            type="text"
-                            value={promoCode}
-                            onChange={handlePromoCodeChange}
-                            placeholder="Введите промокод"
-                            className="promo-input"
-                        />
+                {/* Если кейс Лимитированный, показываем особую кнопку с прогрессом */}
+                {isLimited ? (
+                     <div className="promo-container">
+                        {currentCase.isPromo && (
+                             <input
+                                type="text"
+                                value={promoCode}
+                                onChange={handlePromoCodeChange}
+                                placeholder="Введите промокод"
+                                className="promo-input"
+                                style={{marginBottom:'10px'}}
+                            />
+                        )}
+                        
                         <button
                             className={`roll-button ${isButtonDisabled ? 'disabled' : ''}`}
                             onClick={handleRoll}
                             disabled={isButtonDisabled}
+                            style={{position: 'relative', overflow: 'hidden'}}
                         >
-                            <span className="roll-button-text">Открыть бесплатно</span>
+                            {/* Полоска прогресса (синяя) */}
+                            <div 
+                                className="roll-button-progress" 
+                                style={{ 
+                                    width: `${progressPercent}%`, 
+                                    backgroundColor: '#00aaff', 
+                                    position: 'absolute', 
+                                    left: 0, top: 0, bottom: 0, 
+                                    zIndex: 1,
+                                    transition: 'width 0.5s ease'
+                                }}
+                            ></div>
+                            
+                            {/* Текст поверх полоски (цифры) */}
+                            <span className="roll-button-text" style={{zIndex: 2, position: 'relative', fontSize: '18px', fontWeight: 'bold'}}>
+                                {currentCase.currentActivations} / {currentCase.maxActivations}
+                            </span>
                         </button>
                     </div>
                 ) : (
-                    <>
-                        <button
-                            className={`roll-button ${isButtonDisabled ? 'disabled' : ''}`}
-                            onClick={handleRoll}
-                            disabled={isButtonDisabled}
-                        >
-                            <div className="roll-button-progress" style={{ width: '91.3%' }}></div>
-                            <span className="roll-button-text">Открыть за {currentCase.price * quantity}</span>
-                            <img src="/images/stars.png" alt="star" className="star-icon small roll-button-star" />
-                        </button>
-                        
-                        <div className="roll-options">
-                            <div className="quantity-selector">
-                                {[1, 2, 3, 4, 5].map(num => (
-                                    <button
-                                        key={num}
-                                        className={`quantity-btn ${quantity === num ? 'active' : ''}`}
-                                        onClick={() => changeQuantity(num)}>
-                                        {num}
-                                    </button>
-                                ))}
-                            </div>
-                            
-                            <div className="fast-roll-toggle">
-                                <label className="switch">
-                                    <input
-                                        type="checkbox"
-                                        checked={isFastRoll}
-                                        onChange={(e) => setIsFastRoll(e.target.checked)}
-                                        disabled={isRolling}
-                                    />
-                                    <span className="slider round"></span>
-                                </label>
-                                <label style={{cursor: isRolling ? 'not-allowed' : 'pointer'}}>
-                                    Быстро
-                                </label>
-                            </div>
+                    // --- ОБЫЧНЫЙ РЕЖИМ (БЕЗ ЛИМИТА) ---
+                    currentCase.isPromo ? (
+                        <div className="promo-container">
+                             <input
+                                type="text"
+                                value={promoCode}
+                                onChange={handlePromoCodeChange}
+                                placeholder="Введите промокод"
+                                className="promo-input"
+                            />
+                            <button className={`roll-button ${isButtonDisabled ? 'disabled' : ''}`} onClick={handleRoll} disabled={isButtonDisabled}>
+                                <span className="roll-button-text">Открыть бесплатно</span>
+                            </button>
                         </div>
-                    </>
+                    ) : (
+                        <>
+                             <button className={`roll-button ${isButtonDisabled ? 'disabled' : ''}`} onClick={handleRoll} disabled={isButtonDisabled}>
+                                <span className="roll-button-text">Открыть за {currentCase.price * quantity}</span>
+                                <img src="/images/stars.png" alt="star" className="star-icon small roll-button-star" style={{marginLeft: 5}} />
+                            </button>
+                            
+                            <div className="roll-options">
+                                <div className="quantity-selector">
+                                    {[1, 2, 3, 4, 5].map(num => (
+                                        <button key={num} className={`quantity-btn ${quantity === num ? 'active' : ''}`} onClick={() => changeQuantity(num)}>
+                                            {num}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="fast-roll-toggle">
+                                    <label className="switch">
+                                        <input type="checkbox" checked={isFastRoll} onChange={(e) => setIsFastRoll(e.target.checked)} disabled={isRolling} />
+                                        <span className="slider round"></span>
+                                    </label>
+                                    <label style={{cursor: isRolling ? 'not-allowed' : 'pointer'}}>Быстро</label>
+                                </div>
+                            </div>
+                        </>
+                    )
                 )}
             </div>
 
