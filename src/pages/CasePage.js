@@ -133,6 +133,8 @@ const CasePage = () => {
     const [isRolling, setIsRolling] = useState(false);
     const [winningPrizes, setWinningPrizes] = useState([]);
     const [showModal, setShowModal] = useState(false);
+    
+    // Новые стейты для промокода
     const [promoCode, setPromoCode] = useState('');
     const [isPromoValid, setIsPromoValid] = useState(false);
 
@@ -145,6 +147,7 @@ const CasePage = () => {
         }
     }, [quantity, currentCasePrizes]);
 
+    // Анимация прокрутки
     useEffect(() => {
         if (!isRolling) return;
 
@@ -192,25 +195,51 @@ const CasePage = () => {
         });
     }, [isRolling, winningPrizes, isFastRoll, addToHistory]);
 
+    // Обработка ввода промокода
     const handlePromoCodeChange = (e) => {
         const code = e.target.value;
         setPromoCode(code);
-        if (code.toLowerCase() === 'promo') {
+        
+        // Сверяем с кодом из объекта кейса
+        if (currentCase && currentCase.promoCode && code.trim().toLowerCase() === currentCase.promoCode.toLowerCase()) {
             setIsPromoValid(true);
         } else {
             setIsPromoValid(false);
         }
     };
 
-    const handleRoll = () => {
+    const handleRoll = async () => {
         if (!currentCase || !currentCasePrizes || currentCasePrizes.length === 0) return;
         
+        // 1. Проверка условий (промокод или баланс)
         if (currentCase.isPromo) {
-            if (!isPromoValid) return;
+            if (!isPromoValid) return alert("Неверный промокод");
         } else {
             const cost = currentCase.price * quantity;
             if (balance < cost || isRolling) return;
             updateBalance(-cost);
+        }
+
+        // 2. Отправка запроса на сервер для фиксации прокрута
+        try {
+            const res = await fetch('/api/case/spin', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ caseId: currentCase.id })
+            });
+            const data = await res.json();
+            
+            if (data.error === 'Case limit reached') {
+                if (!currentCase.isPromo) {
+                    // Возвращаем деньги, если спин не прошел
+                    updateBalance(currentCase.price * quantity);
+                }
+                return alert('К сожалению, лимит активаций этого кейса исчерпан.');
+            }
+        } catch (e) {
+            console.error(e);
+            // Если ошибка сети, лучше не крутить, чтобы не рассинхронизироваться
+            // Но для упрощения можно продолжить или вернуть деньги
         }
 
         setShowModal(false);
@@ -266,6 +295,10 @@ const CasePage = () => {
             <div className="controls-panel">
                 {currentCase.isPromo ? (
                     <div className="promo-container">
+                        <div style={{color:'#ffc107', fontSize:'14px', marginBottom:'5px', textAlign:'center', fontWeight:'bold'}}>
+                            {currentCase.maxActivations > 0 && 
+                             `Осталось активаций: ${Math.max(0, currentCase.maxActivations - currentCase.currentActivations)}`}
+                        </div>
                          <input
                             type="text"
                             value={promoCode}
@@ -338,7 +371,6 @@ const CasePage = () => {
                                     <img src="/images/stars.png" alt="star" className="star-icon small" />
                                     <span>{prize.value.toLocaleString()}</span>
                                 </div>
-                                {/* Шанс скрыт для пользователя, но учитывается при прокрутке */}
                             </div>
                         </div>
                     </div>
