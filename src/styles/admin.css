@@ -1,17 +1,33 @@
 /* src/styles/admin.css */
 
-/* --- БАЗОВЫЕ СТИЛИ И СБРОС --- */
-#root > .admin-container, body, html {
-    background-color: #0f1114; /* Глубокий темный фон */
+/* --- ИСПРАВЛЕНИЕ: Убрали body и html из селектора, чтобы не ломать скролл на главной --- */
+.admin-layout {
+    background-color: #0f1114; /* Глубокий темный фон для админки */
     color: #e0e0e0;
-    margin: 0;
-    padding: 0;
     font-family: 'Inter', 'Roboto', sans-serif;
-    height: 100%;
-    overflow: hidden; /* Скролл только внутри контента */
+    height: 100vh; /* Высота на весь экран */
+    width: 100%;
+    overflow: hidden; /* Скролл скрыт только внутри админ-лейаута */
+    display: flex;
+    position: fixed; /* Фиксируем поверх всего */
+    top: 0; 
+    left: 0;
+    z-index: 1000; /* Поверх шапки и меню приложения */
 }
 
-/* --- МОБИЛЬНАЯ ЗАГЛУШКА (По умолчанию скрыта) --- */
+/* Стили для login-wrapper тоже нужно изолировать */
+.login-wrapper { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh; 
+    background: #0f1114; 
+    position: fixed;
+    top: 0; left: 0; width: 100%;
+    z-index: 2000;
+}
+
+/* --- МОБИЛЬНАЯ ЗАГЛУШКА --- */
 .mobile-restriction {
     display: none;
     position: fixed;
@@ -23,6 +39,7 @@
     flex-direction: column;
     text-align: center;
     padding: 20px;
+    color: #e0e0e0; /* Добавил цвет текста */
 }
 .mobile-restriction h2 { color: #f44336; margin-bottom: 10px; }
 .mobile-restriction p { color: #888; max-width: 300px; line-height: 1.5; }
@@ -35,20 +52,14 @@
     border-radius: 8px;
 }
 
-/* --- MEDIA QUERY: АКТИВАЦИЯ ЗАГЛУШКИ --- */
+/* --- MEDIA QUERY --- */
 @media (max-width: 1024px) {
-    .admin-layout { display: none !important; } /* Скрываем админку */
-    .mobile-restriction { display: flex !important; } /* Показываем заглушку */
+    /* Скрываем админку на мобильных, если этот класс есть */
+    .admin-layout { display: none !important; } 
+    .mobile-restriction { display: flex !important; } 
 }
 
-/* --- ОСНОВНОЙ ЛЕЙАУТ (DESKTOP) --- */
-.admin-layout {
-    display: flex;
-    height: 100vh;
-    width: 100%;
-}
-
-/* САЙДБАР */
+/* --- САЙДБАР --- */
 .admin-sidebar {
     width: 260px;
     min-width: 260px;
@@ -77,6 +88,8 @@
     font-weight: 500;
     transition: all 0.2s ease;
     display: flex; align-items: center; gap: 10px;
+    width: 100%; /* Исправление для кнопки */
+    text-decoration: none; /* Убираем подчеркивание */
 }
 .nav-btn:hover { background-color: #21262d; color: #c9d1d9; }
 .nav-btn.active { background-color: #1f6feb; color: white; font-weight: 600; box-shadow: 0 4px 12px rgba(31, 111, 235, 0.2); }
@@ -85,7 +98,7 @@
 .nav-btn.logout { color: #f85149; }
 .nav-btn.logout:hover { background: rgba(248, 81, 73, 0.1); }
 
-/* ОСНОВНОЙ КОНТЕНТ */
+/* --- ОСНОВНОЙ КОНТЕНТ --- */
 .admin-main {
     flex: 1;
     background-color: #0d1117;
@@ -107,7 +120,7 @@
     border-radius: 12px;
     display: flex;
     flex-direction: column;
-    height: 100%; /* Растягиваем на всю высоту main */
+    height: 100%;
     max-height: calc(100vh - 64px);
     overflow: hidden;
 }
@@ -183,6 +196,8 @@
 .modern-button.secondary:hover { background: #30363d; border-color: #8b949e; }
 .modern-button.danger { background: #21262d; color: #f85149; border-color: #30363d; }
 .modern-button.danger:hover { background: #da3633; color: white; border-color: transparent; }
+.modern-button.success { background: #4CAF50; color: white; }
+.modern-button.full-width { width: 100%; }
 
 .icon-btn {
     width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer;
@@ -193,7 +208,7 @@
 .icon-btn.danger { background: transparent; color: #f85149; border: 1px solid #f85149; }
 .icon-btn.danger:hover { background: #f85149; color: white; }
 
-/* --- LAYOUT КЕЙСОВ (ГЛАВНОЕ) --- */
+/* --- LAYOUT КЕЙСОВ --- */
 .cases-layout {
     display: flex;
     gap: 24px;
@@ -232,7 +247,7 @@
     background: #161b22;
     border: 1px solid #30363d;
     border-radius: 12px;
-    overflow: hidden; /* Важно для внутреннего скролла */
+    overflow: hidden;
     display: flex;
     flex-direction: column;
 }
@@ -241,7 +256,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    overflow-y: auto; /* Скроллим весь контент редактора */
+    overflow-y: auto;
     padding: 24px;
     box-sizing: border-box;
 }
@@ -249,12 +264,12 @@
 .editor-header-row {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
 }
-.editor-header-row h2 { margin: 0; font-size: 20px; }
+.editor-header-row h2 { margin: 0; font-size: 20px; color: #e6edf3; }
 
 /* Сетка формы редактора */
 .editor-form-grid {
     display: grid;
-    grid-template-columns: 200px 1fr; /* Картинка слева, поля справа */
+    grid-template-columns: 200px 1fr;
     gap: 24px;
     margin-bottom: 30px;
     background: #0d1117;
@@ -273,10 +288,15 @@
     overflow: hidden;
 }
 .img-preview-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.upload-btn {
+    display: inline-block; padding: 8px 16px; background: #3a4552; border-radius: 6px;
+    cursor: pointer; font-size: 13px; transition: background 0.2s; color: white;
+}
+.upload-btn:hover { background: #4a5562; }
 
 .fields-section { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .full-row { grid-column: 1 / -1; }
-
+.form-group { margin-bottom: 0; } /* Сброс марджина в гриде */
 .form-group label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 600; color: #8b949e; }
 
 /* PICKER LAYOUT */
@@ -289,7 +309,7 @@
 }
 .picker-title {
     padding: 12px 16px; background: #161b22; border-bottom: 1px solid #30363d;
-    font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center;
+    font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; color: #e6edf3;
 }
 .picker-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; max-height: 400px; }
 
@@ -299,13 +319,14 @@
 }
 .picker-item img { width: 32px; height: 32px; object-fit: contain; }
 .picker-info { flex: 1; overflow: hidden; }
-.picker-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.picker-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e6edf3; }
 .picker-sub { font-size: 11px; color: #8b949e; }
 
 .chance-input {
     width: 60px; padding: 4px; text-align: center; background: #0d1117; border: 1px solid #30363d;
-    color: #e3b341; border-radius: 4px; font-weight: bold; font-size: 12px;
+    color: #e3b341; border-radius: 4px; font-weight: bold; font-size: 12px; outline: none;
 }
+.chance-input:focus { border-color: #1f6feb; }
 
 .mini-btn {
     width: 28px; height: 28px; display: flex; justify-content: center; align-items: center;
@@ -324,5 +345,15 @@ input:checked + .slider { background-color: #1f6feb; }
 input:checked + .slider:before { transform: translateX(16px); }
 
 /* --- LOGIN CARD --- */
-.login-wrapper { display: flex; justify-content: center; align-items: center; height: 100vh; background: #0d1117; }
 .login-card { background: #161b22; padding: 40px; border-radius: 12px; border: 1px solid #30363d; width: 320px; text-align: center; }
+
+/* --- USER CARD --- */
+.user-card-admin {
+    background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d;
+}
+.user-head { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #30363d; }
+.user-head img { width: 60px; height: 60px; border-radius: 50%; }
+.user-head h3 { margin: 0 0 4px 0; color: #e6edf3; }
+.user-head span { color: #8b949e; font-size: 13px; }
+.balance-edit label { display: block; margin-bottom: 8px; color: #8b949e; font-size: 13px; }
+.balance-row { display: flex; gap: 10px; }
