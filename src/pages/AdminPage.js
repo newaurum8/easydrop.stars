@@ -1,6 +1,7 @@
 import React, { useContext, useState, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { Link } from 'react-router-dom';
+import '../styles/admin.css';
 
 const SECRET_PASSWORD = "admin"; // Пароль для входа
 
@@ -9,7 +10,7 @@ const AdminPage = () => {
 
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [password, setPassword] = useState('');
-    const [activeTab, setActiveTab] = useState('users');
+    const [activeTab, setActiveTab] = useState('items');
 
     // --- АВТОРИЗАЦИЯ ---
     if (!isAuthorized) {
@@ -43,17 +44,17 @@ const AdminPage = () => {
         <div className="admin-container">
             <header className="admin-header">
                 <h1>Панель Администратора</h1>
-                <Link to="/" className="back-button" style={{margin:0, border:'1px solid #00aaff', padding:'8px 16px', borderRadius:'8px'}}>
+                <Link to="/" className="back-button" style={{margin:0, border:'1px solid #00aaff', padding:'8px 16px', borderRadius:'8px', textDecoration:'none'}}>
                     В приложение
                 </Link>
             </header>
 
             <div className="admin-tabs">
                 <button 
-                    className={`admin-tab-button ${activeTab === 'users' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('users')}
+                    className={`admin-tab-button ${activeTab === 'items' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('items')}
                 >
-                    👥 Пользователи
+                    💎 Предметы
                 </button>
                 <button 
                     className={`admin-tab-button ${activeTab === 'cases' ? 'active' : ''}`}
@@ -62,17 +63,17 @@ const AdminPage = () => {
                     🎒 Кейсы
                 </button>
                 <button 
-                    className={`admin-tab-button ${activeTab === 'items' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('items')}
+                    className={`admin-tab-button ${activeTab === 'users' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('users')}
                 >
-                    💎 Предметы (Цены/Шансы)
+                    👥 Пользователи
                 </button>
             </div>
 
             <div className="admin-content">
-                {activeTab === 'users' && <UserManager />}
-                {activeTab === 'cases' && <CaseManager cases={ALL_CASES} allPrizes={ALL_PRIZES} onUpdate={refreshConfig} />}
                 {activeTab === 'items' && <ItemManager prizes={ALL_PRIZES} onUpdate={refreshConfig} />}
+                {activeTab === 'cases' && <CaseManager cases={ALL_CASES} allPrizes={ALL_PRIZES} onUpdate={refreshConfig} />}
+                {activeTab === 'users' && <UserManager />}
             </div>
         </div>
     );
@@ -134,53 +135,43 @@ const ItemManager = ({ prizes, onUpdate }) => {
             />
             
             <div style={{maxHeight: '600px', overflowY: 'auto'}}>
+                <div className="items-table-header">
+                    <span>Фото</span><span>Название</span><span>Цена (Stars)</span><span>Шанс (%)</span><span>Действие</span>
+                </div>
                 {filteredPrizes.map(item => (
-                    <div key={item.id} style={{
-                        display:'flex', alignItems:'center', gap:'10px', padding:'10px', 
-                        background:'#212a31', marginBottom:'8px', borderRadius:'8px', border:'1px solid #3a4552'
-                    }}>
+                    <div key={item.id} className="admin-table-row">
                         <img src={item.image} alt="" style={{width:40, height:40, objectFit:'contain'}} />
                         
-                        <div style={{flex:1}}>
+                        <div style={{flex:1, minWidth: '100px'}}>
                             <div style={{fontWeight:'bold', fontSize:'14px'}}>{item.name}</div>
                             <div style={{fontSize:'11px', color:'#888'}}>{item.id}</div>
                         </div>
                         
                         {editId === item.id ? (
-                            <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                                <div style={{display:'flex', flexDirection:'column', width:'80px'}}>
-                                    <label style={{fontSize:'9px', color:'#aaa'}}>Цена</label>
-                                    <input 
-                                        type="number" 
-                                        className="admin-input" 
-                                        style={{padding:'5px', fontSize:'12px'}} 
-                                        value={formData.value} 
-                                        onChange={e => setFormData({...formData, value: Number(e.target.value)})} 
-                                    />
-                                </div>
-                                <div style={{display:'flex', flexDirection:'column', width:'60px'}}>
-                                    <label style={{fontSize:'9px', color:'#aaa'}}>Шанс</label>
-                                    <input 
-                                        type="number" 
-                                        className="admin-input" 
-                                        style={{padding:'5px', fontSize:'12px'}} 
-                                        value={formData.chance} 
-                                        onChange={e => setFormData({...formData, chance: Number(e.target.value)})} 
-                                    />
-                                </div>
-                                <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
+                            <>
+                                <input 
+                                    type="number" 
+                                    className="admin-input-small" 
+                                    value={formData.value} 
+                                    onChange={e => setFormData({...formData, value: Number(e.target.value)})} 
+                                />
+                                <input 
+                                    type="number" 
+                                    className="admin-input-small" 
+                                    value={formData.chance} 
+                                    onChange={e => setFormData({...formData, chance: Number(e.target.value)})} 
+                                />
+                                <div style={{display:'flex', gap:'2px'}}>
                                     <button className="action-btn-small btn-add" onClick={saveItem} title="Сохранить">✓</button>
                                     <button className="action-btn-small btn-remove" onClick={cancelEdit} title="Отмена">✕</button>
                                 </div>
-                            </div>
+                            </>
                         ) : (
-                            <div style={{display:'flex', alignItems:'center', gap:'15px'}}>
-                                <div style={{textAlign:'right'}}>
-                                    <div style={{fontSize:'13px', color:'#ffc107'}}>{item.value.toLocaleString()} ⭐</div>
-                                    <div style={{fontSize:'11px', color:'#888'}}>Шанс: {item.chance}</div>
-                                </div>
-                                <button className="admin-button" onClick={() => startEdit(item)}>Изменить</button>
-                            </div>
+                            <>
+                                <div style={{color:'#ffc107'}}>{item.value.toLocaleString()}</div>
+                                <div>{item.chance}</div>
+                                <button className="admin-button-small" onClick={() => startEdit(item)}>Edit</button>
+                            </>
                         )}
                     </div>
                 ))}
@@ -305,15 +296,15 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                 </button>
             </div>
 
-            <div className="editor-row">
-                <div className="editor-col">
+            <div className="editor-grid">
+                <div>
                     <label>Название кейса</label>
                     <input 
                         type="text" className="admin-input" 
                         value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} 
                     />
                 </div>
-                <div className="editor-col">
+                <div>
                     <label>Уникальный ID {isNew ? '' : '(нельзя изменить)'}</label>
                     <input 
                         type="text" className="admin-input" 
@@ -321,30 +312,21 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                         value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} 
                     />
                 </div>
-            </div>
-
-            <div className="editor-row">
-                <div className="editor-col">
+                <div>
                     <label>Цена открытия</label>
                     <input 
                         type="number" className="admin-input" 
                         value={formData.price} onChange={e => setFormData({...formData, price: parseInt(e.target.value)})} 
                     />
                 </div>
-                <div className="editor-col">
+                <div>
                     <label>Ссылка на картинку</label>
-                    <div style={{display:'flex', gap:'10px'}}>
-                        <input 
-                            type="text" className="admin-input" 
-                            value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} 
-                        />
-                        <img src={formData.image} alt="" style={{width:40, height:40, objectFit:'contain', background:'#212a31', borderRadius:4}} />
-                    </div>
+                    <input 
+                        type="text" className="admin-input" 
+                        value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} 
+                    />
                 </div>
-            </div>
-
-            <div className="editor-row">
-                <div className="editor-col">
+                <div>
                     <label>Редкость (Тег)</label>
                     <select 
                         className="admin-input" 
@@ -353,12 +335,13 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                     >
                         <option value="common">Обычный (Серый)</option>
                         <option value="rare">Редкий (Синий/Красный)</option>
+                        <option value="epic">Эпик (Фиолетовый)</option>
                         <option value="legendary">Легендарный (Золотой)</option>
                         <option value="limited">Лимит (Оранжевый)</option>
-                        <option value="promo">Промо (Фиолетовый)</option>
+                        <option value="promo">Промо (Розовый)</option>
                     </select>
                 </div>
-                <div className="editor-col" style={{display:'flex', alignItems:'center', paddingTop:'25px'}}>
+                <div style={{paddingTop:25}}>
                     <label style={{display:'flex', alignItems:'center', gap:'10px', cursor:'pointer'}}>
                         <input 
                             type="checkbox" 
@@ -366,7 +349,7 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                             checked={formData.isPromo} 
                             onChange={e => setFormData({...formData, isPromo: e.target.checked})} 
                         />
-                        <span>Это Промо-кейс (открытие по коду)</span>
+                        <span>Это Промо-кейс</span>
                     </label>
                 </div>
             </div>
