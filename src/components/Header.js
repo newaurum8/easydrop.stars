@@ -5,9 +5,9 @@ const Header = () => {
     // Получаем из контекста баланс, пользователя и функцию открытия модального окна
     const { balance, user, openTopUpModal } = useContext(AppContext);
 
-    // Определяем имя для отображения и URL аватара, добавляем запасные варианты
+    // Определяем имя для отображения и URL аватара
     const displayName = user ? (user.firstName || user.username) : 'Загрузка...';
-    const avatarUrl = user?.photoUrl || '/images/profile.png'; // Если фото нет, используем стандартное
+    const avatarUrl = user?.photoUrl || '/images/profile.png'; 
 
     return (
         <header className="profile-header">
@@ -16,7 +16,6 @@ const Header = () => {
                     src={avatarUrl}
                     alt="Avatar"
                     className="avatar"
-                    // Если фото из ТГ не загрузится, покажем стандартное
                     onError={(e) => { e.target.onerror = null; e.target.src="/images/profile.png" }}
                 />
                 <div className="user-details">
@@ -27,9 +26,9 @@ const Header = () => {
             <div className="profile-actions">
                 <div className="star-balance">
                     <img src="/images/stars.png" alt="Star" className="star-icon" />
-                    <span>{balance.toLocaleString()}</span>
+                    {/* ИСПРАВЛЕНИЕ: Добавлена проверка (balance || 0), чтобы не было ошибки undefined */}
+                    <span>{(balance || 0).toLocaleString()}</span>
                 </div>
-                {/* Добавляем обработчик onClick */}
                 <button className="add-button" onClick={openTopUpModal}>+</button>
             </div>
         </header>
