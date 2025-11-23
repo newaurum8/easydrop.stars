@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
+import '../styles/home.css'; // Подключение новых стилей
 
 // --- КОМПОНЕНТ LIVE ЛЕНТЫ ---
 const LiveFeed = () => {
@@ -8,51 +9,45 @@ const LiveFeed = () => {
     const [feed, setFeed] = useState([]);
 
     useEffect(() => {
-        // Ждем загрузки призов
+        // Если призы еще не загрузились, ничего не делаем
         if (!ALL_PRIZES || ALL_PRIZES.length === 0) return;
 
-        // Инициализируем ленту 10 случайными предметами
-        const initial = Array(10).fill(null).map(() => 
+        // Инициализируем ленту случайными предметами для старта
+        const initialFeed = Array(15).fill(null).map(() => 
             ALL_PRIZES[Math.floor(Math.random() * ALL_PRIZES.length)]
         );
-        setFeed(initial);
+        setFeed(initialFeed);
 
-        // Запускаем цикл обновления: добавляем новый предмет слева, удаляем справа
+        // Запускаем цикл обновления ленты
         const interval = setInterval(() => {
             setFeed(prev => {
-                const next = [...prev];
-                next.pop(); // Удаляем последний
-                next.unshift(ALL_PRIZES[Math.floor(Math.random() * ALL_PRIZES.length)]); // Добавляем новый в начало
-                return next;
+                const newItem = ALL_PRIZES[Math.floor(Math.random() * ALL_PRIZES.length)];
+                // Добавляем новый элемент в начало и убираем последний, чтобы длина была постоянной
+                return [newItem, ...prev.slice(0, 14)];
             });
-        }, 2000); // Каждые 2 секунды
+        }, 2500); // Каждые 2.5 секунды новый дроп
 
         return () => clearInterval(interval);
     }, [ALL_PRIZES]);
 
-    // Хелпер для цвета редкости в ленте
+    // Определение цвета рамки в зависимости от цены предмета
     const getRarityColor = (val) => {
         if (val >= 50000) return '#ffc107'; // Легендарный (Золотой)
         if (val >= 10000) return '#f44336'; // Редкий (Красный)
-        if (val >= 2000) return '#9c27b0';  // Необычный (Фиолетовый)
+        if (val >= 2000) return '#9c27b0';  // Эпический (Фиолетовый)
         return '#00aaff';                   // Обычный (Синий)
     };
 
     return (
-        <div className="live-feed-wrapper">
-            <div className="live-badge">LIVE</div>
-            <div className="live-track-container">
+        <div className="live-feed-container">
+            <div className="live-label">LIVE DROP</div>
+            <div className="live-track">
                 {feed.map((item, i) => (
                     <div 
-                        key={`${item.id}-${i}-${Date.now()}`} 
-                        className="live-item-card" 
-                        style={{ borderColor: getRarityColor(item.value) }}
+                        key={`${item.id}-${i}`} 
+                        className="live-card" 
+                        style={{borderColor: getRarityColor(item.value)}}
                     >
-                        {/* Свечение позади предмета */}
-                        <div 
-                            className="live-glow" 
-                            style={{ background: getRarityColor(item.value) }}
-                        ></div>
                         <img src={item.image} alt="" />
                     </div>
                 ))}
@@ -65,14 +60,15 @@ const LiveFeed = () => {
 const MainPage = () => {
     const { ALL_CASES } = useContext(AppContext);
 
-    // Хелпер для тегов на карточках кейсов
-    const getTagData = (tag) => {
+    // Хелпер для настройки цветов тегов и свечения кейса
+    const getTagStyle = (tag) => {
         switch(tag) {
-            case 'promo': return { label: 'ПРОМО', color: '#9c27b0' };
-            case 'limited': return { label: 'ЛИМИТ', color: '#ff9800' };
-            case 'legendary': return { label: 'ЛЕГЕНДА', color: '#ffc107' };
-            case 'rare': return { label: 'РЕДКИЙ', color: '#f44336' };
-            default: return null;
+            case 'promo': return { color: '#ff4081', label: 'PROMO' }; // Розовый
+            case 'limited': return { color: '#ff9100', label: 'LIMITED' }; // Оранжевый
+            case 'legendary': return { color: '#ffd700', label: 'LEGEND' }; // Золотой
+            case 'epic': return { color: '#d500f9', label: 'EPIC' }; // Фиолетовый
+            case 'rare': return { color: '#2979ff', label: 'RARE' }; // Синий
+            default: return { color: '#78909c', label: 'COMMON' }; // Серый
         }
     };
 
@@ -80,50 +76,42 @@ const MainPage = () => {
         <>
             <LiveFeed />
             
-            {/* Заголовок раздела (вместо старого баннера) */}
-            <div style={{marginTop: '24px', marginBottom: '12px', paddingLeft: '4px'}}>
-                <h2 style={{margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '0.5px'}}>
-                    КЕЙСЫ
-                </h2>
+            {/* Баннер */}
+            <div className="hero-banner">
+                <h2>КЕЙСЫ</h2>
+                <p>Открывай и выигрывай ценные призы!</p>
             </div>
 
-            <main className="content-grid">
+            {/* Сетка кейсов */}
+            <div className="content-grid">
                 {ALL_CASES && ALL_CASES.length > 0 ? (
                     ALL_CASES.map((caseItem) => {
-                        const tagData = getTagData(caseItem.tag);
+                        const { color, label } = getTagStyle(caseItem.tag);
                         
                         return (
                             <Link 
                                 to={`/case/${caseItem.id}`} 
-                                className="case-card-new" 
+                                className="case-card" 
                                 key={caseItem.id}
-                                style={{
-                                    borderColor: tagData ? tagData.color : '#3a4552'
-                                }}
+                                // Передаем цвет свечения через CSS переменную
+                                style={{'--glow-color': color}}
                             >
-                                {/* Тег в углу (если есть) */}
-                                {tagData && (
-                                    <div className="case-tag" style={{background: tagData.color}}>
-                                        {tagData.label}
-                                    </div>
-                                )}
+                                {/* Тег в углу */}
+                                <div className="card-tag" style={{backgroundColor: color}}>
+                                    {label}
+                                </div>
 
                                 {/* Фоновое свечение */}
-                                <div 
-                                    className="case-glow" 
-                                    style={{
-                                        background: tagData ? tagData.color : 'rgba(255,255,255,0.1)'
-                                    }}
-                                ></div>
+                                <div className="card-glow"></div>
                                 
                                 {/* Изображение кейса */}
-                                <div className="case-img-box">
-                                    <img src={caseItem.image} alt={caseItem.name} />
+                                <div className="card-img-container">
+                                    <img src={caseItem.image} className="card-image" alt={caseItem.name} />
                                 </div>
                                 
                                 {/* Информация снизу */}
-                                <div className="case-info">
-                                    <div className="case-name">{caseItem.name}</div>
+                                <div className="card-info">
+                                    <div className="case-title">{caseItem.name}</div>
                                     <div className="case-price">
                                         {caseItem.price > 0 ? caseItem.price.toLocaleString() : 'FREE'}
                                         {caseItem.price > 0 && (
@@ -144,7 +132,7 @@ const MainPage = () => {
                         Загрузка кейсов...
                     </div>
                 )}
-            </main>
+            </div>
         </>
     );
 };
