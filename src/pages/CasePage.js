@@ -82,11 +82,10 @@ const ResultsModal = ({ winners, onClose }) => {
 // --- КОМПОНЕНТ КАРУСЕЛИ ---
 const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
     const totalCarouselItems = 100;
-    const stopIndex = 80; // Индекс, на котором остановится лента
+    const stopIndex = 80;
 
     const items = useMemo(() => {
         if (!prizes || prizes.length === 0) return [];
-        // Генерируем ленту, где на 80-й позиции всегда выигрышный предмет
         return Array.from({ length: totalCarouselItems }).map((_, i) =>
             i === stopIndex ? winningPrize : prizes[Math.floor(Math.random() * prizes.length)]
         )
@@ -96,7 +95,6 @@ const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
         <div className={`item-carousel-wrapper size-${quantity}`}>
             <div className="item-carousel" ref={ref}>
                 {items.map((item, index) => (
-                    // Используем уникальный ключ с timestamp чтобы React перерисовывал при смене
                     <div className="carousel-item" key={`${item.id}-${index}-${Date.now()}`}>
                         <img src={item.image} alt={item.name} />
                     </div>
@@ -106,33 +104,28 @@ const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
     );
 });
 
-
 // --- ОСНОВНОЙ КОМПОНЕНТ СТРАНИЦЫ ---
 const CasePage = () => {
     const { caseId } = useParams();
     const { balance, updateBalance, addToInventory, addToHistory, getWeightedRandomPrize, ALL_CASES, ALL_PRIZES } = useContext(AppContext);
 
-    // Находим текущий кейс
     const currentCase = useMemo(() => ALL_CASES.find(c => c.id === caseId), [caseId, ALL_CASES]);
 
-    // ИСПРАВЛЕНИЕ ЗДЕСЬ: Универсальная обработка prizeIds (строки или объекты)
     const currentCasePrizes = useMemo(() => {
         if (!currentCase || !ALL_PRIZES || !currentCase.prizeIds) return [];
         
         return currentCase.prizeIds.map(config => {
-            // Проверяем: config это строка (ID) или объект ({id, chance})
             const prizeId = typeof config === 'object' ? config.id : config;
             const customChance = typeof config === 'object' ? config.chance : null;
 
             const baseItem = ALL_PRIZES.find(p => p.id === prizeId);
             if (!baseItem) return null;
             
-            // Если есть кастомный шанс - берем его, иначе берем стандартный из предмета
             return { 
                 ...baseItem, 
                 chance: customChance !== null ? Number(customChance) : baseItem.chance 
             };
-        }).filter(Boolean); // Убираем null (если предмет не найден)
+        }).filter(Boolean);
     }, [currentCase, ALL_PRIZES]);
 
     const [quantity, setQuantity] = useState(1);
@@ -140,23 +133,18 @@ const CasePage = () => {
     const [isRolling, setIsRolling] = useState(false);
     const [winningPrizes, setWinningPrizes] = useState([]);
     const [showModal, setShowModal] = useState(false);
-    
-    // Для промокодов
     const [promoCode, setPromoCode] = useState('');
     const [isPromoValid, setIsPromoValid] = useState(false);
 
     const carouselRefs = useRef([]);
-    // Создаем рефы для каждой карусели
     carouselRefs.current = [...Array(quantity)].map((_, i) => carouselRefs.current[i] ?? React.createRef());
 
-    // Устанавливаем начальные "пустышки"
     useEffect(() => {
         if (currentCasePrizes?.length) {
             setWinningPrizes(Array(quantity).fill(currentCasePrizes[0]));
         }
     }, [quantity, currentCasePrizes]);
 
-    // Логика анимации прокрутки
     useEffect(() => {
         if (!isRolling) return;
 
@@ -172,19 +160,16 @@ const CasePage = () => {
                 const winnerEl = carouselTrack.querySelector('.winning-item');
                 if (winnerEl) winnerEl.classList.remove('winning-item');
 
-                // Сброс позиции
                 carouselTrack.classList.remove('is-rolling', 'fast');
                 carouselTrack.style.transform = 'translateX(0)';
-                void carouselTrack.offsetHeight; // Force reflow
+                void carouselTrack.offsetHeight; 
 
-                // Расчет конечной позиции
                 const itemStyle = window.getComputedStyle(items[0]);
                 const itemWidth = items[0].offsetWidth + parseInt(itemStyle.marginLeft) + parseInt(itemStyle.marginRight);
                 const offsetToCenter = (carouselTrack.parentElement.offsetWidth / 2) - (itemWidth / 2);
                 const finalPosition = -(stopIndex * itemWidth - offsetToCenter);
                 const randomJitter = (Math.random() - 0.5) * (itemWidth * 0.4);
 
-                // Запуск анимации
                 carouselTrack.style.transform = `translateX(${finalPosition + randomJitter}px)`;
                 carouselTrack.classList.add('is-rolling');
                 if (isFastRoll) carouselTrack.classList.add('fast');
@@ -341,7 +326,7 @@ const CasePage = () => {
 
             <div className="prize-list">
                 <h3 className="prize-list-header">Содержимое кейса</h3>
-                {currentCasePrizes.sort((a,b) => a.chance - b.chance).map(prize => (
+                {currentCasePrizes.sort((a,b) => a.value - b.value).map(prize => (
                     <div key={prize.id} className="prize-item">
                         <div className="prize-item-image-wrapper">
                             <img src={prize.image} alt={prize.name} />
@@ -353,9 +338,7 @@ const CasePage = () => {
                                     <img src="/images/stars.png" alt="star" className="star-icon small" />
                                     <span>{prize.value.toLocaleString()}</span>
                                 </div>
-                                <span style={{fontSize: '12px', color: '#8a99a8'}}>
-                                    Шанс: {prize.chance}%
-                                </span>
+                                {/* Шанс скрыт для пользователя, но учитывается при прокрутке */}
                             </div>
                         </div>
                     </div>
