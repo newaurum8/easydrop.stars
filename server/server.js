@@ -6,7 +6,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const { getHttpEndpoint } = require('@orbs-network/ton-access');
 const { TonClient, Cell } = require('ton');
 const multer = require('multer');
-const fs = require('fs');
+const fs = require('fs'); // Оставляем fs для проверки папок, если понадобится, но для картинок кейсов он не используется
 
 // ==================================================
 // === КОНФИГУРАЦИЯ ===
@@ -20,33 +20,19 @@ const APP_URL = process.env.APP_URL || 'https://easydrop-stars-1.onrender.com';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// --- НАСТРОЙКА ЗАГРУЗКИ ФАЙЛОВ (Multer) ---
-// Папка для загрузок: build/uploads (чтобы файлы были доступны как статика)
-const uploadDir = path.join(__dirname, '..', 'build', 'uploads');
-if (!fs.existsSync(uploadDir)){
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir)
-    },
-    filename: function (req, file, cb) {
-        // Генерируем уникальное имя файла
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-        cb(null, uniqueSuffix + path.extname(file.originalname))
-    }
-});
-
+// --- НАСТРОЙКА ЗАГРУЗКИ ФАЙЛОВ (Multer - Memory Storage) ---
+// Используем память, чтобы не зависеть от файловой системы облака
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// --- БОТ И MIDDLEWARE ---
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 app.use(cors());
-app.use(express.json());
+// Увеличиваем лимит JSON, так как Base64 картинки могут быть большими
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Раздаем папку с загрузками как статику
-app.use('/uploads', express.static(uploadDir));
+// Раздача статических файлов (для стандартных картинок, которые лежат в проекте)
+app.use('/uploads', express.static(path.join(__dirname, '..', 'build', 'uploads')));
 
 app.post(`/bot${BOT_TOKEN}`, (req, res) => {
     bot.processUpdate(req.body);
@@ -65,13 +51,13 @@ pool.connect((err) => {
 });
 
 // ==================================================
-// === ДАННЫЕ ПО УМОЛЧАНИЮ (Используются только при первой инициализации) ===
+// === ДАННЫЕ ПО УМОЛЧАНИЮ ===
 // ==================================================
 
 const INITIAL_PRIZES = [
     { id: 'c1_item_1', name: 'Золотые часы', image: '/images/case/item.png', value: 250000, chance: 1 },
     { id: 'c1_item_2', name: 'Кепка Telegram', image: '/images/case/item1.png', value: 12000, chance: 5 },
-    // ... остальные призы можно оставить или добавить по желанию ...
+    // ... (остальные призы по желанию)
 ];
 
 const INITIAL_CASES = [
@@ -85,7 +71,7 @@ const INITIAL_CASES = [
 const initDB = async () => {
     try {
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS users (id BIGINT PRIMARY KEY, first_name TEXT, username TEXT, photo_url TEXT);
+            CREATE TABLE IF NOT EXISTS users (id BIGINT PRIMARY KEY, first_name TEXT, username TEXT, photo_url TEXT, balance INT DEFAULT 0, inventory JSONB DEFAULT '[]', history JSONB DEFAULT '[]', total_top_up INT DEFAULT 0);
             CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, tx_hash TEXT UNIQUE, user_id BIGINT, amount DECIMAL, currency TEXT, created_at TIMESTAMP DEFAULT NOW());
             CREATE TABLE IF NOT EXISTS prizes (id TEXT PRIMARY KEY, name TEXT, image TEXT, value INT, chance FLOAT);
             CREATE TABLE IF NOT EXISTS cases (
@@ -102,19 +88,18 @@ const initDB = async () => {
             );
         `);
 
-        // Миграции (добавляем недостающие колонки для старых баз данных)
+        // Миграции для совместимости
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inventory JSONB DEFAULT '[]'`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_top_up INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`); } catch(e){}
-        // НОВЫЕ КОЛОНКИ
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`); } catch(e){}
         
-        // Первоначальное заполнение (только если пусто)
+        // Заливка начальных данных
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
         if (parseInt(prizeCount.rows[0].count) === 0) {
             console.log('🌱 Заливка начальных призов...');
@@ -157,24 +142,22 @@ app.get('/api/config', async (req, res) => {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
         const cases = await pool.query('SELECT * FROM cases ORDER BY price ASC');
         
-        // Фильтрация кейсов: Скрываем те, где лимит исчерпан
+        // Скрываем кейсы, у которых закончился лимит
         const activeCases = cases.rows.filter(c => {
             if (c.max_activations > 0 && c.current_activations >= c.max_activations) {
-                return false; // Лимит достигнут, скрываем
+                return false;
             }
             return true;
         });
 
         const mappedCases = activeCases.map(c => {
             let items = c.prize_ids;
-            // Обработка старого формата (массив строк) -> новый формат (объекты с шансом)
             if (Array.isArray(items) && items.length > 0 && typeof items[0] === 'string') {
                 items = items.map(pid => {
                     const p = prizes.rows.find(pz => pz.id === pid);
                     return { id: pid, chance: p ? p.chance : 0 };
                 });
             }
-            
             return {
                 id: c.id, 
                 name: c.name, 
@@ -183,7 +166,7 @@ app.get('/api/config', async (req, res) => {
                 prizeIds: items,
                 isPromo: c.is_promo,
                 tag: c.tag || 'common',
-                promoCode: c.promo_code,           // Передаем клиенту (для проверки)
+                promoCode: c.promo_code,
                 maxActivations: c.max_activations,
                 currentActivations: c.current_activations
             };
@@ -193,18 +176,16 @@ app.get('/api/config', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// НОВЫЙ ЭНДПОИНТ: Фиксация прокрута кейса
+// Спин (увеличение счетчика прокрутов)
 app.post('/api/case/spin', async (req, res) => {
     const { caseId } = req.body;
     try {
-        // Проверяем лимиты перед спином
         const check = await pool.query('SELECT max_activations, current_activations FROM cases WHERE id = $1', [caseId]);
         if (check.rows.length > 0) {
             const c = check.rows[0];
             if (c.max_activations > 0 && c.current_activations >= c.max_activations) {
                 return res.status(400).json({ error: 'Case limit reached' });
             }
-            // Увеличиваем счетчик
             await pool.query('UPDATE cases SET current_activations = current_activations + 1 WHERE id = $1', [caseId]);
         }
         res.json({ success: true });
@@ -247,20 +228,22 @@ app.post('/api/admin/user/balance', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ОБНОВЛЕНО: Создание кейса с картинкой и новыми полями
+// СОЗДАНИЕ КЕЙСА (Base64 Картинка)
 app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) => {
     const { name, price, prizeIds, tag, isPromo, promoCode, maxActivations } = req.body;
     const id = `case_${Date.now()}`;
     
     let imagePath = '/images/case.png';
+    
+    // Если файл загружен, конвертируем его в Base64
     if (req.file) {
-        imagePath = `/uploads/${req.file.filename}`;
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        const mimeType = req.file.mimetype; 
+        imagePath = `data:${mimeType};base64,${b64}`;
     }
 
     try {
-        // FormData передает JSON как строку, парсим обратно
         const parsedPrizeIds = JSON.parse(prizeIds);
-        
         const r = await pool.query(
             'INSERT INTO cases (id, name, image, price, prize_ids, tag, is_promo, promo_code, max_activations) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *', 
             [id, name, imagePath, price, JSON.stringify(parsedPrizeIds), tag, isPromo === 'true', promoCode, maxActivations || 0]
@@ -269,18 +252,21 @@ app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) 
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ОБНОВЛЕНО: Обновление кейса с картинкой и новыми полями
+// ОБНОВЛЕНИЕ КЕЙСА (Base64 Картинка)
 app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) => {
     const { id, name, price, prizeIds, tag, isPromo, promoCode, maxActivations, existingImage } = req.body;
 
     let imagePath = existingImage;
+    
+    // Если загружен новый файл - берем его
     if (req.file) {
-        imagePath = `/uploads/${req.file.filename}`;
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        const mimeType = req.file.mimetype;
+        imagePath = `data:${mimeType};base64,${b64}`;
     }
 
     try {
         const parsedPrizeIds = JSON.parse(prizeIds);
-        
         const r = await pool.query(
             'UPDATE cases SET name=$1, price=$2, prize_ids=$3, tag=$4, image=$5, is_promo=$6, promo_code=$7, max_activations=$8 WHERE id=$9 RETURNING *', 
             [name, price, JSON.stringify(parsedPrizeIds), tag, imagePath, isPromo === 'true', promoCode, maxActivations || 0, id]
