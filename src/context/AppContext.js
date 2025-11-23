@@ -15,14 +15,16 @@ export const AppProvider = ({ children }) => {
     const [history, setHistory] = useState([]);
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
-    // 1. ЗАГРУЗКА КОНФИГУРАЦИИ (КЕЙСЫ И ПРЕДМЕТЫ)
-    // Выносим в отдельную функцию, чтобы можно было вызывать из Админки для обновления
+    // 1. ЗАГРУЗКА КОНФИГУРАЦИИ
     const refreshConfig = useCallback(() => {
         fetch('/api/config')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('Config load failed');
+                return res.json();
+            })
             .then(data => {
-                setAllPrizes(data.prizes);
-                setCases(data.cases);
+                setAllPrizes(data.prizes || []);
+                setCases(data.cases || []);
                 setIsConfigLoaded(true);
             })
             .catch(err => console.error("Config fetch error:", err));
@@ -39,7 +41,7 @@ export const AppProvider = ({ children }) => {
             if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
                 tgUser = window.Telegram.WebApp.initDataUnsafe.user;
             } else {
-                // Фейк юзер для браузера (для тестов)
+                // Фейк юзер для браузера
                 tgUser = { id: 123456789, first_name: 'Test', username: 'browser_user', photo_url: null };
             }
 
@@ -54,12 +56,18 @@ export const AppProvider = ({ children }) => {
                         photo_url: tgUser.photo_url
                     })
                 });
-                const userData = await res.json();
-                
-                setUser(userData); // id, name, etc...
-                setBalance(userData.balance);
-                setInventory(userData.inventory || []);
-                setHistory(userData.history || []);
+
+                // ИСПРАВЛЕНИЕ: Проверяем, что сервер ответил успешно (200 OK)
+                if (res.ok) {
+                    const userData = await res.json();
+                    setUser(userData); 
+                    // ИСПРАВЛЕНИЕ: Защита от null/undefined
+                    setBalance(userData.balance ?? 0);
+                    setInventory(userData.inventory || []);
+                    setHistory(userData.history || []);
+                } else {
+                    console.error("Server error during sync:", res.status);
+                }
             } catch (err) {
                 console.error("User sync error:", err);
             }
@@ -70,8 +78,7 @@ export const AppProvider = ({ children }) => {
         }
     }, [isConfigLoaded]);
 
-    // 3. СОХРАНЕНИЕ ДАННЫХ ПРИ ИЗМЕНЕНИИ
-    // (Дебаунс сохранение, чтобы не спамить сервер)
+    // 3. СОХРАНЕНИЕ ДАННЫХ
     useEffect(() => {
         if (!user) return;
         const timer = setTimeout(() => {
@@ -85,14 +92,13 @@ export const AppProvider = ({ children }) => {
                     history
                 })
             }).catch(e => console.error("Save error:", e));
-        }, 1000); // Сохраняем через 1 сек после последнего изменения
+        }, 1000);
 
         return () => clearTimeout(timer);
     }, [balance, inventory, history, user]);
 
     // --- ФУНКЦИИ ---
 
-    // Админка: обновление локального стейта кейсов (сервер уже обновлен админкой)
     const updateCaseData = useCallback((updatedCase) => {
         setCases(prev => prev.map(c => c.id === updatedCase.id ? updatedCase : c));
     }, []);
@@ -178,7 +184,7 @@ export const AppProvider = ({ children }) => {
         isTopUpModalOpen,
         openTopUpModal,
         closeTopUpModal,
-        refreshConfig // <-- Добавили для админки
+        refreshConfig
     };
 
     return (
