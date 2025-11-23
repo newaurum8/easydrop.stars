@@ -17,30 +17,41 @@ const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ';
 // 3. База данных
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
 
-// 4. URL вашего приложения (Взято из ваших логов Render)
-// Если вы используете переменную окружения APP_URL в Render, она будет приоритетной
+// 4. URL вашего приложения
 const APP_URL = process.env.APP_URL || 'https://easydrop-stars-1.onrender.com';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // --- ИНИЦИАЛИЗАЦИЯ БОТА (WEBHOOK) ---
-// ВАЖНО: polling должен быть false, чтобы не было конфликта (ошибка 409)
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
 app.use(cors());
 app.use(express.json());
 
-// --- МАРШРУТ ДЛЯ WEBHOOK (Принимает обновления от Telegram) ---
+// --- МАРШРУТ ДЛЯ WEBHOOK ---
 app.post(`/bot${BOT_TOKEN}`, (req, res) => {
     bot.processUpdate(req.body);
     res.sendStatus(200);
 });
 
-// --- ПОДКЛЮЧЕНИЕ К БД ---
+// --- ПОДКЛЮЧЕНИЕ К БД (ИСПРАВЛЕНО) ---
+// Важно: rejectUnauthorized: false нужен для Neon DB на Render
 const pool = new Pool({
     connectionString: DATABASE_URL,
-    ssl: true
+    ssl: {
+        rejectUnauthorized: false 
+    }
+});
+
+// Проверка подключения при старте
+pool.connect((err, client, release) => {
+    if (err) {
+        console.error('❌ Ошибка подключения к БД:', err.message);
+    } else {
+        console.log('✅ Успешное подключение к БД');
+        release();
+    }
 });
 
 // --- ДАННЫЕ ДЛЯ ИНИЦИАЛИЗАЦИИ (SEEDING) ---
@@ -125,6 +136,7 @@ const initDB = async () => {
             );
         `);
         
+        // Миграции
         try {
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`);
@@ -155,7 +167,7 @@ const initDB = async () => {
         }
         console.log('>>> DB initialized successfully');
     } catch (err) { 
-        console.error('DB Init Error:', err); 
+        console.error('❌ DB Init Error:', err); 
     }
 };
 
@@ -202,10 +214,7 @@ async function creditUserBalance(userId, amount, txHash, currency) {
     }
 }
 
-// ==================================================
-// === ОБРАБОТЧИКИ TELEGRAM (STARS) ===
-// ==================================================
-
+// --- TELEGRAM HANDLERS ---
 bot.on('pre_checkout_query', async (query) => {
     try {
         await bot.answerPreCheckoutQuery(query.id, true);
@@ -215,8 +224,6 @@ bot.on('pre_checkout_query', async (query) => {
     }
 });
 
-// Обработка успешного платежа
-// Важно: При использовании Webhook это сообщение также приходит через bot.processUpdate
 bot.on('message', async (msg) => {
     if (msg.successful_payment) {
         const payment = msg.successful_payment;
@@ -233,9 +240,7 @@ bot.on('message', async (msg) => {
     }
 });
 
-// ==================================================
-// === API ENDPOINTS ===
-// ==================================================
+// --- API ENDPOINTS ---
 
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, userId } = req.body;
@@ -248,7 +253,7 @@ app.post('/api/create-invoice', async (req, res) => {
             title, 
             description, 
             JSON.stringify({ userId, amount, ts: Date.now() }), 
-            "", // Provider token пустой для Stars
+            "", 
             "XTR", 
             [{ label: "Stars", amount: parseInt(amount) }]
         );
@@ -279,6 +284,7 @@ app.post('/api/verify-ton-payment', async (req, res) => {
     }
 });
 
+// Конфигурация (Кейсы и Призы)
 app.get('/api/config', async (req, res) => {
     try {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
@@ -294,9 +300,13 @@ app.get('/api/config', async (req, res) => {
             tag: c.tag || 'common'
         }));
         res.json({ prizes: prizes.rows, cases: mappedCases });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error('❌ Error /api/config:', err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
+// Синхронизация пользователя
 app.post('/api/user/sync', async (req, res) => {
     const { id, first_name, username, photo_url } = req.body;
     try {
@@ -309,7 +319,10 @@ app.post('/api/user/sync', async (req, res) => {
         `;
         const result = await pool.query(query, [id, first_name, username, photo_url]);
         res.json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error('❌ Error /api/user/sync:', err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/user/save', async (req, res) => {
@@ -320,12 +333,13 @@ app.post('/api/user/save', async (req, res) => {
             [balance, JSON.stringify(inventory), JSON.stringify(history), id]
         );
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error('Error /api/user/save:', err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
-// ==================================================
-// === АДМИНСКИЕ API ===
-// ==================================================
+// --- АДМИНСКИЕ API ---
 
 app.get('/api/admin/user/:id', async (req, res) => {
     try {
@@ -387,23 +401,19 @@ app.post('/api/admin/prize/update', async (req, res) => {
 
 // --- ЗАПУСК СЕРВЕРА ---
 
-// Раздача статики (React Frontend)
 app.use(express.static(path.join(__dirname, '..', 'build')));
-
-// Любой другой запрос отправляет index.html (для React Router)
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
 
-// Запуск сервера + Установка вебхука
 app.listen(PORT, async () => {
     console.log(`Server started on port ${PORT}`);
     
-    // Устанавливаем Webhook для Telegram
+    // Установка вебхука
     try {
         const webhookUrl = `${APP_URL}/bot${BOT_TOKEN}`;
+        console.log('Setting Webhook to:', webhookUrl);
         await bot.setWebHook(webhookUrl);
-        console.log(`>>> Webhook успешно установлен на: ${webhookUrl}`);
+        console.log(`>>> Webhook установлен на: ${webhookUrl}`);
     } catch (error) {
         console.error('>>> Ошибка установки Webhook:', error.message);
     }
 });
-
