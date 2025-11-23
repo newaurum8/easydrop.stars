@@ -9,7 +9,7 @@ const { TonClient, Cell } = require('ton');
 // --- КОНФИГУРАЦИЯ ---
 
 // 1. Токен бота (Укажите свой токен)
-const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAH4r5kWjNvBpMgmcg3F7JClrTu64QASXJg'; 
+const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAFWYi3WOr05YliMALym8klSl5zX8qK01tQ'; 
 
 // 2. Кошелек админа (Для справки, переводы идут на кошелек, указанный в клиенте)
 const ADMIN_WALLET_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ'; 
@@ -408,3 +408,4 @@ app.use(express.static(path.join(__dirname, '..', 'build')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
 
 app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+
