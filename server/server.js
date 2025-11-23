@@ -36,7 +36,7 @@ app.post(`/bot${BOT_TOKEN}`, (req, res) => {
 });
 
 // --- ПОДКЛЮЧЕНИЕ К БД (ИСПРАВЛЕНО) ---
-// Важно: rejectUnauthorized: false нужен для Neon DB на Render
+// ВАЖНО: rejectUnauthorized: false обязателен для Neon/Render, иначе будет ошибка 500
 const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: {
@@ -44,10 +44,10 @@ const pool = new Pool({
     }
 });
 
-// Проверка подключения при старте
+// Проверка подключения при старте (вывод ошибки в консоль Render)
 pool.connect((err, client, release) => {
     if (err) {
-        console.error('❌ Ошибка подключения к БД:', err.message);
+        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА БД:', err.message);
     } else {
         console.log('✅ Успешное подключение к БД');
         release();
@@ -136,7 +136,6 @@ const initDB = async () => {
             );
         `);
         
-        // Миграции
         try {
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
             await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`);
@@ -167,7 +166,7 @@ const initDB = async () => {
         }
         console.log('>>> DB initialized successfully');
     } catch (err) { 
-        console.error('❌ DB Init Error:', err); 
+        console.error('❌ DB Init Error:', err.message); // Выводим точную ошибку
     }
 };
 
@@ -301,7 +300,7 @@ app.get('/api/config', async (req, res) => {
         }));
         res.json({ prizes: prizes.rows, cases: mappedCases });
     } catch (err) { 
-        console.error('❌ Error /api/config:', err.message);
+        console.error('❌ Error /api/config:', err.message); // Логирование ошибки
         res.status(500).json({ error: err.message }); 
     }
 });
@@ -320,7 +319,7 @@ app.post('/api/user/sync', async (req, res) => {
         const result = await pool.query(query, [id, first_name, username, photo_url]);
         res.json(result.rows[0]);
     } catch (err) { 
-        console.error('❌ Error /api/user/sync:', err.message);
+        console.error('❌ Error /api/user/sync:', err.message); // Логирование ошибки
         res.status(500).json({ error: err.message }); 
     }
 });
