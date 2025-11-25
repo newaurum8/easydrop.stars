@@ -1,6 +1,9 @@
 /* src/styles/upgrade.css */
 
-/* --- ГЛАВНЫЙ КОНТЕЙНЕР --- */
+/* =========================================
+   1. ГЛАВНЫЙ КОНТЕЙНЕР И ЗАГОЛОВОК
+   ========================================= */
+
 .upgrade-content {
     display: flex;
     flex-direction: column;
@@ -20,7 +23,10 @@
     opacity: 0.6;
 }
 
-/* --- ЦЕНТРАЛЬНАЯ СЦЕНА (КОЛЕСО) --- */
+/* =========================================
+   2. ЦЕНТРАЛЬНАЯ СЦЕНА (КОЛЕСО И СТАТИСТИКА)
+   ========================================= */
+
 .upgrade-center-stage {
     position: relative;
     width: 100%;
@@ -29,7 +35,7 @@
     padding: 10px 0;
 }
 
-/* Фоновое свечение за колесом */
+/* Фоновое свечение за колесом ("Реактор") */
 .wheel-glow-backdrop {
     position: absolute;
     top: 50%; left: 50%;
@@ -52,7 +58,7 @@
     z-index: 1;
 }
 
-/* Статистика (HUD стиль) */
+/* Статистика (Слева и Справа) */
 .stat-display {
     display: flex; flex-direction: column; gap: 4px;
     width: 80px;
@@ -82,7 +88,7 @@
     padding: 4px;
     box-sizing: border-box;
     
-    /* Градиентная рамка */
+    /* Градиентная рамка, зависящая от шанса (JS меняет --chance) */
     background: conic-gradient(#00aaff 0%, #00aaff var(--chance, 0%), #232b34 var(--chance, 0%), #232b34 100%);
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
@@ -90,7 +96,7 @@
 .wheel-outer-ring {
     width: 100%; height: 100%;
     border-radius: 50%;
-    background-color: #1a2126;
+    background-color: #1a2126; /* Темный фон между рамкой и центром */
     display: flex; justify-content: center; align-items: center;
     padding: 4px;
     box-sizing: border-box;
@@ -104,14 +110,14 @@
     display: flex; justify-content: center; align-items: center;
     box-sizing: border-box;
     position: relative;
-    overflow: hidden;
+    overflow: hidden; /* Чтобы эффекты не вылезали */
     box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
 }
 
 /* Стрелка */
 .wheel-indicator-container {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    transition: transform 4s cubic-bezier(0.2, 0.8, 0.3, 1);
+    transition: transform 4s cubic-bezier(0.2, 0.8, 0.3, 1); /* Плавное торможение */
     pointer-events: none;
 }
 .wheel-indicator-arrow {
@@ -125,7 +131,11 @@
     z-index: 10;
 }
 
-/* ИЗОБРАЖЕНИЕ В ЦЕНТРЕ */
+/* =========================================
+   3. АНИМАЦИИ ПРЕДМЕТА И ЭФФЕКТЫ
+   ========================================= */
+
+/* Предмет в центре */
 .wheel-item {
     width: 60%; height: auto;
     transition: opacity 0.3s ease, transform 0.3s ease;
@@ -136,7 +146,7 @@
 }
 .wheel-item.is-fading { opacity: 0; transform: scale(0.8); }
 
-/* --- АНИМАЦИЯ ПОБЕДЫ (СИНИЙ ВЗРЫВ) --- */
+/* --- ПОБЕДА (СИНИЙ ВЗРЫВ) --- */
 .wheel-item.roll-success {
     animation: simpleSuccess 0.6s ease-out forwards;
 }
@@ -146,7 +156,7 @@
     100% { transform: scale(1.2); filter: drop-shadow(0 0 20px #00e5ff) brightness(1.1); }
 }
 
-/* --- АНИМАЦИЯ ПРОИГРЫША (МЕДЛЕННОЕ ИСЧЕЗНОВЕНИЕ БЕЗ СЕРОГО) --- */
+/* --- ПРОИГРЫШ (ИСЧЕЗНОВЕНИЕ) --- */
 .wheel-item.roll-fail {
     animation: disappearFail 1.5s ease-in-out forwards;
 }
@@ -154,20 +164,21 @@
     0% { 
         opacity: 1; 
         transform: scale(1);
+        /* Нормальный цвет */
     }
     20% {
         opacity: 1;
-        transform: scale(1.05);
-        /* Красная подсветка (без grayscale) */
+        transform: scale(1.05); /* Легкий "вздох" */
+        /* Легкая красная подсветка, но БЕЗ серого фильтра */
         filter: drop-shadow(0 0 10px #ff1744); 
     }
     100% { 
         opacity: 0; 
-        transform: scale(0.2) rotate(20deg);
+        transform: scale(0.2) rotate(20deg); /* Сжатие */
     }
 }
 
-/* --- ЭФФЕКТЫ РЕЗУЛЬТАТА (ФОН) --- */
+/* --- ФОНОВЫЕ ЭФФЕКТЫ (ВСПЫШКА/ВОЛНА) --- */
 .result-effect {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     width: 100%; height: 100%; pointer-events: none; z-index: 1;
@@ -178,13 +189,15 @@
 }
 .effect-wave {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
-    width: 100%; height: 100%; border-radius: 50%; opacity: 0; border: 2px solid transparent;
+    width: 100%; height: 100%; border-radius: 50%; opacity: 0;
+    border: 2px solid transparent;
     animation: waveEffect 0.8s ease-out forwards;
 }
 
-/* Цвета */
+/* Цвета эффектов */
 .result-effect.success .effect-flash { background: radial-gradient(circle, rgba(0, 229, 255, 0.6) 0%, transparent 70%); }
 .result-effect.success .effect-wave { border-color: #00e5ff; box-shadow: 0 0 20px #00e5ff; }
+
 .result-effect.fail .effect-flash { background: radial-gradient(circle, rgba(255, 23, 68, 0.5) 0%, transparent 70%); }
 .result-effect.fail .effect-wave { border-color: #ff1744; box-shadow: 0 0 15px #ff1744; }
 
@@ -199,25 +212,29 @@
     100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); border-width: 0px; }
 }
 
-/* --- ЗОНА ВЫБОРА (PREMIUM CARDS) --- */
+
+/* =========================================
+   4. ЗОНА ВЫБОРА (КВАДРАТЫ И СТРЕЛКА)
+   ========================================= */
+
 .selection-area {
     display: flex;
     align-items: center;
-    /* Центрируем контент, чтобы одиночный слот был по центру */
-    justify-content: center; 
+    justify-content: center; /* Центрируем содержимое */
     width: 100%;
     gap: 12px;
     padding: 0 16px;
     box-sizing: border-box;
+    min-height: 130px; /* Фиксируем высоту зоны */
 }
 
+/* Квадраты (Слоты) */
 .selection-box {
-    /* Фиксированные размеры для красивого вида */
-    flex: 0 1 140px; 
-    min-width: 120px;
+    flex: 1;
+    min-width: 100px; /* Чтобы не сжимались */
     height: 130px;
-    background: rgba(44, 54, 65, 0.5);
-    backdrop-filter: blur(10px);
+    background: rgba(44, 54, 65, 0.5); /* Полупрозрачный фон */
+    backdrop-filter: blur(10px); /* Эффект стекла */
     border: 1px solid rgba(255,255,255,0.05);
     border-radius: 16px;
     display: flex;
@@ -239,12 +256,14 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* Активное состояние (подсветка выбранного таба) */
 .selection-box.active-focus {
     border-color: rgba(255,255,255,0.3);
     background: rgba(44, 54, 65, 0.8);
     box-shadow: 0 0 15px rgba(0,0,0,0.2);
 }
 
+/* Состояние: Заполнено */
 .selection-box.filled {
     background: linear-gradient(145deg, #232a31, #1a2025);
 }
@@ -262,7 +281,7 @@
     font-size: 14px; font-weight: 700; color: #00aaff; z-index: 1; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 8px;
 }
 
-.placeholder-content { display: flex; flex-direction: column; align-items: center; color: #5f6e7c; z-index: 1; }
+.placeholder-content { display: flex; flex-direction: column; align-items: center; color: #5f6e7c; z-index: 1; text-align: center; }
 .plus-icon { font-size: 28px; margin-bottom: 4px; opacity: 0.5; }
 
 /* Стрелка */
@@ -270,39 +289,136 @@
     color: #3a4552;
     font-size: 24px;
     font-weight: bold;
-    opacity: 0;
-    transform: translateX(-10px);
-    animation: arrowFadeIn 0.3s ease-out forwards;
+    opacity: 0.5;
+    transition: all 0.3s ease;
 }
 .upgrade-arrow.active {
     color: #ffc107;
+    opacity: 1;
     text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
-    animation: pulseArrow 1s infinite;
 }
 
-@keyframes arrowFadeIn {
-    to { opacity: 1; transform: translateX(0); }
-}
-@keyframes pulseArrow {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.2); opacity: 0.7; }
-}
 
-/* --- КНОПКА --- */
+/* =========================================
+   5. ГЛАВНАЯ КНОПКА
+   ========================================= */
+
 .upgrade-button-main {
-    width: calc(100% - 32px); padding: 18px; background: linear-gradient(90deg, #0088cc, #00aaff); color: white; border: none; border-radius: 14px; font-size: 16px; font-weight: 800; letter-spacing: 1px; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4); transition: transform 0.1s, box-shadow 0.2s, filter 0.2s; text-transform: uppercase;
+    width: calc(100% - 32px);
+    padding: 18px;
+    background: linear-gradient(90deg, #0088cc, #00aaff);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
+    transition: transform 0.1s, box-shadow 0.2s, filter 0.2s;
+    text-transform: uppercase;
 }
-.upgrade-button-main:disabled { background: #3a4552; box-shadow: none; color: #8a99a8; cursor: not-allowed; }
-.upgrade-button-main:active:not(:disabled) { transform: scale(0.98); box-shadow: 0 2px 5px rgba(0, 136, 204, 0.4); }
+.upgrade-button-main:disabled {
+    background: #3a4552;
+    box-shadow: none;
+    color: #8a99a8;
+    cursor: not-allowed;
+}
+.upgrade-button-main:active:not(:disabled) {
+    transform: scale(0.98);
+    box-shadow: 0 2px 5px rgba(0, 136, 204, 0.4);
+}
 
-/* --- ИНВЕНТАРЬ --- */
-.inventory-section { width: 100%; background: #161b22; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 16px; box-sizing: border-box; flex: 1; min-height: 300px; }
-.inventory-tabs { display: flex; background: #0d1117; padding: 4px; border-radius: 12px; margin-bottom: 16px; }
-.tab-btn { flex: 1; padding: 10px; border: none; background: transparent; color: #8b949e; font-weight: 600; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
-.tab-btn.active { background: #232b34; color: #e0e0e0; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-.inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto; padding-bottom: 20px; }
-.inventory-item { background: #232b34; border-radius: 10px; padding: 6px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+
+/* =========================================
+   6. ИНВЕНТАРЬ И СПИСКИ
+   ========================================= */
+
+.inventory-section {
+    width: 100%;
+    background: #161b22;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    padding: 16px;
+    box-sizing: border-box;
+    flex: 1; /* Занимает остаток высоты экрана */
+    min-height: 300px;
+}
+
+.inventory-tabs {
+    display: flex;
+    background: #0d1117;
+    padding: 4px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+}
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: #8b949e;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.tab-btn.active {
+    background: #232b34;
+    color: #e0e0e0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-bottom: 20px;
+}
+
+.inventory-item {
+    background: #232b34;
+    border-radius: 10px;
+    padding: 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+}
 .inventory-item img { width: 50px; height: 50px; object-fit: contain; }
 .inventory-item .item-value { font-size: 11px; color: #e0e0e0; font-weight: 600; }
 .inventory-item .item-value img { width: 12px; height: 12px; margin-right: 2px; }
-.inventory-item.active-border { border-color: #00aaff; background: rgba(0, 170, 255, 0.1); }
+
+.inventory-item.active-border {
+    border-color: #00aaff;
+    background: rgba(0, 170, 255, 0.1);
+}
+
+/* --- КРАСИВОЕ ПУСТОЕ СОСТОЯНИЕ (Без рамок) --- */
+.empty-state-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #5f6e7c;
+    text-align: center;
+    opacity: 0.8;
+}
+.empty-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+.empty-state-container p {
+    margin: 0 0 4px 0;
+    font-weight: 600;
+    color: #8a99a8;
+}
+.empty-state-container span {
+    font-size: 12px;
+    opacity: 0.6;
+    max-width: 200px;
+}
