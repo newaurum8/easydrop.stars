@@ -2,7 +2,6 @@ import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 
-// --- МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ (Без изменений) ---
 const ResultsModal = ({ winners, onClose }) => {
     const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -58,7 +57,6 @@ const ResultsModal = ({ winners, onClose }) => {
     );
 };
 
-// --- КОМПОНЕНТ КАРУСЕЛИ (Без изменений) ---
 const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
     const totalCarouselItems = 100;
     const stopIndex = 80;
@@ -82,10 +80,9 @@ const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
     );
 });
 
-// --- ОСНОВНОЙ КОМПОНЕНТ СТРАНИЦЫ ---
 const CasePage = () => {
     const { caseId } = useParams();
-    // ИЗМЕНЕНИЕ: Добавили user в деструктуризацию
+    // ВАЖНО: берем user из контекста
     const { user, balance, updateBalance, addToInventory, addToHistory, getWeightedRandomPrize, ALL_CASES, ALL_PRIZES } = useContext(AppContext);
 
     const currentCase = useMemo(() => ALL_CASES.find(c => c.id === caseId), [caseId, ALL_CASES]);
@@ -192,14 +189,14 @@ const CasePage = () => {
             updateBalance(-cost);
         }
 
-        // ИЗМЕНЕНИЕ: Отправляем userId и quantity
         try {
+            // ВАЖНО: Отправляем userId и quantity на сервер
             const res = await fetch('/api/case/spin', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
                     caseId: currentCase.id,
-                    userId: user ? user.id : null,
+                    userId: user ? user.id : null, 
                     quantity: quantity
                 })
             });
@@ -209,7 +206,7 @@ const CasePage = () => {
                 if (!currentCase.isPromo) updateBalance(currentCase.price * quantity);
                 return alert('К сожалению, лимит активаций этого кейса исчерпан.');
             } else {
-                setLocalActivations(prev => prev + quantity); // Обновляем локально на +quantity
+                setLocalActivations(prev => prev + quantity); 
             }
         } catch (e) {
             console.error(e);
