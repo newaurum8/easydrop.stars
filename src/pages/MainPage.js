@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 import '../styles/home.css';
@@ -7,55 +7,91 @@ import '../styles/home.css';
 const LiveFeed = () => {
     const { ALL_PRIZES } = useContext(AppContext);
     const [feed, setFeed] = useState([]);
+    
+    // Рефы для реализации перетаскивания (Drag-to-Scroll)
+    const scrollRef = useRef(null);
+    const isDragging = useRef(false);
+    const startX = useRef(0);
+    const scrollLeft = useRef(0);
 
     useEffect(() => {
         if (!ALL_PRIZES || ALL_PRIZES.length === 0) return;
 
-        // Инициализация ленты: создаем массив с уникальными ID
-        // uniqueId нужен, чтобы React понимал, какой элемент новый, а какие сдвинулись
+        // Инициализация ленты уникальными ID
         const initialFeed = Array(20).fill(null).map((_, index) => ({
             ...ALL_PRIZES[Math.floor(Math.random() * ALL_PRIZES.length)],
             uniqueId: Date.now() - index 
         }));
         setFeed(initialFeed);
 
-        // Интервал добавления новых предметов
+        // Ускоренный таймер (1500мс = 1.5 секунды)
         const interval = setInterval(() => {
+            // Если пользователь держит ленту мышкой, не обновляем, чтобы не сбивать
+            if (isDragging.current) return;
+
             setFeed(prev => {
                 const newItem = {
                     ...ALL_PRIZES[Math.floor(Math.random() * ALL_PRIZES.length)],
-                    uniqueId: Date.now() // Новый уникальный ID
+                    uniqueId: Date.now() 
                 };
-                // Добавляем новый в начало, обрезаем хвост
+                // Добавляем новый элемент в начало и удаляем последний
                 return [newItem, ...prev.slice(0, 19)];
             });
-        }, 3000); // Интервал 3 секунды
+        }, 1500);
 
         return () => clearInterval(interval);
     }, [ALL_PRIZES]);
 
-    // Яркие неоновые цвета для редкости
+    // Яркие цвета редкости
     const getRarityColor = (val) => {
-        if (val >= 50000) return '#FFD700'; // Gold (Legendary)
-        if (val >= 10000) return '#ff4081'; // Pink (Epic)
-        if (val >= 2000) return '#b388ff';  // Purple (Rare)
-        return '#40c4ff';                   // Blue (Common)
+        if (val >= 50000) return '#FFD700'; // Gold
+        if (val >= 10000) return '#ff4081'; // Pink
+        if (val >= 2000) return '#b388ff';  // Purple
+        return '#40c4ff';                   // Blue
+    };
+
+    // --- ОБРАБОТЧИКИ ПЕРЕТАСКИВАНИЯ ---
+    const startDragging = (e) => {
+        isDragging.current = true;
+        startX.current = e.pageX - scrollRef.current.offsetLeft;
+        scrollLeft.current = scrollRef.current.scrollLeft;
+    };
+
+    const stopDragging = () => {
+        isDragging.current = false;
+    };
+
+    const onDrag = (e) => {
+        if (!isDragging.current) return;
+        e.preventDefault();
+        const x = e.pageX - scrollRef.current.offsetLeft;
+        const walk = (x - startX.current) * 2; // Коэффициент скорости прокрутки
+        scrollRef.current.scrollLeft = scrollLeft.current - walk;
     };
 
     return (
         <div className="live-feed-container">
-            <div className="live-label">Live Drops</div>
-            <div className="live-track">
+            {/* Вертикальный лейбл с мигающей точкой */}
+            <div className="live-label">LIVE</div>
+            
+            <div 
+                className="live-track"
+                ref={scrollRef}
+                onMouseDown={startDragging}
+                onMouseLeave={stopDragging}
+                onMouseUp={stopDragging}
+                onMouseMove={onDrag}
+            >
                 {feed.map((item, i) => {
                     const color = getRarityColor(item.value);
                     return (
                         <div 
                             key={item.uniqueId} 
-                            // Добавляем класс анимации только первому элементу
+                            // Класс new-item только первому элементу для анимации появления
                             className={`live-card ${i === 0 ? 'new-item' : ''}`}
                             style={{ '--rarity-color': color }} 
                         >
-                            <img src={item.image} alt="" />
+                            <img src={item.image} alt="" draggable="false" />
                         </div>
                     );
                 })}
