@@ -404,7 +404,7 @@ app.post('/api/case/spin', async (req, res) => {
         console.error(err);
         res.status(500).json({ error: err.message }); 
     }
-});ы
+});
 
 // --- ЗАПУСК ---
 app.use(express.static(path.join(__dirname, '..', 'build')));
@@ -414,5 +414,6 @@ app.listen(PORT, async () => {
     console.log(`Server started on port ${PORT}`);
     try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`Webhook OK`); } catch (e) { console.error(e.message); }
 });
+
 
 
