@@ -18,14 +18,11 @@ const LeadersPage = () => {
             });
     }, []);
 
-    // Разбиваем на Топ-3 (для подиума) и остальных (для списка)
-    // Порядок для подиума визуально: 2 место, 1 место, 3 место
     const top1 = leaders[0];
     const top2 = leaders[1];
     const top3 = leaders[2];
     const restList = leaders.slice(3);
 
-    // Компонент одного места на подиуме
     const PodiumItem = ({ user, rank }) => {
         if (!user) return <div className={`podium-item rank-${rank} empty`}></div>;
         
@@ -46,11 +43,11 @@ const LeadersPage = () => {
                     <div className="podium-name">{user.first_name}</div>
                     <div className="podium-score">
                         <img src="/images/stars.png" alt="" className="star-icon small" />
-                        <span>{(user.total_spent || 0).toLocaleString()}</span>
+                        {/* parseInt решает проблему, если число пришло строкой */}
+                        <span>{parseInt(user.total_spent || 0).toLocaleString()}</span>
                     </div>
                 </div>
                 
-                {/* Визуальный пьедестал (блок снизу) */}
                 <div className="podium-base"></div>
             </div>
         );
@@ -66,15 +63,12 @@ const LeadersPage = () => {
                 <div className="empty-leaders">Пока пусто</div>
             ) : (
                 <>
-                    {/* СЕКЦИЯ ПОДИУМА (Топ 3) */}
                     <div className="podium-container">
-                        {/* Порядок в коде: 2, 1, 3 - чтобы 1 был посередине через flex order или просто структурой */}
                         <PodiumItem user={top2} rank={2} />
                         <PodiumItem user={top1} rank={1} />
                         <PodiumItem user={top3} rank={3} />
                     </div>
 
-                    {/* СПИСОК ОСТАЛЬНЫХ (4-10) */}
                     <div className="leaderboard-list">
                         {restList.map((user, i) => {
                             const rank = i + 4;
@@ -91,7 +85,7 @@ const LeadersPage = () => {
                                     <div className="list-name">{user.first_name}</div>
                                     <div className="list-score">
                                         <img src="/images/stars.png" alt="" className="star-icon small" />
-                                        <span>{(user.total_spent || 0).toLocaleString()}</span>
+                                        <span>{parseInt(user.total_spent || 0).toLocaleString()}</span>
                                     </div>
                                 </div>
                             );
