@@ -31,7 +31,7 @@ const LeadersPage = () => {
         <main className="leaders-content">
             <div className="leaders-header">
                 <h2>Топ 10 Лидеров</h2>
-                <p>Самые активные участники проекта</p>
+                <p>Потрачено звезд за всё время</p>
             </div>
 
             {isLoading ? (
@@ -69,7 +69,8 @@ const LeadersPage = () => {
                                 <div className="leader-right">
                                     <div className="score-badge">
                                         <img src="/images/stars.png" alt="" className="star-icon small" />
-                                        <span>{(user.total_top_up || 0).toLocaleString()}</span>
+                                        {/* Вывод потраченного (total_spent) */}
+                                        <span>{(user.total_spent || 0).toLocaleString()}</span>
                                     </div>
                                 </div>
                             </div>
