@@ -98,6 +98,7 @@ const initDB = async () => {
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`); } catch(e){}
+        try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent BIGINT DEFAULT 0`); } catch(e){}
         
         // Заливка начальных данных (если таблицы пустые)
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
@@ -356,6 +357,55 @@ bot.on('message', async (msg) => {
     }
 });
 
+app.get('/api/leaders', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT first_name, photo_url, total_spent 
+            FROM users 
+            ORDER BY total_spent DESC 
+            LIMIT 10
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// === 2. ОБНОВЛЕННЫЙ ЕНДПОИНТ ОТКРЫТИЯ КЕЙСА ===
+// Теперь он принимает userId и quantity, чтобы записать траты
+app.post('/api/case/spin', async (req, res) => {
+    const { caseId, userId, quantity } = req.body; 
+    
+    try {
+        // Получаем цену и лимиты кейса
+        const check = await pool.query('SELECT price, max_activations, current_activations FROM cases WHERE id = $1', [caseId]);
+        if (check.rows.length > 0) {
+            const c = check.rows[0];
+            const qty = quantity || 1;
+
+            // Проверка лимитов (если есть)
+            if (c.max_activations > 0 && (c.current_activations + qty) > c.max_activations) {
+                return res.status(400).json({ error: 'Case limit reached' });
+            }
+
+            // Обновляем счетчик открытий кейса
+            await pool.query('UPDATE cases SET current_activations = current_activations + $1 WHERE id = $2', [qty, caseId]);
+
+            // ВАЖНО: Обновляем статистику потраченных звезд пользователем
+            // Промо-кейсы (цена 0) не учитываем в рейтинг
+            if (userId && c.price > 0) {
+                const totalCost = c.price * qty;
+                await pool.query('UPDATE users SET total_spent = total_spent + $1 WHERE id = $2', [totalCost, userId]);
+            }
+        }
+        res.json({ success: true });
+    } catch (err) { 
+        console.error(err);
+        res.status(500).json({ error: err.message }); 
+    }
+});ы
+
 // --- ЗАПУСК ---
 app.use(express.static(path.join(__dirname, '..', 'build')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
@@ -364,3 +414,5 @@ app.listen(PORT, async () => {
     console.log(`Server started on port ${PORT}`);
     try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`Webhook OK`); } catch (e) { console.error(e.message); }
 });
+
+
