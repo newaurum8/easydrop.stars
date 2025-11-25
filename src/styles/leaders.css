@@ -1,29 +1,202 @@
-/* leaders.css - Исправленные пути */
-.leaders-content { padding: 16px 0; }
-.leaders-content h3 { text-align: center; margin-bottom: 24px; }
-.leaderboard { display: flex; flex-direction: column; gap: 10px; }
-.leader-item {
-    display: flex; align-items: center; background-color: #2c3641; border-radius: 12px; padding: 12px 16px; border: 1px solid #3a4552; transition: all 0.2s ease;
-}
-.leader-rank {
-    font-size: 16px; font-weight: 700; color: #8a99a8; width: 30px; text-align: center; flex-shrink: 0;
-}
-.leader-info {
-    display: flex; align-items: center; gap: 12px; flex-grow: 1; margin-left: 12px;
-}
-.leader-avatar { width: 40px; height: 40px; border-radius: 50%; }
-.leader-name { font-weight: 500; }
-.leader-amount { display: flex; align-items: center; gap: 6px; font-weight: 700; color: #ffc107; }
+/* src/styles/leaders.css */
 
-.leader-item.top-1 { border-color: #ffd700; background: linear-gradient(to right, #2c3641, #3a3f47); }
-.leader-item.top-2 { border-color: #c0c0c0; background: linear-gradient(to right, #2c3641, #363d45); }
-.leader-item.top-3 { border-color: #cd7f32; background: linear-gradient(to right, #2c3641, #3a3a41); }
-
-.rank-icon {
-    display: inline-block; width: 24px; height: 24px; background-size: contain; background-repeat: no-repeat; background-position: center;
+.leaders-content {
+    padding: 20px 0 100px 0; /* Отступ снизу для меню */
+    max-width: 100%;
 }
 
-/* --- ИСПРАВЛЕННЫЕ ПУТИ НИЖЕ --- */
-.top-1 .rank-icon { background-image: url('../images/gold-medal.png'); }
-.top-2 .rank-icon { background-image: url('../images/silver-medal.png'); }
-.top-3 .rank-icon { background-image: url('../images/bronze-medal.png'); }
+/* ЗАГОЛОВОК */
+.leaders-header {
+    text-align: center;
+    margin-bottom: 30px;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.leaders-header h2 {
+    margin: 0;
+    font-size: 28px;
+    background: linear-gradient(45deg, #00aaff, #ffffff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
+.leaders-header p {
+    margin: 8px 0 0 0;
+    color: #8a99a8;
+    font-size: 13px;
+}
+
+/* ЗАГРУЗКА */
+.leaders-loading {
+    text-align: center;
+    color: #8a99a8;
+    padding: 40px;
+    font-size: 14px;
+}
+
+.empty-leaders {
+    text-align: center;
+    color: #5f6e7c;
+    margin-top: 40px;
+}
+
+/* СПИСОК */
+.leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* КАРТОЧКА ИГРОКА */
+.leader-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(44, 54, 65, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 12px 16px;
+    position: relative;
+    overflow: hidden;
+    
+    /* Анимация появления */
+    opacity: 0;
+    transform: translateY(20px);
+    animation: slideUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* АНИМАЦИИ */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+/* ЛЕВАЯ ЧАСТЬ */
+.leader-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+/* ИКОНКИ РАНГОВ */
+.rank-wrapper {
+    width: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.medal-icon {
+    width: 28px;
+    height: 28px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.rank-number {
+    font-size: 14px;
+    font-weight: 700;
+    color: #5f6e7c;
+    font-family: monospace;
+}
+
+/* АВАТАР */
+.avatar-wrapper {
+    position: relative;
+    width: 48px;
+    height: 48px;
+}
+
+.leader-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #3a4552;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.crown-icon {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-10deg);
+    font-size: 20px;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+    animation: floatCrown 2s ease-in-out infinite;
+}
+
+@keyframes floatCrown {
+    0%, 100% { transform: translateX(-50%) rotate(-10deg) translateY(0); }
+    50% { transform: translateX(-50%) rotate(-10deg) translateY(-3px); }
+}
+
+/* ИМЯ */
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e0e0e0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px; /* Обрезка длинных имен */
+}
+
+/* СЧЕТ СПРАВА */
+.leader-right {
+    display: flex;
+    align-items: center;
+}
+
+.score-badge {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 6px 10px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.score-badge span {
+    font-weight: 700;
+    font-size: 13px;
+    color: #ffc107;
+    text-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+
+/* --- ОСОБЫЕ СТИЛИ ДЛЯ ТОП-3 --- */
+
+/* 1 МЕСТО */
+.leader-card.rank-1 {
+    background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(44, 54, 65, 0.8));
+    border-color: rgba(255, 215, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.1);
+}
+.leader-card.rank-1 .leader-avatar { border-color: #ffd700; }
+
+/* 2 МЕСТО */
+.leader-card.rank-2 {
+    background: linear-gradient(90deg, rgba(192, 192, 192, 0.1), rgba(44, 54, 65, 0.8));
+    border-color: rgba(192, 192, 192, 0.3);
+}
+.leader-card.rank-2 .leader-avatar { border-color: #c0c0c0; }
+
+/* 3 МЕСТО */
+.leader-card.rank-3 {
+    background: linear-gradient(90deg, rgba(205, 127, 50, 0.1), rgba(44, 54, 65, 0.8));
+    border-color: rgba(205, 127, 50, 0.3);
+}
+.leader-card.rank-3 .leader-avatar { border-color: #cd7f32; }
+
+/* Адаптив для маленьких экранов */
+@media (max-width: 360px) {
+    .user-name { max-width: 90px; font-size: 13px; }
+    .leader-card { padding: 10px; }
+}
