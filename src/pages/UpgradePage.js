@@ -2,7 +2,6 @@ import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 
 const UpgradePage = () => {
-    // Получаем функции из контекста
     const { inventory, ALL_PRIZES, getUpgradeResult, performUpgrade } = useContext(AppContext);
 
     const [selectedItem, setSelectedItem] = useState(null);
@@ -22,7 +21,7 @@ const UpgradePage = () => {
     const availableUpgrades = ALL_PRIZES.filter(prize => selectedItem && prize.value > selectedItem.value)
                                        .sort((a, b) => a.value - b.value);
 
-    // Расчет шансов и иксов
+    // Расчет шансов
     useEffect(() => {
         if (selectedItem && targetItem) {
             const calculatedChance = Math.min(Math.max((selectedItem.value / targetItem.value) * 50, 1), 95);
@@ -35,7 +34,7 @@ const UpgradePage = () => {
         }
     }, [selectedItem, targetItem]);
 
-    // Анимация смены изображений в колесе (режим ожидания)
+    // Анимация смены изображений (превью)
     useEffect(() => {
         if (targetItem) {
             setDisplayItem(targetItem);
@@ -57,7 +56,7 @@ const UpgradePage = () => {
         }
     }, [selectedItem, targetItem, ALL_PRIZES]);
     
-    // Сброс анимации стрелки
+    // Сброс стрелки
     useEffect(() => {
         if (!isRolling && indicatorRef.current) {
             indicatorRef.current.style.transition = 'none';
@@ -81,7 +80,6 @@ const UpgradePage = () => {
     const handleUpgrade = () => {
         if (!selectedItem || !targetItem || isRolling) return;
 
-        // Сброс стилей перед запуском
         if (indicatorRef.current) {
             void indicatorRef.current.offsetHeight; 
             indicatorRef.current.style.transition = 'transform 4s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -92,39 +90,34 @@ const UpgradePage = () => {
 
         const { success, chance: resultChance } = getUpgradeResult(selectedItem, targetItem);
         
-        // Логика вращения
+        // Логика остановки
         const chanceInDegrees = resultChance * 3.6;
         let stopAngle;
 
         if (success) {
-            // Останавливаемся в зоне успеха (синяя зона)
             stopAngle = 5 + Math.random() * (chanceInDegrees - 10);
         } else {
-            // Останавливаемся в зоне неудачи (серая зона)
             const failZoneStart = chanceInDegrees + 5;
             const failZoneEnd = 360 - 5;
             stopAngle = failZoneStart + Math.random() * (failZoneEnd - failZoneStart);
         }
 
-        // Добавляем 5 полных оборотов + угол остановки
         const totalRotation = (rotation - (rotation % 360)) + (5 * 360) + stopAngle;
         setRotation(totalRotation);
 
-        // Тайминг окончания вращения
         setTimeout(() => {
             setRollResult(success ? 'success' : 'fail');
             performUpgrade(selectedItem.inventoryId, targetItem, success);
 
-            // Сброс через 2 секунды после результата
             setTimeout(() => {
                 setIsRolling(false);
                 setSelectedItem(null);
                 setTargetItem(null);
                 setActiveTab('my-gifts');
-                setRollResult(null); // Сбрасываем эффект
-            }, 3500); // Чуть дольше, чтобы насладиться эффектом
+                setRollResult(null); 
+            }, 3000);
 
-        }, 4100); // 4s анимация + 100ms запас
+        }, 4100);
     };
 
     const InventoryItem = ({ item, onClick, isActive }) => (
@@ -148,20 +141,15 @@ const UpgradePage = () => {
                 <div className="wheel" style={{ '--chance': `${chance}%` }}>
                     <div className="wheel-outer-ring">
                         <div className="wheel-inner-ring">
-                            {/* --- ЭФФЕКТЫ ВСПЛЕСКА (Только при успехе) --- */}
-                            {rollResult === 'success' && (
-                                <div className="success-burst">
-                                    <div className="burst-flash"></div>
-                                    <div className="burst-rays"></div>
-                                    <div className="burst-shockwave"></div>
-                                    <div className="burst-particles">
-                                        <span></span><span></span><span></span><span></span>
-                                        <span></span><span></span><span></span><span></span>
-                                    </div>
+                            
+                            {/* --- УПРОЩЕННЫЙ БЛОК ЭФФЕКТОВ --- */}
+                            {rollResult && (
+                                <div className={`result-effect ${rollResult}`}>
+                                    <div className="effect-wave"></div>
+                                    <div className="effect-flash"></div>
                                 </div>
                             )}
 
-                            {/* Изображение предмета */}
                             <img
                                 src={displayItem.image}
                                 alt={displayItem.name}
@@ -170,7 +158,6 @@ const UpgradePage = () => {
                         </div>
                     </div>
                     
-                    {/* Стрелка */}
                     <div
                         className="wheel-indicator-container"
                         ref={indicatorRef}
@@ -194,6 +181,7 @@ const UpgradePage = () => {
                 {isRolling ? 'Улучшение...' : 'Улучшить подарок'}
             </button>
 
+            {/* Выбор предметов (код без изменений) */}
             <div className="selection-area">
                 <div className={`selection-box ${selectedItem ? 'active-border' : ''}`} onClick={() => !isRolling && setActiveTab('my-gifts')}>
                     {selectedItem ? (
