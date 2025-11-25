@@ -1,202 +1,217 @@
 /* src/styles/leaders.css */
 
 .leaders-content {
-    padding: 20px 0 100px 0; /* Отступ снизу для меню */
+    padding: 10px 16px 100px 16px;
     max-width: 100%;
-}
-
-/* ЗАГОЛОВОК */
-.leaders-header {
-    text-align: center;
-    margin-bottom: 30px;
-    animation: fadeIn 0.5s ease-out;
-}
-
-.leaders-header h2 {
-    margin: 0;
-    font-size: 28px;
-    background: linear-gradient(45deg, #00aaff, #ffffff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-transform: uppercase;
-    font-weight: 900;
-    letter-spacing: 1px;
-}
-
-.leaders-header p {
-    margin: 8px 0 0 0;
-    color: #8a99a8;
-    font-size: 13px;
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 /* ЗАГРУЗКА */
 .leaders-loading {
-    text-align: center;
-    color: #8a99a8;
-    padding: 40px;
-    font-size: 14px;
-}
-
-.empty-leaders {
-    text-align: center;
-    color: #5f6e7c;
-    margin-top: 40px;
-}
-
-/* СПИСОК */
-.leaderboard-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-/* КАРТОЧКА ИГРОКА */
-.leader-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(44, 54, 65, 0.6);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
-    padding: 12px 16px;
-    position: relative;
-    overflow: hidden;
-    
-    /* Анимация появления */
-    opacity: 0;
-    transform: translateY(20px);
-    animation: slideUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-}
-
-/* АНИМАЦИИ */
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
-
-/* ЛЕВАЯ ЧАСТЬ */
-.leader-left {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-/* ИКОНКИ РАНГОВ */
-.rank-wrapper {
-    width: 30px;
+    margin-top: 100px;
     display: flex;
     justify-content: center;
-    align-items: center;
 }
-
-.medal-icon {
-    width: 28px;
-    height: 28px;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-}
-
-.rank-number {
-    font-size: 14px;
-    font-weight: 700;
-    color: #5f6e7c;
-    font-family: monospace;
-}
-
-/* АВАТАР */
-.avatar-wrapper {
-    position: relative;
-    width: 48px;
-    height: 48px;
-}
-
-.leader-avatar {
-    width: 100%;
-    height: 100%;
+.spinner {
+    width: 40px; height: 40px;
+    border: 4px solid rgba(255,255,255,0.1);
+    border-left-color: #00aaff;
     border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #3a4552;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-leaders { color: #8a99a8; margin-top: 50px; }
+
+/* =========================================
+   ПОДИУМ (TOP 3)
+   ========================================= */
+
+.podium-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end; /* Выравнивание по низу, чтобы 1 место было выше */
+    gap: 16px;
+    margin-top: 20px;
+    margin-bottom: 30px;
+    width: 100%;
+    max-width: 400px;
 }
 
-.crown-icon {
-    position: absolute;
-    top: -12px;
-    left: 50%;
-    transform: translateX(-50%) rotate(-10deg);
-    font-size: 20px;
-    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
-    animation: floatCrown 2s ease-in-out infinite;
-}
-
-@keyframes floatCrown {
-    0%, 100% { transform: translateX(-50%) rotate(-10deg) translateY(0); }
-    50% { transform: translateX(-50%) rotate(-10deg) translateY(-3px); }
-}
-
-/* ИМЯ */
-.user-info {
+.podium-item {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex: 1;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.user-name {
-    font-size: 15px;
+/* Анимация появления подиума */
+.podium-item {
+    opacity: 0;
+    transform: translateY(30px);
+    animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.podium-item.rank-1 { animation-delay: 0.2s; z-index: 2; }
+.podium-item.rank-2 { animation-delay: 0.1s; z-index: 1; }
+.podium-item.rank-3 { animation-delay: 0.3s; z-index: 1; }
+
+@keyframes popIn {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* АВАТАР НА ПОДИУМЕ */
+.podium-avatar-container {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.podium-avatar {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #3a4552;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.podium-item.rank-1 .podium-avatar {
+    width: 80px; height: 80px;
+    border-color: #ffc107;
+    box-shadow: 0 0 25px rgba(255, 193, 7, 0.4);
+}
+.podium-item.rank-2 .podium-avatar { border-color: #c0c0c0; }
+.podium-item.rank-3 .podium-avatar { border-color: #cd7f32; }
+
+/* КОРОНА */
+.crown-3d {
+    position: absolute;
+    top: -24px; left: 50%;
+    transform: translateX(-50%) rotate(-5deg);
+    font-size: 28px;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+    animation: floatCrown 3s ease-in-out infinite;
+}
+@keyframes floatCrown {
+    0%, 100% { transform: translateX(-50%) rotate(-5deg) translateY(0); }
+    50% { transform: translateX(-50%) rotate(-5deg) translateY(-5px); }
+}
+
+/* КРУЖОК С МЕСТОМ */
+.podium-rank-badge {
+    position: absolute;
+    bottom: -6px; left: 50%;
+    transform: translateX(-50%);
+    width: 20px; height: 20px;
+    background: #2c3641;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 800;
+    display: flex; justify-content: center; align-items: center;
+    border: 2px solid #3a4552;
+}
+.podium-item.rank-1 .podium-rank-badge { background: #ffc107; color: #000; border-color: #fff; width: 24px; height: 24px; font-size: 13px; }
+.podium-item.rank-2 .podium-rank-badge { background: #c0c0c0; color: #000; }
+.podium-item.rank-3 .podium-rank-badge { background: #cd7f32; color: #000; }
+
+/* ИНФО (ИМЯ И ОЧКИ) */
+.podium-info {
+    text-align: center;
+    margin-bottom: 8px;
+    width: 100%;
+}
+.podium-name {
+    font-size: 13px;
     font-weight: 600;
     color: #e0e0e0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 120px; /* Обрезка длинных имен */
+    max-width: 90px;
+    margin: 0 auto 4px auto;
+}
+.podium-score {
+    display: flex; justify-content: center; align-items: center; gap: 4px;
+    font-size: 12px; color: #ffc107; font-weight: 700;
 }
 
-/* СЧЕТ СПРАВА */
-.leader-right {
+/* ВИЗУАЛЬНЫЕ ПЬЕДЕСТАЛЫ (СТОЛБИКИ) */
+.podium-base {
+    width: 100%;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    background: linear-gradient(180deg, rgba(44, 54, 65, 0.8) 0%, rgba(44, 54, 65, 0.2) 100%);
+    backdrop-filter: blur(4px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.podium-item.rank-1 .podium-base {
+    height: 90px;
+    background: linear-gradient(180deg, rgba(255, 193, 7, 0.15) 0%, rgba(44, 54, 65, 0.4) 100%);
+    box-shadow: 0 0 30px rgba(255, 193, 7, 0.05), inset 0 1px 0 rgba(255, 215, 0, 0.3);
+}
+.podium-item.rank-2 .podium-base { height: 60px; }
+.podium-item.rank-3 .podium-base { height: 40px; }
+
+
+/* =========================================
+   СПИСОК ОСТАЛЬНЫХ (4-10)
+   ========================================= */
+
+.leaderboard-list {
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.list-item {
     display: flex;
     align-items: center;
-}
-
-.score-badge {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 6px 10px;
+    background-color: #2c3641;
     border-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 10px 16px;
+    border-left: 3px solid transparent;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fadeInList 0.4s ease-out forwards;
 }
 
-.score-badge span {
+@keyframes fadeInList { to { opacity: 1; transform: translateY(0); } }
+
+.list-item:nth-child(1) { border-left-color: rgba(255,255,255,0.2); }
+.list-item:nth-child(2) { border-left-color: rgba(255,255,255,0.1); }
+
+.list-rank {
+    width: 30px;
+    font-size: 14px;
     font-weight: 700;
-    font-size: 13px;
-    color: #ffc107;
-    text-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+    color: #8a99a8;
+    font-family: monospace;
 }
 
-/* --- ОСОБЫЕ СТИЛИ ДЛЯ ТОП-3 --- */
-
-/* 1 МЕСТО */
-.leader-card.rank-1 {
-    background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(44, 54, 65, 0.8));
-    border-color: rgba(255, 215, 0, 0.3);
-    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.1);
+.list-avatar-wrapper img {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    margin-right: 12px;
+    object-fit: cover;
+    background-color: #212a31;
 }
-.leader-card.rank-1 .leader-avatar { border-color: #ffd700; }
 
-/* 2 МЕСТО */
-.leader-card.rank-2 {
-    background: linear-gradient(90deg, rgba(192, 192, 192, 0.1), rgba(44, 54, 65, 0.8));
-    border-color: rgba(192, 192, 192, 0.3);
+.list-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: #e0e0e0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.leader-card.rank-2 .leader-avatar { border-color: #c0c0c0; }
 
-/* 3 МЕСТО */
-.leader-card.rank-3 {
-    background: linear-gradient(90deg, rgba(205, 127, 50, 0.1), rgba(44, 54, 65, 0.8));
-    border-color: rgba(205, 127, 50, 0.3);
-}
-.leader-card.rank-3 .leader-avatar { border-color: #cd7f32; }
-
-/* Адаптив для маленьких экранов */
-@media (max-width: 360px) {
-    .user-name { max-width: 90px; font-size: 13px; }
-    .leader-card { padding: 10px; }
+.list-score {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 13px; font-weight: 600; color: #ffc107;
 }
