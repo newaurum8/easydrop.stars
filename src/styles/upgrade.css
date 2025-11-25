@@ -1,4 +1,5 @@
-/* upgrade.css */
+/* src/styles/upgrade.css */
+
 .upgrade-content {
     display: flex; flex-direction: column; align-items: center; padding: 24px 0; gap: 24px;
 }
@@ -23,6 +24,7 @@
 .wheel-inner-ring {
     width: 100%; height: 100%; border-radius: 50%; border: 7px solid #212a31;
     display: flex; justify-content: center; align-items: center; box-sizing: border-box; background-color: #212a31;
+    position: relative; /* Для позиционирования эффектов */
 }
 .wheel-indicator-container {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; transition: transform 4s cubic-bezier(0.25, 1, 0.5, 1);
@@ -32,28 +34,156 @@
     border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 15px solid #ffc107;
     filter: drop-shadow(0 -2px 4px rgba(0,0,0,0.5));
 }
+
+/* Изображение предмета */
 .wheel-item {
-    width: 50%; height: auto; transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; opacity: 1; transform: scale(1);
+    width: 50%; height: auto; 
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; 
+    opacity: 1; transform: scale(1);
+    position: relative; 
+    z-index: 2; /* Поверх эффектов */
 }
+
 .wheel-item.is-fading { opacity: 0; transform: scale(0.8); }
-.wheel-item.roll-success { animation: upgrade-success-effect 1.5s ease-out forwards; }
-.wheel-item.roll-fail { animation: upgrade-fail-effect 0.8s ease-out forwards; }
 
-/* Анимации колеса */
-@keyframes upgrade-success-effect {
-    0% { transform: scale(1); filter: drop-shadow(0 0 0 #00aaff); }
-    50% { transform: scale(1.15); filter: drop-shadow(0 0 25px #00aaff) drop-shadow(0 0 10px #ffffff); }
-    100% { transform: scale(1.1); filter: drop-shadow(0 0 15px #00aaff) drop-shadow(0 0 5px #ffffff); }
-}
-@keyframes upgrade-fail-effect {
-    0%, 100% { transform: translateX(0) scale(1); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px) scale(1.02); }
-    20%, 40%, 60%, 80% { transform: translateX(4px) scale(1.02); }
-    50% { filter: drop-shadow(0 0 15px #f44336); }
-    100% { filter: drop-shadow(0 0 0 #f44336); }
+/* --- АНИМАЦИЯ ПРЕДМЕТА ПРИ УСПЕХЕ --- */
+.wheel-item.roll-success {
+    animation: popSuccess 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.5) forwards;
 }
 
-/* Выбор предметов */
+@keyframes popSuccess {
+    0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(0,0,0,0)); }
+    40% { transform: scale(1.4) rotate(-5deg); filter: drop-shadow(0 0 30px #ffc107) brightness(1.2); }
+    60% { transform: scale(1.3) rotate(5deg); filter: drop-shadow(0 0 50px #ffc107) brightness(1.3); }
+    100% { transform: scale(1.25); filter: drop-shadow(0 0 20px #ffc107) brightness(1.1); }
+}
+
+/* --- АНИМАЦИЯ ПРЕДМЕТА ПРИ НЕУДАЧЕ --- */
+.wheel-item.roll-fail {
+    animation: shakeFail 0.6s ease-in-out forwards;
+    filter: grayscale(100%) brightness(0.6);
+}
+
+@keyframes shakeFail {
+    0%, 100% { transform: translateX(0); }
+    15%, 45%, 75% { transform: translateX(-6px) rotate(-5deg); }
+    30%, 60%, 90% { transform: translateX(6px) rotate(5deg); }
+}
+
+/* =========================================
+   ЭФФЕКТЫ ВСПЛЕСКА (BURST FX)
+   ========================================= */
+
+.success-burst {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 1; /* За предметом */
+    border-radius: 50%;
+    overflow: visible;
+}
+
+/* 1. Вспышка */
+.burst-flash {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200%; height: 200%;
+    background: radial-gradient(circle, #ffffff 0%, transparent 70%);
+    opacity: 0;
+    animation: flashAnim 0.6s ease-out forwards;
+}
+
+@keyframes flashAnim {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    10% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.2); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+}
+
+/* 2. Вращающиеся лучи (God Rays) */
+.burst-rays {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 250%; height: 250%;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0deg, rgba(255, 193, 7, 0.4) 20deg,
+        transparent 40deg, rgba(255, 193, 7, 0.4) 60deg,
+        transparent 80deg, rgba(255, 193, 7, 0.4) 100deg,
+        transparent 120deg, rgba(255, 193, 7, 0.4) 140deg,
+        transparent 160deg, rgba(255, 193, 7, 0.4) 180deg,
+        transparent 200deg, rgba(255, 193, 7, 0.4) 220deg,
+        transparent 240deg, rgba(255, 193, 7, 0.4) 260deg,
+        transparent 280deg, rgba(255, 193, 7, 0.4) 300deg,
+        transparent 320deg, rgba(255, 193, 7, 0.4) 340deg,
+        transparent 360deg
+    );
+    opacity: 0;
+    mask-image: radial-gradient(circle, transparent 20%, black 70%);
+    -webkit-mask-image: radial-gradient(circle, transparent 20%, black 70%);
+    animation: raysAnim 4s linear infinite, raysFadeIn 0.3s ease-out forwards;
+}
+
+@keyframes raysFadeIn { to { opacity: 1; } }
+@keyframes raysAnim { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+/* 3. Ударная волна */
+.burst-shockwave {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.8), inset 0 0 20px rgba(255, 193, 7, 0.5);
+    opacity: 0;
+    animation: shockwaveAnim 0.6s ease-out forwards;
+}
+
+@keyframes shockwaveAnim {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; border-width: 10px; }
+    100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; border-width: 0px; }
+}
+
+/* 4. Частицы (Искры) */
+.burst-particles {
+    position: absolute;
+    width: 100%; height: 100%;
+    top: 0; left: 0;
+}
+
+.burst-particles span {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 6px; height: 6px;
+    background: #ffc107;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #ffc107;
+    opacity: 0;
+}
+
+/* Анимация разлета частиц */
+.burst-particles span:nth-child(1) { animation: particle1 0.6s ease-out forwards; }
+.burst-particles span:nth-child(2) { animation: particle2 0.7s ease-out forwards; }
+.burst-particles span:nth-child(3) { animation: particle3 0.5s ease-out forwards; }
+.burst-particles span:nth-child(4) { animation: particle4 0.6s ease-out forwards; }
+.burst-particles span:nth-child(5) { animation: particle5 0.8s ease-out forwards; }
+.burst-particles span:nth-child(6) { animation: particle6 0.6s ease-out forwards; }
+.burst-particles span:nth-child(7) { animation: particle7 0.7s ease-out forwards; }
+.burst-particles span:nth-child(8) { animation: particle8 0.5s ease-out forwards; }
+
+@keyframes particle1 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(-60px, -60px); } }
+@keyframes particle2 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(60px, -40px); } }
+@keyframes particle3 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(-30px, 70px); } }
+@keyframes particle4 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(50px, 50px); } }
+@keyframes particle5 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(0px, -80px); } }
+@keyframes particle6 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(-70px, 0px); } }
+@keyframes particle7 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(70px, 10px); } }
+@keyframes particle8 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(-20px, -50px); } }
+
+/* Выбор предметов (старые стили) */
 .selection-area { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
 .selection-box {
     background-color: #2c3641; border: 2px solid #2c3641; border-radius: 16px; height: 140px;
