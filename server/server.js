@@ -1,4 +1,4 @@
-const express = require('express');
+\const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
@@ -20,13 +20,11 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // --- НАСТРОЙКА ЗАГРУЗКИ ФАЙЛОВ (Multer - Memory Storage) ---
-// Используем память вместо диска, чтобы файлы не пропадали на Render
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 app.use(cors());
-// Увеличиваем лимит, так как Base64 картинки занимают место в теле запроса
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -44,7 +42,6 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// ВАЖНО: Обработка ошибок соединения, чтобы сервер не падал
 pool.on('error', (err, client) => {
     console.error('🚨 Ошибка в пуле БД (idle client):', err.message);
 });
@@ -87,20 +84,22 @@ const initDB = async () => {
             );
         `);
 
-        // Миграции (для обновления старых таблиц)
+        // Миграции
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inventory JSONB DEFAULT '[]'`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'`); } catch(e){}
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_top_up INT DEFAULT 0`); } catch(e){}
+        
+        // ВАЖНО: Добавляем колонку для учета потраченных средств
+        try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent BIGINT DEFAULT 0`); } catch(e){}
         
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS image TEXT`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`); } catch(e){}
-        try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent BIGINT DEFAULT 0`); } catch(e){}
         
-        // Заливка начальных данных (если таблицы пустые)
+        // Заливка начальных данных
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
         if (parseInt(prizeCount.rows[0].count) === 0) {
             console.log('🌱 Заливка начальных призов...');
@@ -138,12 +137,27 @@ initDB();
 // === API ENDPOINTS ===
 // ==================================================
 
+// 1. ПОЛУЧЕНИЕ РЕЙТИНГА (Топ по total_spent)
+app.get('/api/leaders', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT first_name, photo_url, total_spent 
+            FROM users 
+            ORDER BY total_spent DESC NULLS LAST
+            LIMIT 10
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/config', async (req, res) => {
     try {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
         const cases = await pool.query('SELECT * FROM cases ORDER BY price ASC');
         
-        // Фильтруем кейсы: если лимит исчерпан, скрываем их
         const activeCases = cases.rows.filter(c => {
             if (c.max_activations > 0 && c.current_activations >= c.max_activations) {
                 return false; 
@@ -177,17 +191,29 @@ app.get('/api/config', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Фиксация прокрута
+// 2. ОТКРЫТИЕ КЕЙСА (Обновление статистики трат)
 app.post('/api/case/spin', async (req, res) => {
-    const { caseId } = req.body;
+    const { caseId, userId, quantity } = req.body;
     try {
-        const check = await pool.query('SELECT max_activations, current_activations FROM cases WHERE id = $1', [caseId]);
+        const check = await pool.query('SELECT price, max_activations, current_activations FROM cases WHERE id = $1', [caseId]);
         if (check.rows.length > 0) {
             const c = check.rows[0];
-            if (c.max_activations > 0 && c.current_activations >= c.max_activations) {
+            const qty = parseInt(quantity) || 1;
+
+            // Проверка лимитов
+            if (c.max_activations > 0 && (c.current_activations + qty) > c.max_activations) {
                 return res.status(400).json({ error: 'Case limit reached' });
             }
-            await pool.query('UPDATE cases SET current_activations = current_activations + 1 WHERE id = $1', [caseId]);
+            
+            // Обновляем счетчик кейса
+            await pool.query('UPDATE cases SET current_activations = current_activations + $1 WHERE id = $2', [qty, caseId]);
+
+            // Если это не промо-кейс, засчитываем траты пользователю
+            if (userId && c.price > 0) {
+                const totalCost = c.price * qty;
+                // Используем COALESCE, чтобы 0 + X работало корректно, даже если поле было NULL
+                await pool.query('UPDATE users SET total_spent = COALESCE(total_spent, 0) + $1 WHERE id = $2', [totalCost, userId]);
+            }
         }
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -331,6 +357,7 @@ async function creditUserBalance(userId, amount, txHash, currency) {
         if (check.rows.length > 0) { await client.query('ROLLBACK'); return { success: false }; }
         await client.query('INSERT INTO transactions (tx_hash, user_id, amount, currency) VALUES ($1, $2, $3, $4)', [txHash, userId, amount, currency]);
         const stars = currency === 'TON' ? amount * 3000 : amount * 50;
+        // При пополнении обновляем и total_top_up
         await client.query('UPDATE users SET balance = balance + $1, total_top_up = total_top_up + $1 WHERE id = $2', [Math.floor(stars), userId]);
         await client.query('COMMIT');
         return { success: true };
@@ -357,55 +384,6 @@ bot.on('message', async (msg) => {
     }
 });
 
-app.get('/api/leaders', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT first_name, photo_url, total_spent 
-            FROM users 
-            ORDER BY total_spent DESC 
-            LIMIT 10
-        `);
-        res.json(result.rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// === 2. ОБНОВЛЕННЫЙ ЕНДПОИНТ ОТКРЫТИЯ КЕЙСА ===
-// Теперь он принимает userId и quantity, чтобы записать траты
-app.post('/api/case/spin', async (req, res) => {
-    const { caseId, userId, quantity } = req.body; 
-    
-    try {
-        // Получаем цену и лимиты кейса
-        const check = await pool.query('SELECT price, max_activations, current_activations FROM cases WHERE id = $1', [caseId]);
-        if (check.rows.length > 0) {
-            const c = check.rows[0];
-            const qty = quantity || 1;
-
-            // Проверка лимитов (если есть)
-            if (c.max_activations > 0 && (c.current_activations + qty) > c.max_activations) {
-                return res.status(400).json({ error: 'Case limit reached' });
-            }
-
-            // Обновляем счетчик открытий кейса
-            await pool.query('UPDATE cases SET current_activations = current_activations + $1 WHERE id = $2', [qty, caseId]);
-
-            // ВАЖНО: Обновляем статистику потраченных звезд пользователем
-            // Промо-кейсы (цена 0) не учитываем в рейтинг
-            if (userId && c.price > 0) {
-                const totalCost = c.price * qty;
-                await pool.query('UPDATE users SET total_spent = total_spent + $1 WHERE id = $2', [totalCost, userId]);
-            }
-        }
-        res.json({ success: true });
-    } catch (err) { 
-        console.error(err);
-        res.status(500).json({ error: err.message }); 
-    }
-});
-
 // --- ЗАПУСК ---
 app.use(express.static(path.join(__dirname, '..', 'build')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
@@ -414,6 +392,3 @@ app.listen(PORT, async () => {
     console.log(`Server started on port ${PORT}`);
     try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`Webhook OK`); } catch (e) { console.error(e.message); }
 });
-
-
-
