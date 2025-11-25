@@ -90,7 +90,7 @@
 .wheel-outer-ring {
     width: 100%; height: 100%;
     border-radius: 50%;
-    background-color: #1a2126; /* Темный фон внутри рамки */
+    background-color: #1a2126;
     display: flex; justify-content: center; align-items: center;
     padding: 4px;
     box-sizing: border-box;
@@ -111,7 +111,7 @@
 /* Стрелка */
 .wheel-indicator-container {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    transition: transform 4s cubic-bezier(0.2, 0.8, 0.3, 1); /* Плавная остановка */
+    transition: transform 4s cubic-bezier(0.2, 0.8, 0.3, 1);
     pointer-events: none;
 }
 .wheel-indicator-arrow {
@@ -146,9 +146,9 @@
     100% { transform: scale(1.2); filter: drop-shadow(0 0 20px #00e5ff) brightness(1.1); }
 }
 
-/* --- АНИМАЦИЯ ПРОИГРЫША (МЕДЛЕННОЕ ИСЧЕЗНОВЕНИЕ) --- */
+/* --- АНИМАЦИЯ ПРОИГРЫША (МЕДЛЕННОЕ ИСЧЕЗНОВЕНИЕ БЕЗ СЕРОГО) --- */
 .wheel-item.roll-fail {
-    animation: disappearFail 1.5s ease-in-out forwards; /* 1.5 секунды */
+    animation: disappearFail 1.5s ease-in-out forwards;
 }
 @keyframes disappearFail {
     0% { 
@@ -157,13 +157,13 @@
     }
     20% {
         opacity: 1;
-        transform: scale(1.05); /* Легкий "вздох" перед исчезновением */
-        /* Легкая красная подсветка перед исчезновением */
+        transform: scale(1.05);
+        /* Красная подсветка (без grayscale) */
         filter: drop-shadow(0 0 10px #ff1744); 
     }
     100% { 
         opacity: 0; 
-        transform: scale(0.2) rotate(20deg); /* Сжатие и поворот */
+        transform: scale(0.2) rotate(20deg);
     }
 }
 
@@ -203,18 +203,21 @@
 .selection-area {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    /* Центрируем контент, чтобы одиночный слот был по центру */
+    justify-content: center; 
     width: 100%;
-    gap: 8px;
-    padding: 0 10px;
+    gap: 12px;
+    padding: 0 16px;
     box-sizing: border-box;
 }
 
 .selection-box {
-    flex: 1;
+    /* Фиксированные размеры для красивого вида */
+    flex: 0 1 140px; 
+    min-width: 120px;
     height: 130px;
-    background: rgba(44, 54, 65, 0.5); /* Полупрозрачный фон */
-    backdrop-filter: blur(10px); /* Эффект стекла */
+    background: rgba(44, 54, 65, 0.5);
+    backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.05);
     border-radius: 16px;
     display: flex;
@@ -224,156 +227,82 @@
     gap: 8px;
     cursor: pointer;
     position: relative;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     overflow: hidden;
+    
+    /* Анимация появления */
+    animation: slideInBox 0.3s ease-out forwards;
 }
 
-/* Активное состояние */
+@keyframes slideInBox {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .selection-box.active-focus {
     border-color: rgba(255,255,255,0.3);
     background: rgba(44, 54, 65, 0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
 }
 
-/* Состояние: Заполнено */
 .selection-box.filled {
     background: linear-gradient(145deg, #232a31, #1a2025);
 }
 
-/* Свечение внутри карточки */
 .box-glow {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    opacity: 0.5;
-    z-index: 0;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.5; z-index: 0;
 }
 
 .selection-box img {
-    width: 65px; height: 65px;
-    object-fit: contain;
-    z-index: 1;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
-    transition: transform 0.2s;
+    width: 65px; height: 65px; object-fit: contain; z-index: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transition: transform 0.2s;
 }
 .selection-box:active img { transform: scale(0.95); }
 
 .box-price {
-    font-size: 14px;
-    font-weight: 700;
-    color: #00aaff;
-    z-index: 1;
-    background: rgba(0,0,0,0.3);
-    padding: 2px 8px;
-    border-radius: 8px;
+    font-size: 14px; font-weight: 700; color: #00aaff; z-index: 1; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 8px;
 }
 
-.placeholder-content {
-    display: flex; flex-direction: column; align-items: center; color: #5f6e7c; z-index: 1;
-}
+.placeholder-content { display: flex; flex-direction: column; align-items: center; color: #5f6e7c; z-index: 1; }
 .plus-icon { font-size: 28px; margin-bottom: 4px; opacity: 0.5; }
 
-/* Стрелка между карточками */
+/* Стрелка */
 .upgrade-arrow {
     color: #3a4552;
-    font-size: 20px;
+    font-size: 24px;
     font-weight: bold;
-    transition: color 0.3s;
+    opacity: 0;
+    transform: translateX(-10px);
+    animation: arrowFadeIn 0.3s ease-out forwards;
 }
 .upgrade-arrow.active {
     color: #ffc107;
     text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
     animation: pulseArrow 1s infinite;
 }
+
+@keyframes arrowFadeIn {
+    to { opacity: 1; transform: translateX(0); }
+}
 @keyframes pulseArrow {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.2); opacity: 0.7; }
 }
 
-/* --- КНОПКА UPGRADE --- */
+/* --- КНОПКА --- */
 .upgrade-button-main {
-    width: calc(100% - 32px);
-    padding: 18px;
-    background: linear-gradient(90deg, #0088cc, #00aaff);
-    color: white;
-    border: none;
-    border-radius: 14px;
-    font-size: 16px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
-    transition: transform 0.1s, box-shadow 0.2s, filter 0.2s;
-    text-transform: uppercase;
+    width: calc(100% - 32px); padding: 18px; background: linear-gradient(90deg, #0088cc, #00aaff); color: white; border: none; border-radius: 14px; font-size: 16px; font-weight: 800; letter-spacing: 1px; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4); transition: transform 0.1s, box-shadow 0.2s, filter 0.2s; text-transform: uppercase;
 }
-.upgrade-button-main:disabled {
-    background: #3a4552;
-    box-shadow: none;
-    color: #8a99a8;
-    cursor: not-allowed;
-}
-.upgrade-button-main:active:not(:disabled) {
-    transform: scale(0.98);
-    box-shadow: 0 2px 5px rgba(0, 136, 204, 0.4);
-}
+.upgrade-button-main:disabled { background: #3a4552; box-shadow: none; color: #8a99a8; cursor: not-allowed; }
+.upgrade-button-main:active:not(:disabled) { transform: scale(0.98); box-shadow: 0 2px 5px rgba(0, 136, 204, 0.4); }
 
-/* --- ИНВЕНТАРЬ СНИЗУ --- */
-.inventory-section {
-    width: 100%;
-    background: #161b22;
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
-    padding: 16px;
-    box-sizing: border-box;
-    flex: 1; /* Занимает остаток высоты */
-    min-height: 300px;
-}
-
-.inventory-tabs {
-    display: flex;
-    background: #0d1117;
-    padding: 4px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-}
-.tab-btn {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    background: transparent;
-    color: #8b949e;
-    font-weight: 600;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.tab-btn.active {
-    background: #232b34;
-    color: #e0e0e0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-.inventory-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-    gap: 10px;
-    max-height: 300px;
-    overflow-y: auto;
-    padding-bottom: 20px;
-}
-
-.inventory-item {
-    background: #232b34;
-    border-radius: 10px;
-    padding: 6px;
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-    cursor: pointer;
-    border: 2px solid transparent;
-    transition: all 0.15s;
-}
+/* --- ИНВЕНТАРЬ --- */
+.inventory-section { width: 100%; background: #161b22; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 16px; box-sizing: border-box; flex: 1; min-height: 300px; }
+.inventory-tabs { display: flex; background: #0d1117; padding: 4px; border-radius: 12px; margin-bottom: 16px; }
+.tab-btn { flex: 1; padding: 10px; border: none; background: transparent; color: #8b949e; font-weight: 600; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
+.tab-btn.active { background: #232b34; color: #e0e0e0; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto; padding-bottom: 20px; }
+.inventory-item { background: #232b34; border-radius: 10px; padding: 6px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
 .inventory-item img { width: 50px; height: 50px; object-fit: contain; }
 .inventory-item .item-value { font-size: 11px; color: #e0e0e0; font-weight: 600; }
 .inventory-item .item-value img { width: 12px; height: 12px; margin-right: 2px; }
-
-.inventory-item.active-border {
-    border-color: #00aaff;
-    background: rgba(0, 170, 255, 0.1);
-}
+.inventory-item.active-border { border-color: #00aaff; background: rgba(0, 170, 255, 0.1); }
