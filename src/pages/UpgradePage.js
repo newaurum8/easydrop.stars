@@ -21,7 +21,6 @@ const UpgradePage = () => {
     const availableUpgrades = ALL_PRIZES.filter(prize => selectedItem && prize.value > selectedItem.value)
                                        .sort((a, b) => a.value - b.value);
 
-    // Расчет шансов
     useEffect(() => {
         if (selectedItem && targetItem) {
             const calculatedChance = Math.min(Math.max((selectedItem.value / targetItem.value) * 50, 1), 95);
@@ -34,7 +33,6 @@ const UpgradePage = () => {
         }
     }, [selectedItem, targetItem]);
 
-    // Анимация смены изображений (превью)
     useEffect(() => {
         if (targetItem) {
             setDisplayItem(targetItem);
@@ -56,7 +54,6 @@ const UpgradePage = () => {
         }
     }, [selectedItem, targetItem, ALL_PRIZES]);
     
-    // Сброс стрелки
     useEffect(() => {
         if (!isRolling && indicatorRef.current) {
             indicatorRef.current.style.transition = 'none';
@@ -90,7 +87,6 @@ const UpgradePage = () => {
 
         const { success, chance: resultChance } = getUpgradeResult(selectedItem, targetItem);
         
-        // Логика остановки
         const chanceInDegrees = resultChance * 3.6;
         let stopAngle;
 
@@ -142,7 +138,7 @@ const UpgradePage = () => {
                     <div className="wheel-outer-ring">
                         <div className="wheel-inner-ring">
                             
-                            {/* --- УПРОЩЕННЫЙ БЛОК ЭФФЕКТОВ --- */}
+                            {/* Блок эффектов (появляется при результате) */}
                             {rollResult && (
                                 <div className={`result-effect ${rollResult}`}>
                                     <div className="effect-wave"></div>
@@ -181,7 +177,6 @@ const UpgradePage = () => {
                 {isRolling ? 'Улучшение...' : 'Улучшить подарок'}
             </button>
 
-            {/* Выбор предметов (код без изменений) */}
             <div className="selection-area">
                 <div className={`selection-box ${selectedItem ? 'active-border' : ''}`} onClick={() => !isRolling && setActiveTab('my-gifts')}>
                     {selectedItem ? (
