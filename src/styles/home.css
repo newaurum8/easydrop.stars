@@ -9,14 +9,14 @@
     align-items: center;
     margin-bottom: 24px;
     position: relative;
-    gap: 16px; /* Отступ между лейблом LIVE и самой лентой */
+    gap: 16px; /* Отступ между лейблом и лентой */
     height: 85px;
 }
 
 /* --- ЛЕЙБЛ "LIVE" (ВЕРТИКАЛЬНЫЙ) --- */
 .live-label {
     display: flex;
-    flex-direction: column-reverse; /* Разворот порядка для правильного отображения при повороте */
+    flex-direction: column-reverse; /* Разворот порядка (точка сверху) */
     align-items: center;
     justify-content: center;
     gap: 8px;
@@ -38,7 +38,7 @@
     user-select: none;
 }
 
-/* Анимация мигания зеленой точки */
+/* Анимация мигания точки */
 @keyframes blink {
     0%, 100% { opacity: 1; box-shadow: 0 0 8px #4CAF50; transform: scale(1); }
     50% { opacity: 0.5; box-shadow: 0 0 2px #4CAF50; transform: scale(0.8); }
@@ -52,7 +52,7 @@
     min-height: 8px;
     background-color: #4CAF50;
     border-radius: 50%;
-    margin-top: 4px; /* В перевернутом режиме это отступ "снизу" от текста */
+    margin-top: 4px;
     animation: blink 1.5s infinite ease-in-out;
 }
 
@@ -60,10 +60,10 @@
 .live-track {
     flex: 1;
     display: flex;
-    /* ВАЖНО: Убираем gap, чтобы контролировать отступы через margin */
+    /* Убираем gap для плавности анимации отступов */
     gap: 0; 
     overflow-x: auto;
-    padding: 5px 0 15px 0; /* Отступы сверху/снизу для теней */
+    padding: 5px 0 15px 0;
     
     /* Скрываем скроллбар */
     scrollbar-width: none;
@@ -73,7 +73,6 @@
     -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
     mask-image: linear-gradient(to right, black 85%, transparent 100%);
     
-    /* Курсор */
     cursor: grab;
     user-select: none;
 }
@@ -86,8 +85,7 @@
     cursor: grabbing;
 }
 
-/* --- АНИМАЦИЯ ПОЯВЛЕНИЯ --- */
-/* Плавно добавляет ширину И отступ справа */
+/* --- АНИМАЦИЯ ПОЯВЛЕНИЯ ПРЕДМЕТА --- */
 @keyframes slideIn {
     0% {
         width: 0;
@@ -96,14 +94,14 @@
         transform: translateX(-20px);
     }
     100% {
-        width: 70px; /* Финальная ширина карточки */
+        width: 70px;
         opacity: 1;
-        margin-right: 12px; /* Финальный отступ */
+        margin-right: 12px;
         transform: translateX(0);
     }
 }
 
-/* --- КАРТОЧКА ПРЕДМЕТА --- */
+/* --- КАРТОЧКА В ЛЕНТЕ --- */
 .live-card {
     position: relative;
     min-width: 70px;
@@ -120,11 +118,10 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     transition: transform 0.2s ease;
 
-    /* ВАЖНО: Отступ задается здесь */
+    /* Отступ справа задаем здесь */
     margin-right: 12px;
 }
 
-/* Класс для анимации нового предмета */
 .live-card.new-item {
     animation: slideIn 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
@@ -142,21 +139,18 @@
     filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
 }
 
-/* Нижняя цветная полоска (редкость) */
+/* Полоска редкости снизу */
 .live-card::after {
     content: '';
     position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 3px;
+    bottom: 0; left: 0; width: 100%; height: 3px;
     background-color: var(--rarity-color);
     box-shadow: 0 -1px 8px var(--rarity-color);
     opacity: 0.9;
     z-index: 1;
 }
 
-/* Внутреннее фоновое свечение */
+/* Фоновое свечение внутри */
 .live-card::before {
     content: '';
     position: absolute;
@@ -180,22 +174,12 @@
     box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
 }
 
-.hero-banner h2 {
-    margin: 0 0 8px 0;
-    font-size: 24px;
-    color: #fff;
-}
-
-.hero-banner p {
-    margin: 0;
-    opacity: 0.9;
-    font-size: 14px;
-    color: #fff;
-}
+.hero-banner h2 { margin: 0 0 8px 0; font-size: 24px; color: #fff; }
+.hero-banner p { margin: 0; opacity: 0.9; font-size: 14px; color: #fff; }
 
 
 /* =========================================
-   3. СПИСОК КЕЙСОВ (CONTENT GRID)
+   3. КАРТОЧКИ КЕЙСОВ (CONTENT GRID)
    ========================================= */
 
 .content-grid {
@@ -205,10 +189,24 @@
     padding-bottom: 20px;
 }
 
+/* Анимация "Парения" (Левитация) */
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
+/* Анимация пульсации заднего света */
+@keyframes pulseGlow {
+    0%, 100% { opacity: 0.2; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 0.4; transform: translate(-50%, -50%) scale(1.15); }
+}
+
+/* --- СТИЛЬ КАРТОЧКИ КЕЙСА --- */
 .case-card {
-    background-color: #2c3641;
-    border-radius: 16px;
-    padding: 10px;
+    /* Градиентный темный фон */
+    background: linear-gradient(145deg, #252e38, #1e252b);
+    border-radius: 18px;
+    padding: 12px;
     position: relative;
     text-decoration: none;
     color: inherit;
@@ -216,41 +214,72 @@
     flex-direction: column;
     align-items: center;
     overflow: hidden;
-    border: 1px solid #3a4552;
-    transition: transform 0.2s;
+    
+    /* Тонкая рамка + внутреннее свечение цветом редкости */
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 
+        0 4px 15px rgba(0,0,0,0.3),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+        inset 0 0 15px -5px var(--glow-color, #78909c);
+    
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
+/* Эффект нажатия */
 .case-card:active {
     transform: scale(0.98);
+    box-shadow: 
+        0 2px 8px rgba(0,0,0,0.5),
+        inset 0 0 20px 0px var(--glow-color, #78909c);
 }
 
-/* Свечение за кейсом */
+/* Эффект блика (Shine) */
+.case-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 50%; height: 100%;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transform: skewX(-25deg);
+    transition: 0.5s;
+    pointer-events: none;
+}
+.case-card:active::after {
+    left: 150%;
+    transition: 0.3s;
+}
+
+/* Заднее свечение (пульсирующее) */
 .card-glow {
     position: absolute;
-    top: 50%;
-    left: 50%;
+    top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    width: 80px;
-    height: 80px;
+    width: 90px; height: 90px;
     background-color: var(--glow-color, #78909c);
-    filter: blur(40px);
+    filter: blur(45px);
     opacity: 0.2;
     z-index: 0;
     border-radius: 50%;
+    animation: pulseGlow 3s infinite ease-in-out;
 }
 
-/* Тег (PROMO, RARE, etc) */
+/* Тег (PROMO, LEGEND) */
 .card-tag {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    font-size: 9px;
-    font-weight: 800;
-    color: #1a2026;
-    padding: 2px 6px;
-    border-radius: 4px;
+    top: 10px; right: 10px;
+    font-size: 10px; font-weight: 800;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 6px;
     z-index: 2;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    
+    /* Градиентный фон тега */
+    background: linear-gradient(135deg, var(--glow-color, #78909c), #2c3641);
 }
 
 .card-img-container {
@@ -263,11 +292,13 @@
     z-index: 1;
 }
 
+/* Летающая картинка кейса */
 .card-image {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    filter: drop-shadow(0 10px 10px rgba(0,0,0,0.4));
+    animation: float 4s ease-in-out infinite;
 }
 
 .card-info {
