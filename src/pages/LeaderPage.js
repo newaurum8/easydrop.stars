@@ -6,7 +6,6 @@ const LeadersPage = () => {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Загружаем данные с сервера
         fetch('/api/leaders')
             .then(res => res.json())
             .then(data => {
@@ -14,71 +13,91 @@ const LeadersPage = () => {
                 setIsLoading(false);
             })
             .catch(err => {
-                console.error("Ошибка загрузки рейтинга:", err);
+                console.error(err);
                 setIsLoading(false);
             });
     }, []);
 
-    // Функция для получения иконки ранга (1, 2, 3 место)
-    const getRankIcon = (index) => {
-        if (index === 0) return <img src="/images/gold-medal.png" alt="1" className="medal-icon" />;
-        if (index === 1) return <img src="/images/silver-medal.png" alt="2" className="medal-icon" />;
-        if (index === 2) return <img src="/images/bronze-medal.png" alt="3" className="medal-icon" />;
-        return <span className="rank-number">#{index + 1}</span>;
+    // Разбиваем на Топ-3 (для подиума) и остальных (для списка)
+    // Порядок для подиума визуально: 2 место, 1 место, 3 место
+    const top1 = leaders[0];
+    const top2 = leaders[1];
+    const top3 = leaders[2];
+    const restList = leaders.slice(3);
+
+    // Компонент одного места на подиуме
+    const PodiumItem = ({ user, rank }) => {
+        if (!user) return <div className={`podium-item rank-${rank} empty`}></div>;
+        
+        return (
+            <div className={`podium-item rank-${rank}`}>
+                <div className="podium-avatar-container">
+                    <img 
+                        src={user.photo_url || '/images/profile.png'} 
+                        alt={user.first_name} 
+                        className="podium-avatar"
+                        onError={(e) => {e.target.onerror = null; e.target.src="/images/profile.png"}}
+                    />
+                    {rank === 1 && <div className="crown-3d">👑</div>}
+                    <div className="podium-rank-badge">{rank}</div>
+                </div>
+                
+                <div className="podium-info">
+                    <div className="podium-name">{user.first_name}</div>
+                    <div className="podium-score">
+                        <img src="/images/stars.png" alt="" className="star-icon small" />
+                        <span>{(user.total_spent || 0).toLocaleString()}</span>
+                    </div>
+                </div>
+                
+                {/* Визуальный пьедестал (блок снизу) */}
+                <div className="podium-base"></div>
+            </div>
+        );
     };
 
     return (
         <main className="leaders-content">
-            <div className="leaders-header">
-                <h2>Топ 10 Лидеров</h2>
-                <p>Потрачено звезд за всё время</p>
-            </div>
-
             {isLoading ? (
-                <div className="leaders-loading">Загрузка...</div>
+                <div className="leaders-loading">
+                    <div className="spinner"></div>
+                </div>
+            ) : leaders.length === 0 ? (
+                <div className="empty-leaders">Пока пусто</div>
             ) : (
-                <div className="leaderboard-list">
-                    {leaders.length > 0 ? (
-                        leaders.map((user, index) => (
-                            <div 
-                                key={index} 
-                                className={`leader-card rank-${index + 1}`}
-                                style={{animationDelay: `${index * 0.1}s`}} // Каскадная анимация
-                            >
-                                {/* Левая часть: Место и Аватар */}
-                                <div className="leader-left">
-                                    <div className="rank-wrapper">
-                                        {getRankIcon(index)}
-                                    </div>
-                                    <div className="avatar-wrapper">
+                <>
+                    {/* СЕКЦИЯ ПОДИУМА (Топ 3) */}
+                    <div className="podium-container">
+                        {/* Порядок в коде: 2, 1, 3 - чтобы 1 был посередине через flex order или просто структурой */}
+                        <PodiumItem user={top2} rank={2} />
+                        <PodiumItem user={top1} rank={1} />
+                        <PodiumItem user={top3} rank={3} />
+                    </div>
+
+                    {/* СПИСОК ОСТАЛЬНЫХ (4-10) */}
+                    <div className="leaderboard-list">
+                        {restList.map((user, i) => {
+                            const rank = i + 4;
+                            return (
+                                <div key={i} className="list-item" style={{animationDelay: `${i * 0.1}s`}}>
+                                    <div className="list-rank">#{rank}</div>
+                                    <div className="list-avatar-wrapper">
                                         <img 
                                             src={user.photo_url || '/images/profile.png'} 
-                                            alt={user.first_name} 
-                                            className="leader-avatar"
+                                            alt="" 
                                             onError={(e) => {e.target.onerror = null; e.target.src="/images/profile.png"}}
                                         />
-                                        {/* Корона для топ 1 */}
-                                        {index === 0 && <div className="crown-icon">👑</div>}
                                     </div>
-                                    <div className="user-info">
-                                        <div className="user-name">{user.first_name || 'Аноним'}</div>
-                                    </div>
-                                </div>
-
-                                {/* Правая часть: Сумма */}
-                                <div className="leader-right">
-                                    <div className="score-badge">
+                                    <div className="list-name">{user.first_name}</div>
+                                    <div className="list-score">
                                         <img src="/images/stars.png" alt="" className="star-icon small" />
-                                        {/* Вывод потраченного (total_spent) */}
                                         <span>{(user.total_spent || 0).toLocaleString()}</span>
                                     </div>
                                 </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="empty-leaders">Список пока пуст</div>
-                    )}
-                </div>
+                            );
+                        })}
+                    </div>
+                </>
             )}
         </main>
     );
