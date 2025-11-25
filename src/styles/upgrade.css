@@ -24,7 +24,7 @@
 }
 
 /* =========================================
-   2. ЦЕНТРАЛЬНАЯ СЦЕНА (КОЛЕСО И СТАТИСТИКА)
+   2. ЦЕНТРАЛЬНАЯ СЦЕНА (КОЛЕСО)
    ========================================= */
 
 .upgrade-center-stage {
@@ -88,7 +88,7 @@
     padding: 4px;
     box-sizing: border-box;
     
-    /* Градиентная рамка, зависящая от шанса (JS меняет --chance) */
+    /* Градиентная рамка, меняется через JS (--chance) */
     background: conic-gradient(#00aaff 0%, #00aaff var(--chance, 0%), #232b34 var(--chance, 0%), #232b34 100%);
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
@@ -110,7 +110,7 @@
     display: flex; justify-content: center; align-items: center;
     box-sizing: border-box;
     position: relative;
-    overflow: hidden; /* Чтобы эффекты не вылезали */
+    overflow: hidden;
     box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
 }
 
@@ -138,13 +138,19 @@
 /* Предмет в центре */
 .wheel-item {
     width: 60%; height: auto;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    opacity: 1; transform: scale(1);
+    /* Плавный переход прозрачности и размера */
+    transition: opacity 0.4s ease-in-out, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    opacity: 1; 
+    transform: scale(1);
     position: relative;
     z-index: 2;
     filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
 }
-.wheel-item.is-fading { opacity: 0; transform: scale(0.8); }
+
+.wheel-item.is-fading { 
+    opacity: 0; 
+    transform: scale(0.8) rotate(-10deg); 
+}
 
 /* --- ПОБЕДА (СИНИЙ ВЗРЫВ) --- */
 .wheel-item.roll-success {
@@ -156,7 +162,7 @@
     100% { transform: scale(1.2); filter: drop-shadow(0 0 20px #00e5ff) brightness(1.1); }
 }
 
-/* --- ПРОИГРЫШ (ИСЧЕЗНОВЕНИЕ) --- */
+/* --- ПРОИГРЫШ (МЕДЛЕННОЕ ИСЧЕЗНОВЕНИЕ) --- */
 .wheel-item.roll-fail {
     animation: disappearFail 1.5s ease-in-out forwards;
 }
@@ -164,17 +170,16 @@
     0% { 
         opacity: 1; 
         transform: scale(1);
-        /* Нормальный цвет */
     }
     20% {
         opacity: 1;
-        transform: scale(1.05); /* Легкий "вздох" */
-        /* Легкая красная подсветка, но БЕЗ серого фильтра */
+        transform: scale(1.05);
+        /* Красная подсветка без серого фильтра */
         filter: drop-shadow(0 0 10px #ff1744); 
     }
     100% { 
         opacity: 0; 
-        transform: scale(0.2) rotate(20deg); /* Сжатие */
+        transform: scale(0.2) rotate(20deg);
     }
 }
 
@@ -231,7 +236,7 @@
 /* Квадраты (Слоты) */
 .selection-box {
     flex: 1;
-    min-width: 100px; /* Чтобы не сжимались */
+    min-width: 100px;
     height: 130px;
     background: rgba(44, 54, 65, 0.5); /* Полупрозрачный фон */
     backdrop-filter: blur(10px); /* Эффект стекла */
@@ -256,7 +261,7 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Активное состояние (подсветка выбранного таба) */
+/* Активное состояние (подсветка) */
 .selection-box.active-focus {
     border-color: rgba(255,255,255,0.3);
     background: rgba(44, 54, 65, 0.8);
@@ -396,7 +401,7 @@
     background: rgba(0, 170, 255, 0.1);
 }
 
-/* --- КРАСИВОЕ ПУСТОЕ СОСТОЯНИЕ (Без рамок) --- */
+/* --- КРАСИВОЕ ПУСТОЕ СОСТОЯНИЕ (БЕЗ РАМОК) --- */
 .empty-state-container {
     display: flex;
     flex-direction: column;
