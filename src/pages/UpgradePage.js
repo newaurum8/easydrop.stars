@@ -7,7 +7,6 @@ const UpgradePage = () => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [targetItem, setTargetItem] = useState(null);
     
-    // Активная вкладка снизу ('my-gifts' или 'choose-upgrade')
     const [activeTab, setActiveTab] = useState('my-gifts');
     
     const [chance, setChance] = useState(0);
@@ -20,7 +19,7 @@ const UpgradePage = () => {
     const [isFading, setIsFading] = useState(false);
     const indicatorRef = useRef(null);
 
-    // Фильтруем доступные улучшения (только те, что дороже выбранного)
+    // Мемоизация доступных улучшений
     const availableUpgrades = useMemo(() => {
         if (!selectedItem) return [];
         return ALL_PRIZES
@@ -41,38 +40,76 @@ const UpgradePage = () => {
         }
     }, [selectedItem, targetItem]);
 
-    // Логика превью в колесе (анимация картинок)
+    // --- УЛУЧШЕННАЯ АНИМАЦИЯ ПРЕВЬЮ ---
     useEffect(() => {
-        // 1. Если выбрана цель - показываем её
+        // 1. Если выбрана цель - показываем её статично и без анимации
         if (targetItem) {
             setDisplayItem(targetItem);
+            setIsFading(false);
             return;
         }
 
-        // 2. Если выбран свой предмет - крутим возможные улучшения
-        // Если ничего не выбрано - крутим всё подряд
+        // 2. Определяем пул предметов
         let pool = selectedItem ? (availableUpgrades.length > 0 ? availableUpgrades : [selectedItem]) : ALL_PRIZES;
         
-        if (!pool || pool.length === 0) return;
+        // Если предмета для анимации нет или он один - просто показываем его
+        if (!pool || pool.length <= 1) {
+            if (pool.length === 1) setDisplayItem(pool[0]);
+            setIsFading(false);
+            return;
+        }
 
-        const interval = setInterval(() => {
+        // 3. Цикл анимации
+        let isMounted = true;
+        let timeout1, timeout2, timeout3;
+
+        const animateCycle = () => {
+            if (!isMounted) return;
+
+            // ШАГ 1: Начало исчезновения (Fade Out)
             setIsFading(true);
-            setTimeout(() => {
+
+            // Ждем пока исчезнет (400ms - совпадает с CSS transition)
+            timeout1 = setTimeout(() => {
+                if (!isMounted) return;
+
+                // ШАГ 2: Смена картинки (пока она невидима)
                 setDisplayItem(prevItem => {
-                    // Исключаем текущий, чтобы картинка менялась
+                    // Строгая фильтрация текущего предмета
                     const candidates = pool.filter(item => item.id !== prevItem.id);
-                    if (candidates.length === 0) return pool[0];
+                    // Если каким-то чудом кандидатов нет, берем любой из пула, иначе рандом
+                    if (candidates.length === 0) return pool[Math.floor(Math.random() * pool.length)];
+                    
                     const randomIndex = Math.floor(Math.random() * candidates.length);
                     return candidates[randomIndex];
                 });
-                setIsFading(false);
-            }, 300);
-        }, 2000);
 
-        return () => clearInterval(interval);
+                // ШАГ 3: Небольшая задержка перед появлением (чтобы браузер успел сменить src)
+                timeout2 = setTimeout(() => {
+                    if (!isMounted) return;
+                    
+                    // ШАГ 4: Появление (Fade In)
+                    setIsFading(false);
+
+                    // ШАГ 5: Планируем следующий цикл через 2 секунды видимости
+                    timeout3 = setTimeout(animateCycle, 2000);
+                }, 50); // 50ms техническая пауза
+
+            }, 400); // Время исчезновения
+        };
+
+        // Запускаем первый цикл
+        timeout3 = setTimeout(animateCycle, 2000);
+
+        return () => {
+            isMounted = false;
+            clearTimeout(timeout1);
+            clearTimeout(timeout2);
+            clearTimeout(timeout3);
+        };
     }, [selectedItem, targetItem, availableUpgrades, ALL_PRIZES]);
     
-    // Сброс анимации стрелки при остановке
+    // Сброс стрелки
     useEffect(() => {
         if (!isRolling && indicatorRef.current) {
             indicatorRef.current.style.transition = 'none';
@@ -87,7 +124,6 @@ const UpgradePage = () => {
         if (isRolling) return;
         setSelectedItem(item);
         setTargetItem(null);
-        // Автоматически переходим к выбору улучшения
         setActiveTab('choose-upgrade'); 
     };
 
@@ -99,7 +135,6 @@ const UpgradePage = () => {
     const handleUpgrade = () => {
         if (!selectedItem || !targetItem || isRolling) return;
 
-        // Сброс анимации перед стартом
         if (indicatorRef.current) {
             void indicatorRef.current.offsetHeight; 
             indicatorRef.current.style.transition = 'transform 4s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -124,17 +159,15 @@ const UpgradePage = () => {
         const totalRotation = (rotation - (rotation % 360)) + (5 * 360) + stopAngle;
         setRotation(totalRotation);
 
-        // Запуск таймера вращения (4.1 сек)
         setTimeout(() => {
             setRollResult(success ? 'success' : 'fail');
             performUpgrade(selectedItem.inventoryId, targetItem, success);
 
-            // Сброс интерфейса после анимации результата (1.5 сек)
             setTimeout(() => {
                 setIsRolling(false);
                 setSelectedItem(null);
                 setTargetItem(null);
-                setActiveTab('my-gifts'); // Возвращаем на вкладку инвентаря
+                setActiveTab('my-gifts');
                 setRollResult(null); 
             }, 1500);
 
@@ -195,9 +228,8 @@ const UpgradePage = () => {
                 </div>
             </div>
 
-            {/* --- ВЕРХНЯЯ ЗОНА: ДВА КВАДРАТА + СТРЕЛКА --- */}
+            {/* Верхние слоты */}
             <div className="selection-area">
-                {/* Слот 1: Мой предмет */}
                 <div className={`selection-box ${selectedItem ? 'filled' : 'empty'} ${activeTab === 'my-gifts' ? 'active-focus' : ''}`} onClick={() => !isRolling && setActiveTab('my-gifts')}>
                     {selectedItem ? (
                         <>
@@ -213,10 +245,8 @@ const UpgradePage = () => {
                     )}
                 </div>
 
-                {/* Стрелка (активна, если оба выбраны, или просто видна) */}
                 <div className={`upgrade-arrow ${selectedItem && targetItem ? 'active' : ''}`}>➜</div>
 
-                {/* Слот 2: Цель */}
                 <div className={`selection-box ${targetItem ? 'filled target' : 'empty'} ${activeTab === 'choose-upgrade' ? 'active-focus' : ''}`} onClick={() => !isRolling && selectedItem && setActiveTab('choose-upgrade')}>
                      {targetItem ? (
                         <>
@@ -241,7 +271,7 @@ const UpgradePage = () => {
                 {isRolling ? 'UPGRADING...' : 'UPGRADE'}
             </button>
 
-            {/* --- НИЖНЯЯ ЗОНА: СПИСКИ --- */}
+            {/* Списки */}
             <div className="inventory-section">
                 <div className="inventory-tabs">
                     <button
@@ -260,7 +290,6 @@ const UpgradePage = () => {
                 </div>
 
                 <div className="inventory-content">
-                    {/* Содержимое: Инвентарь */}
                     {activeTab === 'my-gifts' && (
                         <div className="tab-content active">
                             {inventory.length > 0 ? (
@@ -284,7 +313,6 @@ const UpgradePage = () => {
                         </div>
                     )}
 
-                    {/* Содержимое: Выбор улучшения */}
                     {activeTab === 'choose-upgrade' && (
                         <div className="tab-content active">
                              {selectedItem ? (
