@@ -2,46 +2,87 @@
 
 /* --- LIVE FEED (Лента дропов сверху) --- */
 .live-feed-container {
+    display: flex;       /* Выстраиваем лейбл и ленту в одну строку */
+    align-items: center; /* Центрируем по вертикали */
     margin-bottom: 24px;
     position: relative;
-    /* Маска, чтобы лента плавно исчезала в прозрачность справа */
-    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
-    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    gap: 16px;           /* Отступ между лейблом и лентой */
+    height: 85px;        /* Фиксированная высота контейнера */
 }
 
+/* Лейбл LIVE (Вертикальный) */
 .live-label {
     display: flex;
+    flex-direction: column-reverse; /* Разворачиваем порядок элементов внутри */
     align-items: center;
-    gap: 6px;
-    font-size: 11px;
+    justify-content: center;
+    gap: 8px;
+
+    /* Поворачиваем текст вертикально */
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+
+    font-size: 14px;
     font-weight: 800;
     color: #e0e0e0;
-    margin-bottom: 10px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
+    
+    height: 100%;
     padding-left: 4px;
-    opacity: 0.9;
+    border-right: 1px solid rgba(255, 255, 255, 0.05); /* Легкий разделитель */
+    padding-right: 12px;
 }
 
-/* Зеленая точка-индикатор */
+/* Анимация мигания точки */
+@keyframes blink {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px #4CAF50; transform: scale(1); }
+    50% { opacity: 0.5; box-shadow: 0 0 2px #4CAF50; transform: scale(0.8); }
+}
+
+/* Зеленая точка */
 .live-label::before {
     content: '';
     display: block;
-    width: 6px;
-    height: 6px;
+    min-width: 8px;
+    min-height: 8px;
     background-color: #4CAF50;
     border-radius: 50%;
-    box-shadow: 0 0 6px #4CAF50;
+    margin-top: 4px; /* Отступ от текста (в перевернутом режиме это визуально снизу) */
+    animation: blink 1.5s infinite ease-in-out; /* Бесконечное мигание */
 }
 
+/* Контейнер самой ленты */
 .live-track {
+    flex: 1;             /* Занимает всё оставшееся место */
     display: flex;
-    gap: 12px;
-    overflow-x: hidden; /* Скрываем скролл, прокрутка идет за счет добавления элементов */
-    padding: 4px 0 12px 0; /* Отступ снизу для теней */
+    gap: 12px;           /* Расстояние между предметами */
+    overflow-x: auto;    /* Разрешаем скролл */
+    padding: 5px 0 15px 0; /* Отступы для теней */
+    
+    /* Скрываем скроллбары */
+    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;  /* IE/Edge */
+    
+    /* Маска прозрачности справа */
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    
+    /* Курсор перетаскивания */
+    cursor: grab;
+    user-select: none; /* Чтобы картинки не выделялись при перетаскивании */
 }
 
-/* Анимация "выезда" карточки слева */
+/* Скрыть скроллбар Chrome/Safari */
+.live-track::-webkit-scrollbar {
+    display: none;
+}
+
+.live-track:active {
+    cursor: grabbing; /* Меняем курсор при нажатии */
+}
+
+/* Анимация появления нового предмета */
 @keyframes slideIn {
     0% {
         width: 0;
@@ -50,15 +91,17 @@
         transform: translateX(-20px);
     }
     100% {
-        width: 70px; /* Финальная ширина карточки */
+        width: 70px;
         opacity: 1;
-        margin-right: 12px; /* Финальный отступ */
+        margin-right: 12px;
         transform: translateX(0);
     }
 }
 
+/* Карточка предмета */
 .live-card {
     position: relative;
+    min-width: 70px; /* Фиксированная ширина */
     width: 70px;
     height: 70px;
     background: linear-gradient(145deg, #2c3641, #232b34);
@@ -66,17 +109,16 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    flex-shrink: 0;
+    flex-shrink: 0; /* Запрет на сжатие */
     overflow: hidden;
     
-    /* Тень вместо рамки */
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     transition: transform 0.2s ease;
 }
 
-/* Применяем анимацию только к новому элементу */
+/* Применяем анимацию только к первому элементу */
 .live-card.new-item {
-    animation: slideIn 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    animation: slideIn 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .live-card:hover {
@@ -88,24 +130,22 @@
     max-height: 75%;
     object-fit: contain;
     z-index: 2;
+    pointer-events: none; /* Отключаем взаимодействие с картинкой для корректного драга */
     filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
 }
 
-/* Нижняя светящаяся полоска (редкость) */
+/* Свечение снизу (редкость) */
 .live-card::after {
     content: '';
     position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 3px;
+    bottom: 0; left: 0; width: 100%; height: 3px;
     background-color: var(--rarity-color);
     box-shadow: 0 -1px 8px var(--rarity-color);
     opacity: 0.9;
     z-index: 1;
 }
 
-/* Легкое фоновое свечение внутри */
+/* Фоновое свечение внутри */
 .live-card::before {
     content: '';
     position: absolute;
@@ -115,7 +155,7 @@
     z-index: 0;
 }
 
-/* --- BANNER (Если нужен старый код баннера) --- */
+/* --- BANNER (Остальные стили без изменений) --- */
 .hero-banner {
     background: linear-gradient(135deg, #0088cc 0%, #005580 100%);
     border-radius: 16px;
@@ -124,8 +164,17 @@
     margin-bottom: 24px;
     box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
 }
-.hero-banner h2 { margin: 0 0 8px 0; font-size: 24px; }
-.hero-banner p { margin: 0; opacity: 0.9; font-size: 14px; }
+
+.hero-banner h2 {
+    margin: 0 0 8px 0;
+    font-size: 24px;
+}
+
+.hero-banner p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 14px;
+}
 
 /* --- КАРТОЧКИ КЕЙСОВ --- */
 .content-grid {
