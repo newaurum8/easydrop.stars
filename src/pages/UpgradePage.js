@@ -7,7 +7,9 @@ const UpgradePage = () => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [targetItem, setTargetItem] = useState(null);
     
+    // Активная вкладка снизу ('my-gifts' или 'choose-upgrade')
     const [activeTab, setActiveTab] = useState('my-gifts');
+    
     const [chance, setChance] = useState(0);
     const [multiplier, setMultiplier] = useState(0);
     
@@ -18,7 +20,7 @@ const UpgradePage = () => {
     const [isFading, setIsFading] = useState(false);
     const indicatorRef = useRef(null);
 
-    // Список доступных улучшений (только те, что дороже выбранного)
+    // Фильтруем доступные улучшения (только те, что дороже выбранного)
     const availableUpgrades = useMemo(() => {
         if (!selectedItem) return [];
         return ALL_PRIZES
@@ -26,7 +28,7 @@ const UpgradePage = () => {
             .sort((a, b) => a.value - b.value);
     }, [selectedItem, ALL_PRIZES]);
 
-    // Расчет шансов
+    // Расчет статистики
     useEffect(() => {
         if (selectedItem && targetItem) {
             const calculatedChance = Math.min(Math.max((selectedItem.value / targetItem.value) * 50, 1), 95);
@@ -39,51 +41,38 @@ const UpgradePage = () => {
         }
     }, [selectedItem, targetItem]);
 
-    // --- АНИМАЦИЯ ПРЕДМЕТА В ЦЕНТРЕ (ПРЕВЬЮ) ---
+    // Логика превью в колесе (анимация картинок)
     useEffect(() => {
-        // 1. Если выбрана цель - показываем её статично
+        // 1. Если выбрана цель - показываем её
         if (targetItem) {
             setDisplayItem(targetItem);
             return;
         }
 
-        // 2. Определяем пул предметов для показа
-        let pool = [];
-        if (selectedItem) {
-            // Если выбран свой предмет, крутим только возможные улучшения
-            // Если улучшений нет (самый дорогой предмет), показываем только его
-            pool = availableUpgrades.length > 0 ? availableUpgrades : [selectedItem];
-        } else {
-            // Если ничего не выбрано, крутим всё (демо режим)
-            pool = ALL_PRIZES;
-        }
-
+        // 2. Если выбран свой предмет - крутим возможные улучшения
+        // Если ничего не выбрано - крутим всё подряд
+        let pool = selectedItem ? (availableUpgrades.length > 0 ? availableUpgrades : [selectedItem]) : ALL_PRIZES;
+        
         if (!pool || pool.length === 0) return;
 
         const interval = setInterval(() => {
             setIsFading(true);
-            
             setTimeout(() => {
                 setDisplayItem(prevItem => {
-                    // Фильтруем пул, исключая текущий предмет, чтобы картинка точно сменилась
+                    // Исключаем текущий, чтобы картинка менялась
                     const candidates = pool.filter(item => item.id !== prevItem.id);
-                    
-                    // Если кандидатов нет (например, в пуле всего 1 предмет), возвращаем его же
                     if (candidates.length === 0) return pool[0];
-
-                    // Выбираем случайный из оставшихся
                     const randomIndex = Math.floor(Math.random() * candidates.length);
                     return candidates[randomIndex];
                 });
                 setIsFading(false);
-            }, 300); // Время исчезновения (соответствует CSS transition)
-            
-        }, 2000); // Интервал смены картинки
+            }, 300);
+        }, 2000);
 
         return () => clearInterval(interval);
     }, [selectedItem, targetItem, availableUpgrades, ALL_PRIZES]);
     
-    // Сброс анимации стрелки
+    // Сброс анимации стрелки при остановке
     useEffect(() => {
         if (!isRolling && indicatorRef.current) {
             indicatorRef.current.style.transition = 'none';
@@ -92,11 +81,14 @@ const UpgradePage = () => {
         }
     }, [isRolling, rotation]);
 
+    // --- ОБРАБОТЧИКИ ---
+
     const handleSelectItem = (item) => {
         if (isRolling) return;
         setSelectedItem(item);
         setTargetItem(null);
-        setActiveTab('choose-upgrade'); // Авто-переход к выбору улучшения
+        // Автоматически переходим к выбору улучшения
+        setActiveTab('choose-upgrade'); 
     };
 
     const handleSelectTarget = (item) => {
@@ -107,6 +99,7 @@ const UpgradePage = () => {
     const handleUpgrade = () => {
         if (!selectedItem || !targetItem || isRolling) return;
 
+        // Сброс анимации перед стартом
         if (indicatorRef.current) {
             void indicatorRef.current.offsetHeight; 
             indicatorRef.current.style.transition = 'transform 4s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -131,17 +124,17 @@ const UpgradePage = () => {
         const totalRotation = (rotation - (rotation % 360)) + (5 * 360) + stopAngle;
         setRotation(totalRotation);
 
-        // 1. Вращение (4.1 сек)
+        // Запуск таймера вращения (4.1 сек)
         setTimeout(() => {
             setRollResult(success ? 'success' : 'fail');
             performUpgrade(selectedItem.inventoryId, targetItem, success);
 
-            // 2. Сброс интерфейса (через 1.5 сек после остановки, время анимации исчезновения)
+            // Сброс интерфейса после анимации результата (1.5 сек)
             setTimeout(() => {
                 setIsRolling(false);
                 setSelectedItem(null);
                 setTargetItem(null);
-                setActiveTab('my-gifts');
+                setActiveTab('my-gifts'); // Возвращаем на вкладку инвентаря
                 setRollResult(null); 
             }, 1500);
 
@@ -190,11 +183,7 @@ const UpgradePage = () => {
                             </div>
                         </div>
                         
-                        <div
-                            className="wheel-indicator-container"
-                            ref={indicatorRef}
-                            style={{ transform: `rotate(${rotation}deg)` }}
-                        >
+                        <div className="wheel-indicator-container" ref={indicatorRef} style={{ transform: `rotate(${rotation}deg)` }}>
                             <div className="wheel-indicator-arrow"></div>
                         </div>
                     </div>
@@ -206,9 +195,9 @@ const UpgradePage = () => {
                 </div>
             </div>
 
-            {/* --- ЗОНА ВЫБОРА (ПОСЛЕДОВАТЕЛЬНАЯ) --- */}
+            {/* --- ВЕРХНЯЯ ЗОНА: ДВА КВАДРАТА + СТРЕЛКА --- */}
             <div className="selection-area">
-                {/* 1. Слот СВОЕГО предмета (Всегда виден) */}
+                {/* Слот 1: Мой предмет */}
                 <div className={`selection-box ${selectedItem ? 'filled' : 'empty'} ${activeTab === 'my-gifts' ? 'active-focus' : ''}`} onClick={() => !isRolling && setActiveTab('my-gifts')}>
                     {selectedItem ? (
                         <>
@@ -219,32 +208,29 @@ const UpgradePage = () => {
                     ) : (
                         <div className="placeholder-content">
                             <span className="plus-icon">+</span>
-                            <span>Выберите предмет</span>
+                            <span>Мой предмет</span>
                         </div>
                     )}
                 </div>
 
-                {/* 2. Стрелка и Слот ЦЕЛИ (Появляются только после выбора первого) */}
-                {selectedItem && (
-                    <>
-                        <div className={`upgrade-arrow ${targetItem ? 'active' : ''}`}>➜</div>
+                {/* Стрелка (активна, если оба выбраны, или просто видна) */}
+                <div className={`upgrade-arrow ${selectedItem && targetItem ? 'active' : ''}`}>➜</div>
 
-                        <div className={`selection-box ${targetItem ? 'filled target' : 'empty'} ${activeTab === 'choose-upgrade' ? 'active-focus' : ''}`} onClick={() => !isRolling && setActiveTab('choose-upgrade')}>
-                             {targetItem ? (
-                                <>
-                                    <div className="box-glow" style={{background: 'radial-gradient(circle, rgba(255,193,7,0.2), transparent)'}}></div>
-                                    <img src={targetItem.image} alt={targetItem.name} />
-                                    <span className="box-price" style={{color: '#ffc107'}}>{targetItem.value.toLocaleString()}</span>
-                                </>
-                            ) : (
-                                <div className="placeholder-content">
-                                    <span className="plus-icon">+</span>
-                                    <span>Выберите улучшение</span>
-                                </div>
-                            )}
+                {/* Слот 2: Цель */}
+                <div className={`selection-box ${targetItem ? 'filled target' : 'empty'} ${activeTab === 'choose-upgrade' ? 'active-focus' : ''}`} onClick={() => !isRolling && selectedItem && setActiveTab('choose-upgrade')}>
+                     {targetItem ? (
+                        <>
+                            <div className="box-glow" style={{background: 'radial-gradient(circle, rgba(255,193,7,0.2), transparent)'}}></div>
+                            <img src={targetItem.image} alt={targetItem.name} />
+                            <span className="box-price" style={{color: '#ffc107'}}>{targetItem.value.toLocaleString()}</span>
+                        </>
+                    ) : (
+                        <div className="placeholder-content">
+                            <span className="plus-icon">+</span>
+                            <span>Улучшение</span>
                         </div>
-                    </>
-                )}
+                    )}
+                </div>
             </div>
 
             <button
@@ -255,6 +241,7 @@ const UpgradePage = () => {
                 {isRolling ? 'UPGRADING...' : 'UPGRADE'}
             </button>
 
+            {/* --- НИЖНЯЯ ЗОНА: СПИСКИ --- */}
             <div className="inventory-section">
                 <div className="inventory-tabs">
                     <button
@@ -273,42 +260,61 @@ const UpgradePage = () => {
                 </div>
 
                 <div className="inventory-content">
-                    <div id="my-gifts" className={`tab-content ${activeTab === 'my-gifts' ? 'active' : ''}`}>
-                        {inventory.length > 0 ? (
-                            <div className="inventory-grid">
-                                {inventory.map(item => (
-                                    <InventoryItem
-                                        key={item.inventoryId}
-                                        item={item}
-                                        onClick={handleSelectItem}
-                                        isActive={selectedItem && selectedItem.inventoryId === item.inventoryId}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="empty-state">Инвентарь пуст</div>
-                        )}
-                    </div>
-                    <div id="choose-upgrade" className={`tab-content ${activeTab === 'choose-upgrade' ? 'active' : ''}`}>
-                         {selectedItem ? (
-                             availableUpgrades.length > 0 ? (
+                    {/* Содержимое: Инвентарь */}
+                    {activeTab === 'my-gifts' && (
+                        <div className="tab-content active">
+                            {inventory.length > 0 ? (
                                 <div className="inventory-grid">
-                                    {availableUpgrades.map(item => (
+                                    {inventory.map(item => (
                                         <InventoryItem
-                                            key={item.id}
+                                            key={item.inventoryId}
                                             item={item}
-                                            onClick={handleSelectTarget}
-                                            isActive={targetItem && targetItem.id === item.id}
+                                            onClick={handleSelectItem}
+                                            isActive={selectedItem && selectedItem.inventoryId === item.inventoryId}
                                         />
                                     ))}
                                 </div>
+                            ) : (
+                                <div className="empty-state-container">
+                                    <div className="empty-icon">🎒</div>
+                                    <p>Инвентарь пуст</p>
+                                    <span>Откройте кейсы, чтобы получить предметы</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Содержимое: Выбор улучшения */}
+                    {activeTab === 'choose-upgrade' && (
+                        <div className="tab-content active">
+                             {selectedItem ? (
+                                 availableUpgrades.length > 0 ? (
+                                    <div className="inventory-grid">
+                                        {availableUpgrades.map(item => (
+                                            <InventoryItem
+                                                key={item.id}
+                                                item={item}
+                                                onClick={handleSelectTarget}
+                                                isActive={targetItem && targetItem.id === item.id}
+                                            />
+                                        ))}
+                                    </div>
+                                 ) : (
+                                    <div className="empty-state-container">
+                                        <div className="empty-icon">💎</div>
+                                        <p>Нет улучшений</p>
+                                        <span>Для этого предмета нет более дорогих вариантов</span>
+                                    </div>
+                                 )
                              ) : (
-                                <div className="empty-state">Нет доступных улучшений</div>
-                             )
-                         ) : (
-                            <div className="empty-state">Сначала выберите предмет из инвентаря</div>
-                         )}
-                    </div>
+                                <div className="empty-state-container">
+                                    <div className="empty-icon">👈</div>
+                                    <p>Выберите предмет</p>
+                                    <span>Сначала выберите предмет из инвентаря (слева)</span>
+                                </div>
+                             )}
+                        </div>
+                    )}
                 </div>
             </div>
         </main>
