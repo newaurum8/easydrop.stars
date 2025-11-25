@@ -1,4 +1,4 @@
-\const express = require('express');
+const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
@@ -209,14 +209,27 @@ app.post('/api/case/spin', async (req, res) => {
             await pool.query('UPDATE cases SET current_activations = current_activations + $1 WHERE id = $2', [qty, caseId]);
 
             // Если это не промо-кейс, засчитываем траты пользователю
-            if (userId && c.price > 0) {
-                const totalCost = c.price * qty;
-                // Используем COALESCE, чтобы 0 + X работало корректно, даже если поле было NULL
-                await pool.query('UPDATE users SET total_spent = COALESCE(total_spent, 0) + $1 WHERE id = $2', [totalCost, userId]);
+            const price = Number(c.price);
+            if (userId && price > 0) {
+                const totalCost = price * qty;
+                
+                // ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ (можно убрать потом)
+                console.log(`[SPIN] User ${userId} spent ${totalCost} stars on case ${caseId}`);
+                
+                // ИСПРАВЛЕНИЕ: Явное приведение id к bigint ($2::bigint) для надежности поиска
+                await pool.query(
+                    'UPDATE users SET total_spent = COALESCE(total_spent, 0) + $1 WHERE id = $2::bigint', 
+                    [totalCost, userId]
+                );
+            } else {
+                console.log(`[SPIN] Skipped total_spent update: userId=${userId}, price=${price}`);
             }
         }
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error('SPIN ERROR:', err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/user/sync', async (req, res) => {
