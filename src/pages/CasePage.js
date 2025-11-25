@@ -85,14 +85,13 @@ const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
 // --- ОСНОВНОЙ КОМПОНЕНТ СТРАНИЦЫ ---
 const CasePage = () => {
     const { caseId } = useParams();
-    const { balance, updateBalance, addToInventory, addToHistory, getWeightedRandomPrize, ALL_CASES, ALL_PRIZES } = useContext(AppContext);
+    // ИЗМЕНЕНИЕ: Добавили user в деструктуризацию
+    const { user, balance, updateBalance, addToInventory, addToHistory, getWeightedRandomPrize, ALL_CASES, ALL_PRIZES } = useContext(AppContext);
 
     const currentCase = useMemo(() => ALL_CASES.find(c => c.id === caseId), [caseId, ALL_CASES]);
 
-    // Локальное состояние для активаций (чтобы обновлялось мгновенно)
     const [localActivations, setLocalActivations] = useState(0);
 
-    // Синхронизация локального счетчика при загрузке кейса
     useEffect(() => {
         if (currentCase) {
             setLocalActivations(currentCase.currentActivations || 0);
@@ -127,7 +126,6 @@ const CasePage = () => {
         }
     }, [quantity, currentCasePrizes]);
 
-    // Анимация
     useEffect(() => {
         if (!isRolling) return;
         const animationPromises = carouselRefs.current.map(ref => {
@@ -182,12 +180,10 @@ const CasePage = () => {
     const handleRoll = async () => {
         if (!currentCase || !currentCasePrizes || currentCasePrizes.length === 0) return;
         
-        // 1. Проверка лимитов (локальная защита)
         if (currentCase.maxActivations > 0 && localActivations >= currentCase.maxActivations) {
             return alert('Лимит кейса исчерпан');
         }
 
-        // 2. Списание
         if (currentCase.isPromo) {
             if (!isPromoValid) return alert("Неверный промокод");
         } else {
@@ -196,12 +192,16 @@ const CasePage = () => {
             updateBalance(-cost);
         }
 
-        // 3. Отправка на сервер
+        // ИЗМЕНЕНИЕ: Отправляем userId и quantity
         try {
             const res = await fetch('/api/case/spin', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ caseId: currentCase.id })
+                body: JSON.stringify({ 
+                    caseId: currentCase.id,
+                    userId: user ? user.id : null,
+                    quantity: quantity
+                })
             });
             const data = await res.json();
             
@@ -209,9 +209,7 @@ const CasePage = () => {
                 if (!currentCase.isPromo) updateBalance(currentCase.price * quantity);
                 return alert('К сожалению, лимит активаций этого кейса исчерпан.');
             } else {
-                // УСПЕХ: Обновляем локальный счетчик в реальном времени
-                setLocalActivations(prev => prev + 1); // +1 за один клик (или +quantity, если логика сервера считает поштучно)
-                // Если сервер считает каждый спин отдельно, можно добавить setLocalActivations(prev => prev + quantity);
+                setLocalActivations(prev => prev + quantity); // Обновляем локально на +quantity
             }
         } catch (e) {
             console.error(e);
@@ -241,9 +239,7 @@ const CasePage = () => {
 
     const isButtonDisabled = isRolling || (currentCase.isPromo ? !isPromoValid : balance < currentCase.price * quantity);
     
-    // --- ДИЗАЙН КНОПКИ ---
     const isLimited = currentCase.maxActivations > 0;
-    // Считаем прогресс по локальному стейту
     const progressPercent = isLimited 
         ? Math.min(100, (localActivations / currentCase.maxActivations) * 100) 
         : 0;
@@ -282,12 +278,11 @@ const CasePage = () => {
                             style={{
                                 position: 'relative', 
                                 overflow: 'hidden', 
-                                flexDirection: 'column', // Чтобы тексты были друг под другом
+                                flexDirection: 'column',
                                 alignItems: 'center',
-                                padding: '10px' // Чуть меньше паддинг
+                                padding: '10px'
                             }}
                         >
-                            {/* СИНЯЯ ПОЛОСКА ФОНА */}
                             <div 
                                 className="roll-button-progress" 
                                 style={{ 
@@ -296,11 +291,10 @@ const CasePage = () => {
                                     position: 'absolute', 
                                     left: 0, top: 0, bottom: 0, 
                                     zIndex: 1,
-                                    transition: 'width 0.3s ease-out' // Плавная анимация
+                                    transition: 'width 0.3s ease-out'
                                 }}
                             ></div>
                             
-                            {/* ОСНОВНОЙ ТЕКСТ (Цена или Бесплатно) */}
                             <div style={{zIndex: 2, position: 'relative', display:'flex', alignItems:'center', gap:'5px'}}>
                                 <span className="roll-button-text" style={{fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase'}}>
                                     {currentCase.isPromo ? 'ОТКРЫТЬ БЕСПЛАТНО' : `ОТКРЫТЬ ЗА ${(currentCase.price * quantity).toLocaleString()}`}
@@ -310,7 +304,6 @@ const CasePage = () => {
                                 )}
                             </div>
 
-                            {/* МАЛЕНЬКИЙ СЧЕТЧИК СНИЗУ */}
                             <div style={{
                                 zIndex: 2, 
                                 position: 'relative', 
@@ -327,7 +320,6 @@ const CasePage = () => {
                         </button>
                     </div>
                 ) : (
-                    // --- ОБЫЧНЫЙ РЕЖИМ (КАК БЫЛО) ---
                     currentCase.isPromo ? (
                         <div className="promo-container">
                              <input
