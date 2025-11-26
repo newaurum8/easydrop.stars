@@ -2,34 +2,40 @@ import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 
-// === НОВЫЙ КОМПОНЕНТ МОДАЛЬНОГО ОКНА ===
+// === НОВЫЙ КОМПОНЕНТ МОДАЛЬНОГО ОКНА (CLEAN VERSION) ===
 const ResultsModal = ({ winners, onClose }) => {
-    // Состояние для каждого предмета: 'keep' (по умолчанию) или 'sell'
-    // Изначально все 'keep'
+    // ПО УМОЛЧАНИЮ ВСЕ ПРЕДМЕТЫ ВЫБРАНЫ НА ПРОДАЖУ ('sell')
+    // Т.к. пользователь просил кнопку "Продать все" сразу
     const [itemsStatus, setItemsStatus] = useState(
-        new Array(winners.length).fill('keep')
+        new Array(winners.length).fill('sell')
     );
 
     const getRarityColor = (val) => {
-        if (val >= 50000) return '#ffc107'; // Легендарный (Золото)
-        if (val >= 10000) return '#f44336'; // Редкий (Красный)
-        if (val >= 2000) return '#b388ff';  // Необычный (Фиолетовый)
-        return '#00aaff';                   // Обычный (Синий)
+        if (val >= 50000) return '#ffc107'; // Легендарный
+        if (val >= 10000) return '#f44336'; // Редкий
+        if (val >= 2000) return '#b388ff';  // Необычный
+        return '#00aaff';                   // Обычный
     };
 
     const toggleItemStatus = (index) => {
         setItemsStatus(prev => {
             const newStatus = [...prev];
-            newStatus[index] = newStatus[index] === 'keep' ? 'sell' : 'keep';
+            // Переключаем: если было продать -> стало оставить, и наоборот
+            newStatus[index] = newStatus[index] === 'sell' ? 'keep' : 'sell';
             return newStatus;
         });
     };
 
-    // Подсчет итогов
+    // Группируем предметы
     const itemsToSell = winners.filter((_, i) => itemsStatus[i] === 'sell');
     const itemsToKeep = winners.filter((_, i) => itemsStatus[i] === 'keep');
     
+    // Общая ценность дропа (для заголовка)
+    const totalWonValue = winners.reduce((sum, item) => sum + item.value, 0);
+    
+    // Сумма, которую получит юзер (только за продаваемые)
     const sellAmount = itemsToSell.reduce((sum, item) => sum + item.value, 0);
+
     const totalCount = winners.length;
     const sellCount = itemsToSell.length;
 
@@ -37,32 +43,46 @@ const ResultsModal = ({ winners, onClose }) => {
         onClose(itemsToSell, itemsToKeep);
     };
 
+    // Логика текста и стиля кнопки
+    let btnClass = 'btn-style-sell'; // По дефолту яркая кнопка продажи
+    let mainText = 'ПРОДАТЬ ВСЁ';
+    let subText = null;
+
+    if (sellCount === 0) {
+        // Если ничего не продаем (все оставили)
+        btnClass = 'btn-style-keep';
+        mainText = 'ЗАБРАТЬ ВСЁ';
+    } else if (sellCount < totalCount) {
+        // Смешанный режим
+        btnClass = 'btn-style-mix';
+        mainText = `ПРОДАТЬ (${sellCount})`;
+        subText = `Остальные ${itemsToKeep.length} в инвентарь`;
+    }
+
     return (
         <div className="win-modal-overlay">
             <div className="win-content-wrapper">
-                <div className="win-header">
-                    <h2>Поздравляем!</h2>
-                    <p>Нажми на предмет, чтобы продать его</p>
+                {/* Сводка выигрыша (только цифра, без текста Поздравляем) */}
+                <div className="win-summary-clean">
+                    <div className="win-summary-label">Общая ценность</div>
+                    <div className="win-summary-value">
+                        <img src="/images/stars.png" alt="" className="star-icon" />
+                        {totalWonValue.toLocaleString()}
+                    </div>
                 </div>
 
                 <div className="win-grid">
                     {winners.map((item, index) => {
-                        const status = itemsStatus[index]; // 'keep' or 'sell'
+                        const status = itemsStatus[index]; // 'sell' или 'keep'
                         const color = getRarityColor(item.value);
                         
                         return (
                             <div 
                                 key={index}
                                 className={`win-card status-${status}`}
-                                style={{ '--rarity-color': color, animationDelay: `${index * 0.1}s` }}
+                                style={{ '--rarity-color': color, animationDelay: `${index * 0.05}s` }}
                                 onClick={() => toggleItemStatus(index)}
                             >
-                                {/* Оверлей при продаже */}
-                                <div className="win-card-overlay">
-                                    <div className="sell-icon-big">💰</div>
-                                    <span className="sell-text">Продать</span>
-                                </div>
-
                                 <img src={item.image} alt={item.name} className="win-card-img" />
                                 
                                 <div className="win-card-name">{item.name}</div>
@@ -79,23 +99,13 @@ const ResultsModal = ({ winners, onClose }) => {
 
             {/* Нижняя панель действий */}
             <div className="win-actions-bar">
-                <button 
-                    className={`action-btn-main ${sellCount === 0 ? 'btn-style-keep' : 'btn-style-mix'}`}
-                    onClick={handleConfirm}
-                >
+                <button className={`action-btn-main ${btnClass}`} onClick={handleConfirm}>
                     <div className="btn-left">
-                        {sellCount === 0 
-                            ? <span>ЗАБРАТЬ ВСЁ</span> 
-                            : (sellCount === totalCount 
-                                ? <span>ПРОДАТЬ ВСЁ</span> 
-                                : <span>ЗАБРАТЬ И ПРОДАТЬ</span>
-                              )
-                        }
-                        {sellCount > 0 && sellCount < totalCount && (
-                            <span className="btn-sub">{itemsToKeep.length} в инвентарь, {sellCount} на продажу</span>
-                        )}
+                        <span>{mainText}</span>
+                        {subText && <span className="btn-sub">{subText}</span>}
                     </div>
 
+                    {/* Показываем сумму только если что-то продаем */}
                     {sellCount > 0 && (
                         <div className="btn-right">
                             <span>+{sellAmount.toLocaleString()}</span>
@@ -108,7 +118,7 @@ const ResultsModal = ({ winners, onClose }) => {
     );
 };
 
-// === КАРУСЕЛЬ ===
+// === КАРУСЕЛЬ (Осталась без изменений) ===
 const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
     const totalCarouselItems = 100;
     const stopIndex = 80;
