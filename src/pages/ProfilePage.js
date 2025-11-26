@@ -19,17 +19,19 @@ const ProfilePage = () => {
 
     // --- LOGIC ---
     
-    // Подсчет общей стоимости для кнопки "Продать всё"
-    const totalInventoryValue = useMemo(() => {
-        return inventory.reduce((acc, item) => acc + item.value, 0);
+    // Подсчет статистики инвентаря
+    const stats = useMemo(() => {
+        const totalValue = inventory.reduce((acc, item) => acc + item.value, 0);
+        const totalItems = inventory.length;
+        return { totalValue, totalItems };
     }, [inventory]);
 
     const getRarityColor = (val) => {
-        if (val >= 50000) return '#ffc107'; 
-        if (val >= 10000) return '#f44336'; 
-        if (val >= 2000) return '#b388ff';  
-        if (val >= 500)   return '#00aaff'; 
-        return '#b0bec5';                   
+        if (val >= 50000) return '#ffc107'; // Легендарный (Gold)
+        if (val >= 10000) return '#f44336'; // Мифический (Red)
+        if (val >= 2000) return '#b388ff';  // Эпический (Purple)
+        if (val >= 500)   return '#00aaff'; // Редкий (Blue)
+        return '#b0bec5';                   // Обычный (Gray)
     };
 
     // Анимация и продажа одного предмета
@@ -59,12 +61,14 @@ const ProfilePage = () => {
     const handleConfirmWithdraw = async () => {
         if (!targetUsername.trim()) return alert('Введите username');
         
+        // Убираем @ если пользователь его ввел
         let cleanUsername = targetUsername.replace('@', '').trim();
+        
         await requestWithdrawal(withdrawItem.inventoryId, cleanUsername);
         
         setShowWithdrawModal(false);
         setWithdrawItem(null);
-        alert('Заявка на вывод отправлена!');
+        alert('Заявка на вывод отправлена! Проверьте вкладку "История выводов".');
     };
 
     // Форматирование даты
@@ -73,6 +77,7 @@ const ProfilePage = () => {
         return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     };
 
+    // Рендер статуса
     const getStatusBadge = (status) => {
         switch(status) {
             case 'processing': return <span className="status-badge processing">Процесс вывода</span>;
@@ -85,6 +90,22 @@ const ProfilePage = () => {
     return (
         <div className="profile-page-wrapper">
             
+            {/* БЛОК СТАТИСТИКИ */}
+            <div className="profile-stats-card">
+                <div className="stat-item">
+                    <span className="stat-label">Стоимость инвентаря</span>
+                    <div className="stat-value big">
+                        <img src="/images/stars.png" alt="stars" className="star-icon" />
+                        {stats.totalValue.toLocaleString()}
+                    </div>
+                </div>
+                <div className="stat-divider"></div>
+                <div className="stat-item">
+                    <span className="stat-label">Предметов</span>
+                    <div className="stat-value">{stats.totalItems}</div>
+                </div>
+            </div>
+
             {/* ТАБЫ */}
             <div className="profile-tabs">
                 <button 
@@ -118,6 +139,7 @@ const ProfilePage = () => {
                             <div className="empty-state-container">
                                 <div className="empty-icon">🎒</div>
                                 <p>Инвентарь пуст</p>
+                                <span>Открывайте кейсы, чтобы пополнить коллекцию</span>
                             </div>
                         ) : (
                             inventory.map((item, index) => {
@@ -160,7 +182,7 @@ const ProfilePage = () => {
                 <div className="withdrawals-list">
                     {withdrawals.length === 0 ? (
                         <div className="empty-state-container">
-                            <p>История пуста</p>
+                            <p>История выводов пуста</p>
                         </div>
                     ) : (
                         withdrawals.map(w => {
@@ -172,7 +194,7 @@ const ProfilePage = () => {
                                     </div>
                                     <div className="w-info">
                                         <div className="w-name">{item.name}</div>
-                                        <div className="w-target">@{w.target_username}</div>
+                                        <div className="w-target">На: @{w.target_username}</div>
                                         <div className="w-date">{formatDate(w.created_at)}</div>
                                     </div>
                                     <div className="w-status">
@@ -190,14 +212,14 @@ const ProfilePage = () => {
                 <div className="custom-modal-overlay">
                     <div className="custom-modal">
                         <h3>Продать весь инвентарь?</h3>
-                        <p>Вы получите:</p>
+                        <p>Вы получите на баланс:</p>
                         <div className="modal-price-tag">
                             <img src="/images/stars.png" alt="" className="star-icon" />
-                            {totalInventoryValue.toLocaleString()}
+                            {stats.totalValue.toLocaleString()}
                         </div>
                         <div className="modal-actions">
                             <button className="modal-btn cancel" onClick={() => setShowSellAllModal(false)}>Отмена</button>
-                            <button className="modal-btn confirm" onClick={handleConfirmSellAll}>Продать</button>
+                            <button className="modal-btn confirm" onClick={handleConfirmSellAll}>Подтвердить</button>
                         </div>
                     </div>
                 </div>
@@ -208,11 +230,11 @@ const ProfilePage = () => {
                 <div className="custom-modal-overlay">
                     <div className="custom-modal">
                         <h3>Вывод предмета</h3>
-                        <img src={withdrawItem.image} alt="" style={{width: 60, height: 60, objectFit:'contain', margin: '10px auto'}} />
+                        <img src={withdrawItem.image} alt="" style={{width: 70, height: 70, objectFit:'contain', margin: '10px auto'}} />
                         <p className="modal-item-name">{withdrawItem.name}</p>
                         
                         <div className="input-group">
-                            <label>Введите Username (куда отправить):</label>
+                            <label>Введите Username Telegram (кому отправить):</label>
                             <input 
                                 type="text" 
                                 placeholder="@username" 
@@ -224,7 +246,7 @@ const ProfilePage = () => {
 
                         <div className="modal-actions">
                             <button className="modal-btn cancel" onClick={() => setShowWithdrawModal(false)}>Отмена</button>
-                            <button className="modal-btn confirm" onClick={handleConfirmWithdraw}>Отправить</button>
+                            <button className="modal-btn confirm" onClick={handleConfirmWithdraw}>Отправить заявку</button>
                         </div>
                     </div>
                 </div>
