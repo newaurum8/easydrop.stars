@@ -326,6 +326,6 @@
 /* === МОБИЛЬНЫЕ СТИЛИ === */
 @media (max-width: 768px) {
     .fast-roll-toggle {
-        margin-right: 8px; 
+        margin-right: 4px; 
     }
 }
