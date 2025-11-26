@@ -2,8 +2,17 @@ import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 
+// === ОБНОВЛЕННЫЙ КОМПОНЕНТ МОДАЛЬНОГО ОКНА ===
 const ResultsModal = ({ winners, onClose }) => {
     const [selectedIds, setSelectedIds] = useState(new Set());
+
+    // Хелпер для определения редкости (дублируем логику для стилей)
+    const getRarity = (val) => {
+        if (val >= 50000) return 'legendary';
+        if (val >= 10000) return 'rare';
+        if (val >= 2000) return 'uncommon';
+        return 'common';
+    };
 
     const toggleSelection = (index) => {
         setSelectedIds(prev => {
@@ -26,17 +35,32 @@ const ResultsModal = ({ winners, onClose }) => {
 
     const handleKeepAll = () => onClose([], winners);
 
+    // Подсчеты
+    const totalWonValue = winners.reduce((sum, item) => sum + item.value, 0);
     const totalSellValue = winners
         .filter((_, index) => selectedIds.has(index))
         .reduce((sum, item) => sum + item.value, 0);
 
+    const isAllSelected = selectedIds.size === winners.length;
+    const isNoneSelected = selectedIds.size === 0;
+
     return (
         <div className="results-modal">
             <div className="results-modal-content">
-                <h3>Ваш выигрыш:</h3>
+                <h3>Поздравляем!</h3>
+                <div className="total-win-amount">
+                    Общая ценность: 
+                    <img src="/images/stars.png" className="star-icon small" alt="star"/>
+                    <span>{totalWonValue.toLocaleString()}</span>
+                </div>
+
                 <div className="results-grid">
                     {winners.map((item, index) => (
-                        <div key={index} className={`result-item ${selectedIds.has(index) ? 'selected' : ''}`} onClick={() => toggleSelection(index)}>
+                        <div 
+                            key={index} 
+                            className={`result-item ${getRarity(item.value)} ${selectedIds.has(index) ? 'selected' : ''}`} 
+                            onClick={() => toggleSelection(index)}
+                        >
                             <img src={item.image} alt={item.name} />
                             <span className="prize-name">{item.name}</span>
                             <div className="prize-value">
@@ -46,11 +70,37 @@ const ResultsModal = ({ winners, onClose }) => {
                         </div>
                     ))}
                 </div>
+
                 <div className="results-actions">
-                    <button className="sell-button" onClick={handleSell} disabled={selectedIds.size === 0}>
-                        Продать выбранное ({totalSellValue.toLocaleString()})
-                    </button>
-                    <button id="close-modal-btn" onClick={handleKeepAll}>Получить все предметы</button>
+                    {/* Логика кнопок:
+                        1. Если ничего не выбрано -> Кнопка "Забрать все" (Главная)
+                        2. Если что-то выбрано -> Кнопка "Продать выбранное" (Красная) + Кнопка "Забрать остальное" (Синяя)
+                    */}
+                    
+                    {!isNoneSelected ? (
+                        <>
+                             <button className="action-btn btn-sell" onClick={handleSell}>
+                                Продать на {totalSellValue.toLocaleString()}
+                                <img src="/images/stars.png" className="star-icon small" alt=""/>
+                            </button>
+                            {!isAllSelected && (
+                                <button className="action-btn btn-keep" onClick={handleSell} style={{background: '#2c3641', boxShadow: 'none', border:'1px solid #3a4552'}}>
+                                    Забрать оставшиеся
+                                </button>
+                            )}
+                        </>
+                    ) : (
+                        <button className="action-btn btn-keep" onClick={handleKeepAll}>
+                            Забрать все в инвентарь
+                        </button>
+                    )}
+                    
+                    {/* Подсказка для пользователя */}
+                    {isNoneSelected && winners.length > 1 && (
+                        <div style={{fontSize: '12px', color: '#8a99a8', marginTop: '-5px'}}>
+                            Нажмите на предметы, которые хотите продать
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
