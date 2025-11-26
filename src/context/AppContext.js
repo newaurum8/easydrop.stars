@@ -11,9 +11,10 @@ export const AppProvider = ({ children }) => {
     const [balance, setBalance] = useState(0);
     const [inventory, setInventory] = useState([]);
     const [history, setHistory] = useState([]);
-    const [withdrawals, setWithdrawals] = useState([]); // Новое состояние
+    const [withdrawals, setWithdrawals] = useState([]); 
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
+    // 1. Загрузка конфига (призы, кейсы)
     const refreshConfig = useCallback(() => {
         fetch('/api/config')
             .then(res => res.json())
@@ -27,7 +28,7 @@ export const AppProvider = ({ children }) => {
 
     useEffect(() => { refreshConfig(); }, [refreshConfig]);
 
-    // Функция загрузки выводов
+    // 2. Функция загрузки выводов
     const fetchWithdrawals = useCallback(async (userId) => {
         if (!userId) return;
         try {
@@ -39,6 +40,7 @@ export const AppProvider = ({ children }) => {
         } catch (e) { console.error(e); }
     }, []);
 
+    // 3. Инициализация пользователя
     useEffect(() => {
         const initUser = async () => {
             let tgUser = null;
@@ -66,7 +68,6 @@ export const AppProvider = ({ children }) => {
                     setBalance(userData.balance ?? 0);
                     setInventory(userData.inventory || []);
                     setHistory(userData.history || []);
-                    // Загружаем выводы
                     fetchWithdrawals(userData.id);
                 }
             } catch (err) { console.error("User sync error:", err); }
@@ -75,22 +76,37 @@ export const AppProvider = ({ children }) => {
         if (isConfigLoaded) initUser();
     }, [isConfigLoaded, fetchWithdrawals]);
 
-    // Обновление данных (polling) раз в 5 секунд для проверки статусов выводов
+    // 4. Сохранение данных (при изменении инвентаря/баланса)
+    useEffect(() => {
+        if (!user) return;
+        // Дебаунс 1 секунда, чтобы не спамить сервер при быстрой продаже
+        const timer = setTimeout(() => {
+            fetch('/api/user/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: user.id,
+                    balance,
+                    inventory,
+                    history
+                })
+            }).catch(e => console.error("Save error:", e));
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [balance, inventory, history, user]);
+
+    // 5. Фоновое обновление (Polling)
     useEffect(() => {
         if (!user) return;
         const interval = setInterval(() => {
+            // Обновляем ТОЛЬКО список выводов, чтобы проверить статусы
             fetchWithdrawals(user.id);
-            // Также можно обновлять инвентарь, если админ отклонил вывод (предмет вернулся)
-            fetch('/api/user/sync', {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify({ id: user.id })
-            }).then(r => r.json()).then(u => {
-                setInventory(u.inventory || []);
-                setBalance(u.balance || 0);
-            }).catch(()=>{});
-
-        }, 5000);
+            
+            // ВАЖНО: Мы УБРАЛИ обновление инвентаря отсюда (/api/user/sync), 
+            // чтобы оно не перезаписывало локальные предметы, которые еще не сохранились.
+            
+        }, 5000); // Раз в 5 секунд
         return () => clearInterval(interval);
     }, [user, fetchWithdrawals]);
 
@@ -101,6 +117,7 @@ export const AppProvider = ({ children }) => {
     }, []);
 
     const addToInventory = useCallback((items) => {
+        // Добавляем уникальный ID для React ключей
         const newItems = items.map(item => ({ ...item, inventoryId: Date.now() + Math.random() }));
         setInventory(prev => [...prev, ...newItems]);
     }, []);
@@ -125,7 +142,7 @@ export const AppProvider = ({ children }) => {
         return false;
     }, [inventory, updateBalance, removeFromInventory]);
 
-    // Новое: Продать всё
+    // Функция "Продать всё"
     const sellAllItems = useCallback(async () => {
         if (!user) return;
         try {
@@ -142,7 +159,7 @@ export const AppProvider = ({ children }) => {
         } catch (e) { console.error(e); }
     }, [user]);
 
-    // Новое: Запрос вывода
+    // Функция запроса вывода
     const requestWithdrawal = useCallback(async (itemInventoryId, targetUsername) => {
         if (!user) return;
         try {
@@ -153,8 +170,7 @@ export const AppProvider = ({ children }) => {
             });
             const data = await res.json();
             if (data.success) {
-                // Убираем предмет локально сразу, чтобы не ждать polling
-                removeFromInventory(itemInventoryId);
+                removeFromInventory(itemInventoryId); // Удаляем локально сразу
                 fetchWithdrawals(user.id); // Обновляем список выводов
                 return true;
             }
