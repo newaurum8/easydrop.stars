@@ -2,11 +2,10 @@ import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 
-// === МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ ===
+// === НОВЫЙ КОМПОНЕНТ МОДАЛЬНОГО ОКНА ===
 const ResultsModal = ({ winners, onClose }) => {
     const [selectedIds, setSelectedIds] = useState(new Set());
 
-    // Хелпер для определения редкости (для стилей)
     const getRarity = (val) => {
         if (val >= 50000) return 'legendary';
         if (val >= 10000) return 'rare';
@@ -14,6 +13,7 @@ const ResultsModal = ({ winners, onClose }) => {
         return 'common';
     };
 
+    // Переключение выбора предмета
     const toggleSelection = (index) => {
         setSelectedIds(prev => {
             const newSet = new Set(prev);
@@ -23,7 +23,7 @@ const ResultsModal = ({ winners, onClose }) => {
         });
     };
 
-    // Выбрать все или Снять выделение
+    // Выбрать все / Снять выделение
     const toggleSelectAll = () => {
         if (selectedIds.size === winners.length) {
             setSelectedIds(new Set());
@@ -33,42 +33,37 @@ const ResultsModal = ({ winners, onClose }) => {
         }
     };
 
-    const handleAction = (actionType) => {
-        // actionType: 'sell_selected' | 'keep_all' | 'keep_remaining'
-        const itemsToSell = [];
-        const itemsToKeep = [];
+    // Подсчет сумм
+    const totalWon = winners.reduce((sum, item) => sum + item.value, 0);
+    const totalSell = winners.filter((_, i) => selectedIds.has(i)).reduce((sum, item) => sum + item.value, 0);
+    
+    const isNoneSelected = selectedIds.size === 0;
+    const isAllSelected = selectedIds.size === winners.length && winners.length > 0;
 
-        if (actionType === 'keep_all') {
-             // Забираем всё
-             onClose([], winners);
-             return;
+    const handleAction = (type) => {
+        const toSell = [];
+        const toKeep = [];
+
+        if (type === 'keep_all') {
+            onClose([], winners); // Продаем 0, оставляем все
+            return;
         }
 
-        winners.forEach((item, index) => {
-            if (selectedIds.has(index)) itemsToSell.push(item);
-            else itemsToKeep.push(item);
+        winners.forEach((item, i) => {
+            if (selectedIds.has(i)) toSell.push(item);
+            else toKeep.push(item);
         });
-
-        onClose(itemsToSell, itemsToKeep);
+        onClose(toSell, toKeep);
     };
-
-    // Подсчеты
-    const totalWonValue = winners.reduce((sum, item) => sum + item.value, 0);
-    const totalSellValue = winners
-        .filter((_, index) => selectedIds.has(index))
-        .reduce((sum, item) => sum + item.value, 0);
-
-    const isAllSelected = selectedIds.size === winners.length && winners.length > 0;
-    const isNoneSelected = selectedIds.size === 0;
 
     return (
         <div className="results-modal">
             <div className="results-modal-content">
                 <h3>Твой выигрыш!</h3>
-                <div className="total-win-info">
-                    Общая ценность: 
+                <div className="win-summary">
+                    Общая ценность:
                     <img src="/images/stars.png" className="star-icon small" alt="star"/>
-                    <span>{totalWonValue.toLocaleString()}</span>
+                    <span>{totalWon.toLocaleString()}</span>
                 </div>
 
                 {winners.length > 1 && (
@@ -85,43 +80,37 @@ const ResultsModal = ({ winners, onClose }) => {
                             onClick={() => toggleSelection(index)}
                         >
                             <img src={item.image} alt={item.name} />
-                            <span className="res-prize-name">{item.name}</span>
-                            <div className="res-prize-val">
-                                {item.value.toLocaleString()}
-                            </div>
+                            <span className="res-name">{item.name}</span>
+                            <div className="res-val">{item.value.toLocaleString()}</div>
                         </div>
                     ))}
                 </div>
 
                 <div className="results-actions">
-                    {/* Если ничего не выбрано -> Предлагаем забрать всё (основное действие) */}
                     {isNoneSelected ? (
+                        /* Если ничего не выбрано - кнопка ЗАБРАТЬ ВСЕ */
                         <button className="action-btn btn-keep" onClick={() => handleAction('keep_all')}>
                             Забрать все предметы
                         </button>
                     ) : (
-                        // Если что-то выбрано -> Предлагаем продать выбранное
+                        /* Если что-то выбрали - кнопка ПРОДАТЬ */
                         <>
-                            <button className="action-btn btn-sell" onClick={() => handleAction('sell_selected')}>
-                                Продать на {totalSellValue.toLocaleString()}
+                            <button className="action-btn btn-sell" onClick={() => handleAction('custom')}>
+                                Продать на {totalSell.toLocaleString()}
                                 <img src="/images/stars.png" className="star-icon small" alt=""/>
                             </button>
                             
-                            {/* Если выбрано не всё, даем кнопку забрать оставшееся */}
                             {!isAllSelected && (
-                                <button className="action-btn btn-secondary" onClick={() => handleAction('keep_remaining')}>
-                                    Забрать оставшиеся
+                                <button className="action-btn btn-sec" onClick={() => handleAction('custom')}>
+                                    Остальные в инвентарь
                                 </button>
                             )}
                         </>
                     )}
                 </div>
-                
-                {/* Подсказка, если ничего не выбрано */}
+
                 {isNoneSelected && (
-                    <div style={{marginTop: '10px', fontSize: '12px', color: '#5f6e7c'}}>
-                        Нажми на предмет, чтобы продать его
-                    </div>
+                    <div className="tip-text">Нажми на предмет, чтобы выбрать его для продажи</div>
                 )}
             </div>
         </div>
@@ -132,7 +121,6 @@ const ResultsModal = ({ winners, onClose }) => {
 const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
     const totalCarouselItems = 100;
     const stopIndex = 80;
-    // Мемоизация списка предметов для карусели, чтобы не перегенерировался при ререндере
     const items = useMemo(() => {
         if (!prizes || prizes.length === 0) return [];
         return Array.from({ length: totalCarouselItems }).map((_, i) =>
@@ -158,14 +146,10 @@ const CasePage = () => {
     const { user, balance, updateBalance, addToInventory, addToHistory, getWeightedRandomPrize, ALL_CASES, ALL_PRIZES } = useContext(AppContext);
 
     const currentCase = useMemo(() => ALL_CASES.find(c => c.id === caseId), [caseId, ALL_CASES]);
-
-    // Локальный счетчик открытий
     const [localActivations, setLocalActivations] = useState(0);
 
     useEffect(() => {
-        if (currentCase) {
-            setLocalActivations(currentCase.currentActivations || 0);
-        }
+        if (currentCase) setLocalActivations(currentCase.currentActivations || 0);
     }, [currentCase]);
 
     const currentCasePrizes = useMemo(() => {
@@ -188,17 +172,12 @@ const CasePage = () => {
     const [isPromoValid, setIsPromoValid] = useState(false);
 
     const carouselRefs = useRef([]);
-    // Обновляем рефы при изменении кол-ва
     carouselRefs.current = [...Array(quantity)].map((_, i) => carouselRefs.current[i] ?? React.createRef());
 
-    // Предзагрузка "фейковых" победителей, чтобы карусель не была пустой до прокрута
     useEffect(() => {
-        if (currentCasePrizes?.length) {
-            setWinningPrizes(Array(quantity).fill(currentCasePrizes[0]));
-        }
+        if (currentCasePrizes?.length) setWinningPrizes(Array(quantity).fill(currentCasePrizes[0]));
     }, [quantity, currentCasePrizes]);
 
-    // Логика анимации
     useEffect(() => {
         if (!isRolling) return;
         const animationPromises = carouselRefs.current.map(ref => {
@@ -209,24 +188,19 @@ const CasePage = () => {
                 if (items.length === 0) return resolve();
 
                 const stopIndex = 80;
-                // Сброс класса победы
                 const winnerEl = carouselTrack.querySelector('.winning-item');
                 if (winnerEl) winnerEl.classList.remove('winning-item');
 
-                // Сброс позиции
                 carouselTrack.classList.remove('is-rolling', 'fast');
                 carouselTrack.style.transform = 'translateX(0)';
-                void carouselTrack.offsetHeight; // Force reflow
+                void carouselTrack.offsetHeight; 
 
-                // Расчет позиции
                 const itemStyle = window.getComputedStyle(items[0]);
                 const itemWidth = items[0].offsetWidth + parseInt(itemStyle.marginLeft) + parseInt(itemStyle.marginRight);
                 const offsetToCenter = (carouselTrack.parentElement.offsetWidth / 2) - (itemWidth / 2);
                 const finalPosition = -(stopIndex * itemWidth - offsetToCenter);
-                // Рандомный джиттер (сдвиг) внутри карточки
                 const randomJitter = (Math.random() - 0.5) * (itemWidth * 0.4);
 
-                // Старт анимации
                 carouselTrack.style.transform = `translateX(${finalPosition + randomJitter}px)`;
                 carouselTrack.classList.add('is-rolling');
                 if (isFastRoll) carouselTrack.classList.add('fast');
@@ -288,13 +262,9 @@ const CasePage = () => {
             } else {
                 setLocalActivations(prev => prev + quantity); 
             }
-        } catch (e) {
-            console.error(e);
-            return;
-        }
+        } catch (e) { console.error(e); return; }
 
         setShowModal(false);
-        // Генерируем победителей
         const winners = Array.from({ length: quantity }).map(() => getWeightedRandomPrize(currentCasePrizes));
         setWinningPrizes(winners);
         setIsRolling(true);
@@ -316,12 +286,8 @@ const CasePage = () => {
     if (!currentCase) return <Navigate to="/" />;
 
     const isButtonDisabled = isRolling || (currentCase.isPromo ? !isPromoValid : balance < currentCase.price * quantity);
-    
-    // Прогресс бар для лимитированных кейсов
     const isLimited = currentCase.maxActivations > 0;
-    const progressPercent = isLimited 
-        ? Math.min(100, (localActivations / currentCase.maxActivations) * 100) 
-        : 0;
+    const progressPercent = isLimited ? Math.min(100, (localActivations / currentCase.maxActivations) * 100) : 0;
 
     return (
         <div className="app-container case-page-body">
@@ -355,11 +321,8 @@ const CasePage = () => {
                             onClick={handleRoll}
                             disabled={isButtonDisabled}
                             style={{
-                                position: 'relative', 
-                                overflow: 'hidden', 
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                padding: '10px'
+                                position: 'relative', overflow: 'hidden', 
+                                flexDirection: 'column', alignItems: 'center', padding: '10px'
                             }}
                         >
                             <div 
@@ -367,10 +330,8 @@ const CasePage = () => {
                                 style={{ 
                                     width: `${progressPercent}%`, 
                                     backgroundColor: '#00aaff', 
-                                    position: 'absolute', 
-                                    left: 0, top: 0, bottom: 0, 
-                                    zIndex: 1,
-                                    transition: 'width 0.3s ease-out'
+                                    position: 'absolute', left: 0, top: 0, bottom: 0, 
+                                    zIndex: 1, transition: 'width 0.3s ease-out'
                                 }}
                             ></div>
                             
@@ -384,15 +345,9 @@ const CasePage = () => {
                             </div>
 
                             <div style={{
-                                zIndex: 2, 
-                                position: 'relative', 
-                                fontSize: '11px', 
-                                marginTop: '4px',
-                                opacity: 0.9,
-                                fontWeight: '500',
-                                background: 'rgba(0,0,0,0.3)',
-                                padding: '2px 8px',
-                                borderRadius: '10px'
+                                zIndex: 2, position: 'relative', fontSize: '11px', 
+                                marginTop: '4px', opacity: 0.9, fontWeight: '500',
+                                background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: '10px'
                             }}>
                                 {localActivations} / {currentCase.maxActivations}
                             </div>
