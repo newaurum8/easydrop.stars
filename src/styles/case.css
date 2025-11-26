@@ -181,3 +181,10 @@
     background-color: #f44336; padding: 12px; font-size: 16px; border: none; border-radius: 10px; cursor: pointer; color: white;
 }
 .results-actions .sell-button:disabled { background-color: #555; opacity: 0.7; cursor: not-allowed; }
+
+/* --- МОБИЛЬНЫЕ СТИЛИ --- */
+@media (max-width: 768px) {
+    .fast-roll-toggle {
+        margin-right: 8px; /* Отступ справа для кнопки "Быстро" на телефонах */
+    }
+}
