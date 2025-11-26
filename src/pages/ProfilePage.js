@@ -6,15 +6,11 @@ const ProfilePage = () => {
     const { inventory, withdrawals, sellItem, sellAllItems, requestWithdrawal } = useContext(AppContext);
     
     // --- STATE ---
-    const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'withdrawals'
-    const [sellingItemId, setSellingItemId] = useState(null); // ID предмета для анимации продажи
-    
-    // Модалка "Продать всё"
+    const [activeTab, setActiveTab] = useState('inventory');
+    const [sellingItemId, setSellingItemId] = useState(null);
     const [showSellAllModal, setShowSellAllModal] = useState(false);
-    
-    // Модалка "Вывод"
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-    const [withdrawItem, setWithdrawItem] = useState(null); 
+    const [withdrawItem, setWithdrawItem] = useState(null);
     const [targetUsername, setTargetUsername] = useState('');
 
     // --- LOGIC ---
@@ -25,11 +21,11 @@ const ProfilePage = () => {
     }, [inventory]);
 
     const getRarityColor = (val) => {
-        if (val >= 50000) return '#ffc107'; // Легендарный (Gold)
-        if (val >= 10000) return '#f44336'; // Мифический (Red)
-        if (val >= 2000) return '#b388ff';  // Эпический (Purple)
-        if (val >= 500)   return '#00aaff'; // Редкий (Blue)
-        return '#b0bec5';                   // Обычный (Gray)
+        if (val >= 50000) return '#ffc107'; // Легендарный
+        if (val >= 10000) return '#f44336'; // Мифический
+        if (val >= 2000) return '#b388ff';  // Эпический
+        if (val >= 500)   return '#00aaff'; // Редкий
+        return '#b0bec5';                   // Обычный
     };
 
     const handleSellOne = (itemId) => {
@@ -78,7 +74,7 @@ const ProfilePage = () => {
     return (
         <div className="profile-page-wrapper">
             
-            {/* БЛОК СТАТИСТИКИ */}
+            {/* СТАТИСТИКА */}
             <div className="profile-stats-card">
                 <div className="stat-item">
                     <span className="stat-label">Стоимость инвентаря</span>
@@ -110,10 +106,10 @@ const ProfilePage = () => {
                 </button>
             </div>
 
-            {/* Вкладка ИНВЕНТАРЬ */}
+            {/* ИНВЕНТАРЬ */}
             {activeTab === 'inventory' && (
                 <>
-                    {/* Кнопка ПРОДАТЬ ВСЁ (Исправлено: убран счетчик) */}
+                    {/* Кнопка ПРОДАТЬ ВСЁ (без числа в скобках) */}
                     {inventory.length > 0 && (
                         <div className="sell-all-container">
                             <button className="sell-all-btn" onClick={() => setShowSellAllModal(true)}>
@@ -138,15 +134,12 @@ const ProfilePage = () => {
                                         className={`inventory-card ${sellingItemId === item.inventoryId ? 'is-selling' : ''}`}
                                         style={{ '--rarity-color': rarityColor, animationDelay: `${Math.min(index * 0.05, 0.5)}s` }}
                                     >
-                                        {/* Свечение */}
                                         <div className="card-glow"></div>
                                         
-                                        {/* Картинка */}
                                         <div className="card-image-box">
                                             <img src={item.image} alt={item.name} />
                                         </div>
                                         
-                                        {/* Инфо */}
                                         <div className="card-info">
                                             <div className="card-name">{item.name}</div>
                                             <div className="card-price" style={{ color: rarityColor }}>
@@ -155,13 +148,12 @@ const ProfilePage = () => {
                                             </div>
                                         </div>
 
-                                        {/* Кнопки (Теперь ровные) */}
                                         <div className="card-actions">
-                                            <button className="action-btn sell" onClick={() => handleSellOne(item.inventoryId)}>
-                                                Продать
-                                            </button>
                                             <button className="action-btn withdraw" onClick={() => handleOpenWithdraw(item)}>
-                                                Вывести
+                                                ВЫВЕСТИ
+                                            </button>
+                                            <button className="action-btn sell" onClick={() => handleSellOne(item.inventoryId)}>
+                                                ПРОДАТЬ
                                             </button>
                                         </div>
                                     </div>
@@ -172,7 +164,7 @@ const ProfilePage = () => {
                 </>
             )}
 
-            {/* Вкладка ВЫВОДЫ */}
+            {/* ВЫВОДЫ */}
             {activeTab === 'withdrawals' && (
                 <div className="withdrawals-list">
                     {withdrawals.length === 0 ? (
@@ -225,7 +217,7 @@ const ProfilePage = () => {
                 <div className="custom-modal-overlay">
                     <div className="custom-modal">
                         <h3>Вывод предмета</h3>
-                        <img src={withdrawItem.image} alt="" style={{width: 80, height: 80, objectFit:'contain', margin: '10px auto', filter: 'drop-shadow(0 0 15px rgba(0,0,0,0.5))'}} />
+                        <img src={withdrawItem.image} alt="" style={{width: 80, height: 80, objectFit:'contain', margin: '15px auto', filter: 'drop-shadow(0 5px 15px rgba(0,0,0,0.3))'}} />
                         <p className="modal-item-name">{withdrawItem.name}</p>
                         
                         <div className="input-group">
