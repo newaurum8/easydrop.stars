@@ -14,12 +14,10 @@ const ProfilePage = () => {
     
     // Модалка "Вывод"
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-    const [withdrawItem, setWithdrawItem] = useState(null); // Предмет, который хотим вывести
+    const [withdrawItem, setWithdrawItem] = useState(null); 
     const [targetUsername, setTargetUsername] = useState('');
 
     // --- LOGIC ---
-    
-    // Подсчет статистики инвентаря
     const stats = useMemo(() => {
         const totalValue = inventory.reduce((acc, item) => acc + item.value, 0);
         const totalItems = inventory.length;
@@ -34,7 +32,6 @@ const ProfilePage = () => {
         return '#b0bec5';                   // Обычный (Gray)
     };
 
-    // Анимация и продажа одного предмета
     const handleSellOne = (itemId) => {
         if (sellingItemId) return;
         setSellingItemId(itemId);
@@ -44,43 +41,34 @@ const ProfilePage = () => {
         }, 300);
     };
 
-    // Продать всё
     const handleConfirmSellAll = () => {
         sellAllItems();
         setShowSellAllModal(false);
     };
 
-    // Открыть модалку вывода
     const handleOpenWithdraw = (item) => {
         setWithdrawItem(item);
         setTargetUsername('');
         setShowWithdrawModal(true);
     };
 
-    // Подтвердить вывод
     const handleConfirmWithdraw = async () => {
         if (!targetUsername.trim()) return alert('Введите username');
-        
-        // Убираем @ если пользователь его ввел
         let cleanUsername = targetUsername.replace('@', '').trim();
-        
         await requestWithdrawal(withdrawItem.inventoryId, cleanUsername);
-        
         setShowWithdrawModal(false);
         setWithdrawItem(null);
-        alert('Заявка на вывод отправлена! Проверьте вкладку "История выводов".');
+        alert('Заявка на вывод отправлена!');
     };
 
-    // Форматирование даты
     const formatDate = (dateString) => {
         const d = new Date(dateString);
         return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     };
 
-    // Рендер статуса
     const getStatusBadge = (status) => {
         switch(status) {
-            case 'processing': return <span className="status-badge processing">Процесс вывода</span>;
+            case 'processing': return <span className="status-badge processing">Обработка</span>;
             case 'withdrawn': return <span className="status-badge success">Выведено</span>;
             case 'cancelled': return <span className="status-badge cancelled">Отменен</span>;
             default: return <span className="status-badge">{status}</span>;
@@ -122,14 +110,14 @@ const ProfilePage = () => {
                 </button>
             </div>
 
-            {/* Вклдака ИНВЕНТАРЬ */}
+            {/* Вкладка ИНВЕНТАРЬ */}
             {activeTab === 'inventory' && (
                 <>
-                    {/* Кнопка ПРОДАТЬ ВСЁ (появляется только если есть предметы) */}
+                    {/* Кнопка ПРОДАТЬ ВСЁ (Исправлено: убран счетчик) */}
                     {inventory.length > 0 && (
                         <div className="sell-all-container">
                             <button className="sell-all-btn" onClick={() => setShowSellAllModal(true)}>
-                                ПРОДАТЬ ВСЁ ({inventory.length})
+                                ПРОДАТЬ ВСЁ
                             </button>
                         </div>
                     )}
@@ -148,11 +136,17 @@ const ProfilePage = () => {
                                     <div
                                         key={item.inventoryId}
                                         className={`inventory-card ${sellingItemId === item.inventoryId ? 'is-selling' : ''}`}
-                                        style={{ '--rarity-color': rarityColor, animationDelay: `${index * 0.05}s` }}
+                                        style={{ '--rarity-color': rarityColor, animationDelay: `${Math.min(index * 0.05, 0.5)}s` }}
                                     >
+                                        {/* Свечение */}
                                         <div className="card-glow"></div>
-                                        <div className="card-image-box"><img src={item.image} alt={item.name} /></div>
                                         
+                                        {/* Картинка */}
+                                        <div className="card-image-box">
+                                            <img src={item.image} alt={item.name} />
+                                        </div>
+                                        
+                                        {/* Инфо */}
                                         <div className="card-info">
                                             <div className="card-name">{item.name}</div>
                                             <div className="card-price" style={{ color: rarityColor }}>
@@ -161,6 +155,7 @@ const ProfilePage = () => {
                                             </div>
                                         </div>
 
+                                        {/* Кнопки (Теперь ровные) */}
                                         <div className="card-actions">
                                             <button className="action-btn sell" onClick={() => handleSellOne(item.inventoryId)}>
                                                 Продать
@@ -194,7 +189,7 @@ const ProfilePage = () => {
                                     </div>
                                     <div className="w-info">
                                         <div className="w-name">{item.name}</div>
-                                        <div className="w-target">На: @{w.target_username}</div>
+                                        <div className="w-target">@{w.target_username}</div>
                                         <div className="w-date">{formatDate(w.created_at)}</div>
                                     </div>
                                     <div className="w-status">
@@ -230,11 +225,11 @@ const ProfilePage = () => {
                 <div className="custom-modal-overlay">
                     <div className="custom-modal">
                         <h3>Вывод предмета</h3>
-                        <img src={withdrawItem.image} alt="" style={{width: 70, height: 70, objectFit:'contain', margin: '10px auto'}} />
+                        <img src={withdrawItem.image} alt="" style={{width: 80, height: 80, objectFit:'contain', margin: '10px auto', filter: 'drop-shadow(0 0 15px rgba(0,0,0,0.5))'}} />
                         <p className="modal-item-name">{withdrawItem.name}</p>
                         
                         <div className="input-group">
-                            <label>Введите Username Telegram (кому отправить):</label>
+                            <label>Введите ваш Telegram Username:</label>
                             <input 
                                 type="text" 
                                 placeholder="@username" 
@@ -246,7 +241,7 @@ const ProfilePage = () => {
 
                         <div className="modal-actions">
                             <button className="modal-btn cancel" onClick={() => setShowWithdrawModal(false)}>Отмена</button>
-                            <button className="modal-btn confirm" onClick={handleConfirmWithdraw}>Отправить заявку</button>
+                            <button className="modal-btn confirm" onClick={handleConfirmWithdraw}>Отправить</button>
                         </div>
                     </div>
                 </div>
