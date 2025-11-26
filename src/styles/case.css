@@ -9,14 +9,17 @@
     font-weight: 500;
     margin-bottom: 20px;
     display: inline-block;
+    transition: opacity 0.2s;
 }
+.back-button:hover { opacity: 0.8; }
 
-/* Карусель */
+/* === КАРУСЕЛЬ (РУЛЕТКА) === */
 .item-carousel {
     display: flex;
     transform: translateX(0);
     left: 0;
     top: 0;
+    will-change: transform; /* Оптимизация анимации */
 }
 .item-carousel.is-rolling {
     transition: transform 6s cubic-bezier(0.2, 0.85, 0.3, 1);
@@ -31,16 +34,20 @@
     justify-content: center;
     align-items: center;
     flex-shrink: 0;
-    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+    position: relative;
+    /* Улучшенная отрисовка границ */
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); 
 }
 .carousel-item img {
     max-width: 70%;
     max-height: 70%;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
 }
 .carousel-item.winning-item {
-    transform: scale(1.15);
-    box-shadow: 0 0 20px #00aaff, 0 0 30px #00aaff;
-    background-color: #3a506b;
+    z-index: 10;
+    box-shadow: 0 0 0 2px #ffc107, 0 0 30px rgba(255, 193, 7, 0.4);
+    background: radial-gradient(circle, #3a506b 0%, #2c3641 100%);
+    transform: scale(1.05);
 }
 
 #multi-roll-container {
@@ -51,37 +58,36 @@
     min-height: 150px;
     margin-bottom: 24px;
     position: relative;
-    padding-top: 15px; 
-    padding-bottom: 15px;
+    padding: 20px 0;
+    background: rgba(0,0,0,0.2);
+    border-radius: 16px;
 }
 
 .item-carousel-wrapper {
-    transition: all 0.3s ease-in-out;
     position: relative;
-    width: calc(100% + 32px);
-    margin-left: -16px;
-    box-sizing: border-box;
+    width: 100%;
     overflow: hidden;
-    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
-    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+    /* Градиентные маски по бокам для эффекта исчезновения */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
 }
 
+/* Индикатор выигрыша (Стрелка) */
 .carousel-indicator {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    width: 0;
+    width: 0; 
     height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    z-index: 10;
-    transition: transform 0.3s ease-in-out;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    z-index: 20;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
 }
+.carousel-indicator:not(.bottom) { top: -5px; border-top: 14px solid #ffc107; }
+.carousel-indicator.bottom { bottom: -5px; border-bottom: 14px solid #ffc107; }
 
-.carousel-indicator:not(.bottom) { top: 0; border-top: 10px solid #00aaff; }
-.carousel-indicator.bottom { bottom: 0; border-bottom: 10px solid #00aaff; }
-
-/* Размеры карусели */
+/* Размеры карусели (Адаптивность высоты) */
 .item-carousel-wrapper.size-1 { height: 120px; }
 .size-1 .carousel-item { width: 100px; height: 100px; margin: 10px 5px; }
 .size-1 .item-carousel { height: 120px; }
@@ -93,228 +99,233 @@
 .item-carousel-wrapper.size-3 { height: 90px; }
 .size-3 .carousel-item { width: 75px; height: 75px; margin: 7.5px 4px; }
 .size-3 .item-carousel { height: 90px; }
-.size-3 .carousel-indicator { transform: translateX(-50%) scale(0.9); }
 
 .item-carousel-wrapper.size-4 { height: 75px; }
 .size-4 .carousel-item { width: 65px; height: 65px; margin: 5px 3px; }
 .size-4 .item-carousel { height: 75px; }
-.size-4 .carousel-indicator { transform: translateX(-50%) scale(0.8); }
 .size-4 .carousel-item img { max-width: 65%; max-height: 65%; }
 
 .item-carousel-wrapper.size-5 { height: 68px; }
 .size-5 .carousel-item { width: 58px; height: 58px; margin: 5px 3px; }
 .size-5 .item-carousel { height: 68px; }
-.size-5 .carousel-indicator { transform: translateX(-50%) scale(0.75); }
 .size-5 .carousel-item img { max-width: 60%; max-height: 60%; }
 
-/* Панель управления */
+
+/* === ПАНЕЛЬ УПРАВЛЕНИЯ === */
 .controls-panel { display: flex; flex-direction: column; gap: 16px; }
 
 .roll-button {
-    position: relative; width: 100%; background-color: #0088cc; color: white; border: none;
-    border-radius: 12px; padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer;
-    overflow: hidden; display: flex; justify-content: center; align-items: center; gap: 8px;
+    position: relative; width: 100%; 
+    background: linear-gradient(180deg, #0088cc 0%, #0077b3 100%);
+    color: white; border: none;
+    border-radius: 14px; padding: 16px; 
+    font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
+    cursor: pointer;
+    overflow: hidden; 
+    display: flex; justify-content: center; align-items: center; gap: 8px;
+    box-shadow: 0 4px 0 #005580, 0 10px 20px rgba(0, 136, 204, 0.3);
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+.roll-button:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #005580, inset 0 2px 10px rgba(0,0,0,0.2);
 }
 
 .roll-button-progress {
-    position: absolute; left: 0; top: 0; bottom: 0; background-color: #00aaff; width: 91.3%; z-index: 1;
+    position: absolute; left: 0; top: 0; bottom: 0; 
+    background: rgba(255,255,255,0.15); 
+    width: 0%; z-index: 1; pointer-events: none;
 }
 
-.roll-button-text, .roll-button-star, .roll-button-counter { position: relative; z-index: 2; }
-.roll-button-counter { position: absolute; right: 16px; font-size: 14px; opacity: 0.7; }
-.roll-button.disabled { background-color: #555; cursor: not-allowed; }
-.roll-button.disabled .roll-button-progress { background-color: #777; }
+.roll-button-text, .roll-button-star { position: relative; z-index: 2; }
+.roll-button.disabled { 
+    background: #3a4552; 
+    box-shadow: none; 
+    color: #8a99a8; 
+    cursor: not-allowed; 
+}
 
-.roll-options { display: flex; justify-content: space-between; align-items: center; }
-.quantity-selector { display: flex; background-color: #2c3641; border-radius: 8px; overflow: hidden; }
+.roll-options { display: flex; justify-content: space-between; align-items: center; background: #1f272e; padding: 6px; border-radius: 12px; }
+
+.quantity-selector { display: flex; gap: 2px; }
 .quantity-btn {
-    background: none; border: none; color: #8a99a8; padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer; border-right: 1px solid #3a4552;
+    background: transparent; border: none; color: #8a99a8; 
+    width: 36px; height: 36px; 
+    font-size: 14px; font-weight: 700; 
+    cursor: pointer; border-radius: 8px;
+    transition: all 0.2s;
 }
-.quantity-selector .quantity-btn:last-child { border-right: none; }
-.quantity-btn.active { background-color: #00aaff; color: white; }
+.quantity-btn:hover { background: rgba(255,255,255,0.05); }
+.quantity-btn.active { background-color: #00aaff; color: white; box-shadow: 0 2px 8px rgba(0, 170, 255, 0.4); }
 
-.fast-roll-toggle, .demo-mode-toggle { display: flex; align-items: center; gap: 8px; }
-#fast-roll-checkbox { accent-color: #00aaff; }
-.fast-roll-toggle input:disabled ~ label { opacity: 0.5; cursor: not-allowed; }
+.fast-roll-toggle { display: flex; align-items: center; gap: 10px; padding-right: 10px; }
+.fast-roll-toggle label { font-size: 13px; font-weight: 600; color: #8a99a8; cursor: pointer; }
 
-.promo-container { display: flex; flex-direction: column; gap: 10px; }
-.promo-input {
-    width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #3a4552;
-    background-color: #2c3641; color: white; font-size: 16px; box-sizing: border-box;
-}
-
-/* Список призов в кейсе */
-.prize-list { margin-top: 24px; }
-.prize-list-header { font-size: 16px; margin-top: 20px; margin-bottom: 12px; color: #8a99a8; }
+/* === СПИСОК ПРИЗОВ В КЕЙСЕ === */
+.prize-list { margin-top: 30px; }
+.prize-list-header { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; color: #5f6e7c; font-weight: 700; }
 .prize-item {
-    display: flex; align-items: center; background-color: #2c3641; border-radius: 12px; padding: 10px; margin-bottom: 8px;
+    display: flex; align-items: center; background-color: #232b34; border-radius: 12px; padding: 8px 12px; margin-bottom: 8px;
+    border: 1px solid transparent; transition: border-color 0.2s;
 }
+.prize-item:hover { border-color: rgba(255,255,255,0.1); }
 .prize-item-image-wrapper {
-    width: 48px; height: 48px; background-color: #3a4552; border-radius: 8px; display: flex;
+    width: 42px; height: 42px; background-color: #1a2126; border-radius: 8px; display: flex;
     justify-content: center; align-items: center; flex-shrink: 0; margin-right: 12px;
 }
 .prize-item-image-wrapper img { max-width: 80%; max-height: 80%; }
-.prize-item-info { display: flex; flex-direction: column; gap: 4px; }
-.prize-name { font-weight: 500; }
-.prize-value { display: flex; align-items: center; gap: 4px; color: #ffc107; font-weight: 500; }
+.prize-item-info { display: flex; flex-direction: column; gap: 2px; }
+.prize-name { font-weight: 600; font-size: 14px; color: #e0e0e0; }
+.prize-value { display: flex; align-items: center; gap: 4px; color: #ffc107; font-weight: 700; font-size: 13px; }
 
-/* === ОБНОВЛЕННОЕ МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ === */
+
+/* === МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ (REDESIGN) === */
 .results-modal {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.85); /* Более темный фон */
-    backdrop-filter: blur(8px); /* Размытие заднего фона */
+    background-color: rgba(0, 0, 0, 0.85); /* Темный фон */
+    backdrop-filter: blur(10px); /* Сильное размытие */
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 2000;
-    animation: fadeInOverlay 0.3s ease-out forwards;
+    opacity: 0;
+    animation: fadeIn 0.3s forwards;
 }
 
 .results-modal-content {
-    background: linear-gradient(145deg, #1f272e, #161b20);
-    padding: 32px;
+    background: linear-gradient(160deg, #232d36 0%, #171d24 100%);
+    padding: 24px;
     border-radius: 24px;
     width: 90%;
-    max-width: 460px;
+    max-width: 420px;
     text-align: center;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    transform: scale(0.9);
+    opacity: 0;
+    animation: zoomIn 0.4s cubic-bezier(0.19, 1, 0.22, 1) forwards 0.1s;
     position: relative;
     overflow: hidden;
-    animation: zoomInModal 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
-/* Заголовок выигрыша */
+/* Светящийся эффект сверху модалки */
+.results-modal-content::before {
+    content: '';
+    position: absolute; top: -50px; left: 0; right: 0; height: 100px;
+    background: radial-gradient(ellipse at center, rgba(0, 170, 255, 0.15), transparent 70%);
+    pointer-events: none;
+}
+
 .results-modal-content h3 {
-    margin: 0 0 8px 0;
-    font-size: 24px;
-    color: #fff;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    margin: 0 0 4px 0; font-size: 26px; color: #fff; letter-spacing: 0.5px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
 
-.total-win-amount {
-    font-size: 14px;
-    color: #8a99a8;
-    margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
+.total-win-info {
+    font-size: 14px; color: #8a99a8; margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
 }
-.total-win-amount span {
-    color: #ffc107;
-    font-weight: 700;
-    font-size: 16px;
+.total-win-info span { color: #ffc107; font-weight: 700; font-size: 16px; }
+
+/* Текстовая кнопка "Выбрать все" */
+.select-all-btn {
+    background: none; border: none; color: #00aaff; font-size: 13px; font-weight: 600;
+    cursor: pointer; margin-bottom: 12px; padding: 4px 8px; border-radius: 6px;
+    transition: background 0.2s;
 }
+.select-all-btn:hover { background: rgba(0, 170, 255, 0.1); }
 
 /* Сетка предметов */
 .results-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-    gap: 16px;
-    margin-bottom: 30px;
-    max-height: 40vh;
+    grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+    max-height: 45vh;
     overflow-y: auto;
-    padding: 4px; /* Чтобы тени не обрезались */
+    padding: 4px;
 }
 
-/* Карточка предмета */
 .result-item {
-    background-color: #262f38;
+    background-color: #2c3641;
     border-radius: 16px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    position: relative;
+    padding: 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    cursor: pointer; position: relative;
     border: 2px solid transparent;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Редкости (подсветка) */
-.result-item.common { border-color: #8a99a8; box-shadow: 0 0 10px rgba(138, 153, 168, 0.1); }
-.result-item.uncommon { border-color: #00aaff; box-shadow: 0 0 15px rgba(0, 170, 255, 0.15); }
-.result-item.rare { border-color: #ff4081; box-shadow: 0 0 15px rgba(255, 64, 129, 0.2); }
-.result-item.legendary { border-color: #ffc107; box-shadow: 0 0 25px rgba(255, 193, 7, 0.3); }
+/* Цвета редкости */
+.result-item.common { border-color: #546e7a; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+.result-item.uncommon { border-color: #00aaff; box-shadow: 0 0 15px rgba(0, 170, 255, 0.2); }
+.result-item.rare { border-color: #d81b60; box-shadow: 0 0 15px rgba(216, 27, 96, 0.25); }
+.result-item.legendary { border-color: #ffc107; box-shadow: 0 0 20px rgba(255, 193, 7, 0.35); }
 
 /* Состояние "Выбрано для продажи" */
 .result-item.selected {
-    background-color: rgba(244, 67, 54, 0.15); /* Красный оттенок */
+    background-color: rgba(244, 67, 54, 0.1);
     border-color: #f44336;
-    transform: scale(0.95);
-    opacity: 0.8;
+    transform: scale(0.96);
+    box-shadow: none;
 }
+/* Бейдж "Продать" поверх предмета */
 .result-item.selected::after {
     content: 'ПРОДАТЬ';
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(244, 67, 54, 0.9);
-    color: white;
-    font-size: 10px;
-    font-weight: bold;
-    padding: 4px 8px;
-    border-radius: 4px;
-    pointer-events: none;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(244, 67, 54, 0.95);
+    color: white; font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px;
+    pointer-events: none; letter-spacing: 0.5px;
 }
 
 .result-item img {
-    width: 60px; height: 60px;
-    object-fit: contain;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    width: 55px; height: 55px; object-fit: contain;
+    filter: drop-shadow(0 5px 5px rgba(0,0,0,0.4));
     transition: transform 0.2s;
 }
 .result-item:hover img { transform: scale(1.1); }
 
-.prize-name { font-size: 11px; font-weight: 500; color: #e0e0e0; text-align: center; line-height: 1.2; }
-.prize-value { background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 8px; margin-top: auto; }
-
-/* Кнопки действий */
-.results-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+.res-prize-name { font-size: 11px; font-weight: 600; color: #fff; text-align: center; line-height: 1.2; opacity: 0.9; }
+.res-prize-val { 
+    background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 10px; margin-top: auto; 
+    font-size: 11px; color: #ffc107; font-weight: 700;
 }
 
+/* Кнопки действий */
+.results-actions { display: flex; flex-direction: column; gap: 10px; }
+
 .action-btn {
-    width: 100%;
-    padding: 16px;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    text-transform: uppercase;
-    display: flex; justify-content: center; align-items: center; gap: 8px;
+    width: 100%; padding: 16px; border: none; border-radius: 12px;
+    font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+    cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;
     transition: transform 0.1s, filter 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 .action-btn:active { transform: scale(0.98); }
 
 .btn-sell {
-    background: linear-gradient(90deg, #f44336, #d32f2f);
+    background: linear-gradient(90deg, #ff5252, #f44336);
     color: white;
-    box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+    box-shadow: 0 5px 15px rgba(244, 67, 54, 0.3);
 }
 .btn-keep {
     background: linear-gradient(90deg, #0088cc, #00aaff);
     color: white;
-    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+    box-shadow: 0 5px 15px rgba(0, 136, 204, 0.3);
+}
+.btn-secondary {
+    background: #2c3641; color: #e0e0e0;
+    border: 1px solid #3a4552;
+    font-size: 14px; padding: 14px;
 }
 
-/* Анимации */
-@keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
-@keyframes zoomInModal { 
-    from { opacity: 0; transform: scale(0.8) translateY(20px); } 
-    to { opacity: 1; transform: scale(1) translateY(0); } 
-}
+@keyframes fadeIn { to { opacity: 1; } }
+@keyframes zoomIn { to { opacity: 1; transform: scale(1); } }
 
-/* --- МОБИЛЬНЫЕ СТИЛИ --- */
+/* === МОБИЛЬНЫЕ СТИЛИ === */
 @media (max-width: 768px) {
     .fast-roll-toggle {
-        margin-right: 4px; /* Отступ справа для кнопки "Быстро" на телефонах */
+        margin-right: 8px; 
     }
 }
