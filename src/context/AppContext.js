@@ -3,6 +3,7 @@ import React, { createContext, useState, useCallback, useEffect } from 'react';
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
+    // --- СОСТОЯНИЕ ---
     const [ALL_PRIZES, setAllPrizes] = useState([]);
     const [cases, setCases] = useState([]);
     const [isConfigLoaded, setIsConfigLoaded] = useState(false);
@@ -14,7 +15,7 @@ export const AppProvider = ({ children }) => {
     const [withdrawals, setWithdrawals] = useState([]); 
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
-    // 1. Загрузка конфига (призы, кейсы)
+    // 1. ЗАГРУЗКА КОНФИГА
     const refreshConfig = useCallback(() => {
         fetch('/api/config')
             .then(res => res.json())
@@ -28,7 +29,7 @@ export const AppProvider = ({ children }) => {
 
     useEffect(() => { refreshConfig(); }, [refreshConfig]);
 
-    // 2. Функция загрузки выводов
+    // 2. ФУНКЦИЯ ЗАГРУЗКИ ВЫВОДОВ
     const fetchWithdrawals = useCallback(async (userId) => {
         if (!userId) return;
         try {
@@ -40,17 +41,20 @@ export const AppProvider = ({ children }) => {
         } catch (e) { console.error(e); }
     }, []);
 
-    // 3. Инициализация пользователя
+    // 3. ИНИЦИАЛИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ (Один раз при старте)
     useEffect(() => {
         const initUser = async () => {
             let tgUser = null;
+            // Проверка Telegram окружения
             if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
                 tgUser = window.Telegram.WebApp.initDataUnsafe.user;
             } else {
+                // Тестовый юзер для браузера
                 tgUser = { id: 123456789, first_name: 'Test', username: 'browser_user', photo_url: null };
             }
 
             try {
+                // Синхронизация при входе
                 const res = await fetch('/api/user/sync', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -65,6 +69,7 @@ export const AppProvider = ({ children }) => {
                 if (res.ok) {
                     const userData = await res.json();
                     setUser(userData); 
+                    // Устанавливаем данные только при первом входе
                     setBalance(userData.balance ?? 0);
                     setInventory(userData.inventory || []);
                     setHistory(userData.history || []);
@@ -73,13 +78,16 @@ export const AppProvider = ({ children }) => {
             } catch (err) { console.error("User sync error:", err); }
         };
 
-        if (isConfigLoaded) initUser();
+        if (isConfigLoaded) {
+            initUser();
+        }
     }, [isConfigLoaded, fetchWithdrawals]);
 
-    // 4. Сохранение данных (при изменении инвентаря/баланса)
+    // 4. СОХРАНЕНИЕ ДАННЫХ (При изменении инвентаря/баланса)
     useEffect(() => {
         if (!user) return;
-        // Дебаунс 1 секунда, чтобы не спамить сервер при быстрой продаже
+        
+        // Сохраняем данные на сервер через 1 секунду после изменения
         const timer = setTimeout(() => {
             fetch('/api/user/save', {
                 method: 'POST',
@@ -90,35 +98,38 @@ export const AppProvider = ({ children }) => {
                     inventory,
                     history
                 })
-            }).catch(e => console.error("Save error:", e));
+            })
+            .then(() => console.log("Data saved to server"))
+            .catch(e => console.error("Save error:", e));
         }, 1000);
 
         return () => clearTimeout(timer);
     }, [balance, inventory, history, user]);
 
-    // 5. Фоновое обновление (Polling)
+    // 5. ФОНОВОЕ ОБНОВЛЕНИЕ (Только выводы!)
     useEffect(() => {
         if (!user) return;
         const interval = setInterval(() => {
-            // Обновляем ТОЛЬКО список выводов, чтобы проверить статусы
+            // Мы обновляем ТОЛЬКО выводы. 
+            // Не обновляем инвентарь здесь, чтобы не перезаписывать локальные данные.
             fetchWithdrawals(user.id);
-            
-            // ВАЖНО: Мы УБРАЛИ обновление инвентаря отсюда (/api/user/sync), 
-            // чтобы оно не перезаписывало локальные предметы, которые еще не сохранились.
-            
-        }, 5000); // Раз в 5 секунд
+        }, 5000);
+        
         return () => clearInterval(interval);
     }, [user, fetchWithdrawals]);
 
-    // --- ФУНКЦИИ ---
+    // --- ДЕЙСТВИЯ ---
 
     const updateBalance = useCallback((amount) => {
         setBalance(prev => prev + amount);
     }, []);
 
     const addToInventory = useCallback((items) => {
-        // Добавляем уникальный ID для React ключей
-        const newItems = items.map(item => ({ ...item, inventoryId: Date.now() + Math.random() }));
+        // Добавляем уникальный ID + Timestamp, чтобы React правильно рендерил
+        const newItems = items.map(item => ({ 
+            ...item, 
+            inventoryId: Date.now() + Math.random() 
+        }));
         setInventory(prev => [...prev, ...newItems]);
     }, []);
 
@@ -142,7 +153,6 @@ export const AppProvider = ({ children }) => {
         return false;
     }, [inventory, updateBalance, removeFromInventory]);
 
-    // Функция "Продать всё"
     const sellAllItems = useCallback(async () => {
         if (!user) return;
         try {
@@ -159,7 +169,6 @@ export const AppProvider = ({ children }) => {
         } catch (e) { console.error(e); }
     }, [user]);
 
-    // Функция запроса вывода
     const requestWithdrawal = useCallback(async (itemInventoryId, targetUsername) => {
         if (!user) return;
         try {
@@ -170,8 +179,8 @@ export const AppProvider = ({ children }) => {
             });
             const data = await res.json();
             if (data.success) {
-                removeFromInventory(itemInventoryId); // Удаляем локально сразу
-                fetchWithdrawals(user.id); // Обновляем список выводов
+                removeFromInventory(itemInventoryId); 
+                fetchWithdrawals(user.id);
                 return true;
             }
         } catch (e) { console.error(e); }
