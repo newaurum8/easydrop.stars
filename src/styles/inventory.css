@@ -85,11 +85,63 @@
     background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.1), transparent);
 }
 
+/* --- TABS (ВКЛАДКИ) --- */
+.profile-tabs {
+    display: flex;
+    background: #161b22;
+    padding: 4px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    background: transparent;
+    color: #8b949e;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.tab-btn.active {
+    background: #232b34;
+    color: #e0e0e0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* --- КНОПКА "ПРОДАТЬ ВСЁ" --- */
+.sell-all-container {
+    margin-bottom: 20px;
+}
+
+.sell-all-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(90deg, #ff9800, #f57c00);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+    transition: transform 0.2s;
+}
+
+.sell-all-btn:active {
+    transform: scale(0.98);
+}
+
 /* --- СЕТКА ПРЕДМЕТОВ (GRID) --- */
 .inventory-grid {
     display: grid;
-    /* Адаптивная сетка: минимум 100px ширина карточки */
-    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+    /* Адаптивная сетка: карточки не меньше 130px */
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 12px;
 }
 
@@ -98,7 +150,7 @@
     position: relative;
     background: #212a31;
     border-radius: 16px;
-    padding: 10px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -129,13 +181,11 @@
 .inventory-card::before {
     content: '';
     position: absolute;
-    bottom: 0; left: 15%; right: 15%;
+    bottom: 0; left: 0; width: 100%;
     height: 3px;
     background: var(--rarity-color);
     box-shadow: 0 -2px 8px var(--rarity-color);
     opacity: 0.8;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
 }
 
 /* Внутреннее свечение (Glow) */
@@ -146,14 +196,14 @@
     width: 80px; height: 80px;
     background: var(--rarity-color);
     filter: blur(45px);
-    opacity: 0.12;
+    opacity: 0.15;
     z-index: 0;
     pointer-events: none;
 }
 
 .card-image-box {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -162,10 +212,10 @@
 }
 
 .inventory-card img {
-    max-width: 90%;
-    max-height: 90%;
+    max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
-    filter: drop-shadow(0 5px 5px rgba(0,0,0,0.4));
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
     transition: transform 0.2s;
 }
 
@@ -175,7 +225,7 @@
 
 .card-info {
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     z-index: 1;
     width: 100%;
 }
@@ -200,41 +250,247 @@
     /* Цвет наследуется от inline-style в JS */
 }
 
-/* --- КНОПКА ПРОДАТЬ --- */
-.sell-btn-modern {
+/* --- ДЕЙСТВИЯ НА КАРТОЧКЕ (КНОПКИ) --- */
+.card-actions {
+    display: flex;
+    gap: 6px;
     width: 100%;
-    padding: 8px 0;
-    border: none;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.05);
-    color: #8a99a8;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s;
     z-index: 2;
 }
 
-.sell-btn-modern:hover {
-    background: rgba(244, 67, 54, 0.15); /* Красный оттенок */
-    color: #ff5252;
-    box-shadow: 0 0 10px rgba(244, 67, 54, 0.1);
+.action-btn {
+    flex: 1;
+    padding: 6px 0;
+    border: none;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.sell-btn-modern:active {
-    transform: scale(0.95);
+.action-btn.sell {
+    background: rgba(255,255,255,0.05);
+    color: #8a99a8;
+}
+
+.action-btn.sell:hover {
+    background: rgba(244, 67, 54, 0.2);
+    color: #f44336;
+}
+
+.action-btn.withdraw {
+    background: rgba(0, 170, 255, 0.1);
+    color: #00aaff;
+}
+
+.action-btn.withdraw:hover {
+    background: #00aaff;
+    color: white;
 }
 
 /* --- АНИМАЦИЯ ПРОДАЖИ (Удаление) --- */
 .inventory-card.is-selling {
-    transform: scale(0.8);
+    transform: scale(0.5);
     opacity: 0;
     pointer-events: none;
     transition: all 0.3s ease-in;
 }
 
-/* --- ПУСТОЙ ИНВЕНТАРЬ --- */
+/* --- ИСТОРИЯ ВЫВОДОВ --- */
+.withdrawals-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.withdrawal-item {
+    display: flex;
+    align-items: center;
+    background: #2c3641;
+    border-radius: 12px;
+    padding: 10px;
+    gap: 12px;
+}
+
+.w-img {
+    width: 40px;
+    height: 40px;
+    background: #212a31;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.w-img img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+}
+
+.w-info {
+    flex: 1;
+}
+
+.w-name {
+    font-size: 13px;
+    color: #fff;
+    font-weight: 600;
+}
+
+.w-target {
+    font-size: 11px;
+    color: #8a99a8;
+    margin-bottom: 2px;
+}
+
+.w-date {
+    font-size: 10px;
+    color: #5f6e7c;
+}
+
+.status-badge {
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: #3a4552;
+    color: #fff;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.status-badge.processing {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+.status-badge.success {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+}
+
+.status-badge.cancelled {
+    background: rgba(244, 67, 54, 0.2);
+    color: #f44336;
+}
+
+/* --- МОДАЛЬНЫЕ ОКНА --- */
+.custom-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 3000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px);
+}
+
+.custom-modal {
+    background: #2c3641;
+    width: 85%;
+    max-width: 320px;
+    padding: 24px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    animation: popModal 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popModal {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.custom-modal h3 {
+    margin: 0 0 10px 0;
+    color: #fff;
+}
+
+.custom-modal p {
+    color: #8a99a8;
+    margin: 0 0 20px 0;
+    font-size: 14px;
+}
+
+.modal-price-tag {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    font-size: 24px;
+    font-weight: 800;
+    color: #ffc107;
+    margin-bottom: 24px;
+}
+
+.modal-item-name {
+    font-weight: 700;
+    color: #e0e0e0;
+    margin-bottom: 15px !important;
+}
+
+/* Поле ввода в модалке */
+.input-group {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.input-group label {
+    font-size: 12px;
+    color: #8a99a8;
+    margin-left: 4px;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #3a4552;
+    background: #212a31;
+    color: white;
+    font-size: 16px;
+    margin-top: 6px;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.modal-input:focus {
+    border-color: #00aaff;
+    outline: none;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.modal-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.modal-btn.cancel {
+    background: #3a4552;
+    color: #fff;
+}
+
+.modal-btn.confirm {
+    background: #00aaff;
+    color: #fff;
+}
+
+/* --- ПУСТОЙ ИНВЕНТАРЬ (EMPTY STATE) --- */
 .empty-state-container {
     grid-column: 1 / -1;
     display: flex;
@@ -265,9 +521,4 @@
     font-size: 16px;
     font-weight: 600;
     color: #e0e0e0;
-}
-
-.empty-state-container span {
-    font-size: 13px;
-    color: #8a99a8;
 }
