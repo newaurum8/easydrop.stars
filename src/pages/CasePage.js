@@ -4,114 +4,105 @@ import { AppContext } from '../context/AppContext';
 
 // === НОВЫЙ КОМПОНЕНТ МОДАЛЬНОГО ОКНА ===
 const ResultsModal = ({ winners, onClose }) => {
-    const [selectedIds, setSelectedIds] = useState(new Set());
+    // Состояние для каждого предмета: 'keep' (по умолчанию) или 'sell'
+    // Изначально все 'keep'
+    const [itemsStatus, setItemsStatus] = useState(
+        new Array(winners.length).fill('keep')
+    );
 
-    const getRarity = (val) => {
-        if (val >= 50000) return 'legendary';
-        if (val >= 10000) return 'rare';
-        if (val >= 2000) return 'uncommon';
-        return 'common';
+    const getRarityColor = (val) => {
+        if (val >= 50000) return '#ffc107'; // Легендарный (Золото)
+        if (val >= 10000) return '#f44336'; // Редкий (Красный)
+        if (val >= 2000) return '#b388ff';  // Необычный (Фиолетовый)
+        return '#00aaff';                   // Обычный (Синий)
     };
 
-    // Переключение выбора предмета
-    const toggleSelection = (index) => {
-        setSelectedIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(index)) newSet.delete(index);
-            else newSet.add(index);
-            return newSet;
+    const toggleItemStatus = (index) => {
+        setItemsStatus(prev => {
+            const newStatus = [...prev];
+            newStatus[index] = newStatus[index] === 'keep' ? 'sell' : 'keep';
+            return newStatus;
         });
     };
 
-    // Выбрать все / Снять выделение
-    const toggleSelectAll = () => {
-        if (selectedIds.size === winners.length) {
-            setSelectedIds(new Set());
-        } else {
-            const allIndices = winners.map((_, i) => i);
-            setSelectedIds(new Set(allIndices));
-        }
-    };
-
-    // Подсчет сумм
-    const totalWon = winners.reduce((sum, item) => sum + item.value, 0);
-    const totalSell = winners.filter((_, i) => selectedIds.has(i)).reduce((sum, item) => sum + item.value, 0);
+    // Подсчет итогов
+    const itemsToSell = winners.filter((_, i) => itemsStatus[i] === 'sell');
+    const itemsToKeep = winners.filter((_, i) => itemsStatus[i] === 'keep');
     
-    const isNoneSelected = selectedIds.size === 0;
-    const isAllSelected = selectedIds.size === winners.length && winners.length > 0;
+    const sellAmount = itemsToSell.reduce((sum, item) => sum + item.value, 0);
+    const totalCount = winners.length;
+    const sellCount = itemsToSell.length;
 
-    const handleAction = (type) => {
-        const toSell = [];
-        const toKeep = [];
-
-        if (type === 'keep_all') {
-            onClose([], winners); // Продаем 0, оставляем все
-            return;
-        }
-
-        winners.forEach((item, i) => {
-            if (selectedIds.has(i)) toSell.push(item);
-            else toKeep.push(item);
-        });
-        onClose(toSell, toKeep);
+    const handleConfirm = () => {
+        onClose(itemsToSell, itemsToKeep);
     };
 
     return (
-        <div className="results-modal">
-            <div className="results-modal-content">
-                <h3>Твой выигрыш!</h3>
-                <div className="win-summary">
-                    Общая ценность:
-                    <img src="/images/stars.png" className="star-icon small" alt="star"/>
-                    <span>{totalWon.toLocaleString()}</span>
+        <div className="win-modal-overlay">
+            <div className="win-content-wrapper">
+                <div className="win-header">
+                    <h2>Поздравляем!</h2>
+                    <p>Нажми на предмет, чтобы продать его</p>
                 </div>
 
-                {winners.length > 1 && (
-                    <button className="select-all-btn" onClick={toggleSelectAll}>
-                        {isAllSelected ? 'Снять выделение' : 'Выбрать все для продажи'}
-                    </button>
-                )}
+                <div className="win-grid">
+                    {winners.map((item, index) => {
+                        const status = itemsStatus[index]; // 'keep' or 'sell'
+                        const color = getRarityColor(item.value);
+                        
+                        return (
+                            <div 
+                                key={index}
+                                className={`win-card status-${status}`}
+                                style={{ '--rarity-color': color, animationDelay: `${index * 0.1}s` }}
+                                onClick={() => toggleItemStatus(index)}
+                            >
+                                {/* Оверлей при продаже */}
+                                <div className="win-card-overlay">
+                                    <div className="sell-icon-big">💰</div>
+                                    <span className="sell-text">Продать</span>
+                                </div>
 
-                <div className="results-grid">
-                    {winners.map((item, index) => (
-                        <div 
-                            key={index} 
-                            className={`result-item ${getRarity(item.value)} ${selectedIds.has(index) ? 'selected' : ''}`} 
-                            onClick={() => toggleSelection(index)}
-                        >
-                            <img src={item.image} alt={item.name} />
-                            <span className="res-name">{item.name}</span>
-                            <div className="res-val">{item.value.toLocaleString()}</div>
+                                <img src={item.image} alt={item.name} className="win-card-img" />
+                                
+                                <div className="win-card-name">{item.name}</div>
+                                
+                                <div className="win-card-price">
+                                    <img src="/images/stars.png" alt="" className="star-icon small" />
+                                    <span>{item.value.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Нижняя панель действий */}
+            <div className="win-actions-bar">
+                <button 
+                    className={`action-btn-main ${sellCount === 0 ? 'btn-style-keep' : 'btn-style-mix'}`}
+                    onClick={handleConfirm}
+                >
+                    <div className="btn-left">
+                        {sellCount === 0 
+                            ? <span>ЗАБРАТЬ ВСЁ</span> 
+                            : (sellCount === totalCount 
+                                ? <span>ПРОДАТЬ ВСЁ</span> 
+                                : <span>ЗАБРАТЬ И ПРОДАТЬ</span>
+                              )
+                        }
+                        {sellCount > 0 && sellCount < totalCount && (
+                            <span className="btn-sub">{itemsToKeep.length} в инвентарь, {sellCount} на продажу</span>
+                        )}
+                    </div>
+
+                    {sellCount > 0 && (
+                        <div className="btn-right">
+                            <span>+{sellAmount.toLocaleString()}</span>
+                            <img src="/images/stars.png" alt="" className="star-icon small"/>
                         </div>
-                    ))}
-                </div>
-
-                <div className="results-actions">
-                    {isNoneSelected ? (
-                        /* Если ничего не выбрано - кнопка ЗАБРАТЬ ВСЕ */
-                        <button className="action-btn btn-keep" onClick={() => handleAction('keep_all')}>
-                            Забрать все предметы
-                        </button>
-                    ) : (
-                        /* Если что-то выбрали - кнопка ПРОДАТЬ */
-                        <>
-                            <button className="action-btn btn-sell" onClick={() => handleAction('custom')}>
-                                Продать на {totalSell.toLocaleString()}
-                                <img src="/images/stars.png" className="star-icon small" alt=""/>
-                            </button>
-                            
-                            {!isAllSelected && (
-                                <button className="action-btn btn-sec" onClick={() => handleAction('custom')}>
-                                    Остальные в инвентарь
-                                </button>
-                            )}
-                        </>
                     )}
-                </div>
-
-                {isNoneSelected && (
-                    <div className="tip-text">Нажми на предмет, чтобы выбрать его для продажи</div>
-                )}
+                </button>
             </div>
         </div>
     );
