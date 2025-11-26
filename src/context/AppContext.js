@@ -3,25 +3,20 @@ import React, { createContext, useState, useCallback, useEffect } from 'react';
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-    // Данные приложения
     const [ALL_PRIZES, setAllPrizes] = useState([]);
     const [cases, setCases] = useState([]);
     const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 
-    // Данные пользователя
     const [user, setUser] = useState(null);
     const [balance, setBalance] = useState(0);
     const [inventory, setInventory] = useState([]);
     const [history, setHistory] = useState([]);
+    const [withdrawals, setWithdrawals] = useState([]); // Новое состояние
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
-    // 1. ЗАГРУЗКА КОНФИГУРАЦИИ
     const refreshConfig = useCallback(() => {
         fetch('/api/config')
-            .then(res => {
-                if (!res.ok) throw new Error('Config load failed');
-                return res.json();
-            })
+            .then(res => res.json())
             .then(data => {
                 setAllPrizes(data.prizes || []);
                 setCases(data.cases || []);
@@ -30,18 +25,26 @@ export const AppProvider = ({ children }) => {
             .catch(err => console.error("Config fetch error:", err));
     }, []);
 
-    useEffect(() => {
-        refreshConfig();
-    }, [refreshConfig]);
+    useEffect(() => { refreshConfig(); }, [refreshConfig]);
 
-    // 2. АВТОРИЗАЦИЯ И СИНХРОНИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ
+    // Функция загрузки выводов
+    const fetchWithdrawals = useCallback(async (userId) => {
+        if (!userId) return;
+        try {
+            const res = await fetch(`/api/user/withdrawals/${userId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setWithdrawals(data);
+            }
+        } catch (e) { console.error(e); }
+    }, []);
+
     useEffect(() => {
         const initUser = async () => {
             let tgUser = null;
             if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
                 tgUser = window.Telegram.WebApp.initDataUnsafe.user;
             } else {
-                // Фейк юзер для браузера
                 tgUser = { id: 123456789, first_name: 'Test', username: 'browser_user', photo_url: null };
             }
 
@@ -57,51 +60,41 @@ export const AppProvider = ({ children }) => {
                     })
                 });
 
-                // ИСПРАВЛЕНИЕ: Проверяем, что сервер ответил успешно (200 OK)
                 if (res.ok) {
                     const userData = await res.json();
                     setUser(userData); 
-                    // ИСПРАВЛЕНИЕ: Защита от null/undefined
                     setBalance(userData.balance ?? 0);
                     setInventory(userData.inventory || []);
                     setHistory(userData.history || []);
-                } else {
-                    console.error("Server error during sync:", res.status);
+                    // Загружаем выводы
+                    fetchWithdrawals(userData.id);
                 }
-            } catch (err) {
-                console.error("User sync error:", err);
-            }
+            } catch (err) { console.error("User sync error:", err); }
         };
 
-        if (isConfigLoaded) {
-            initUser();
-        }
-    }, [isConfigLoaded]);
+        if (isConfigLoaded) initUser();
+    }, [isConfigLoaded, fetchWithdrawals]);
 
-    // 3. СОХРАНЕНИЕ ДАННЫХ
+    // Обновление данных (polling) раз в 5 секунд для проверки статусов выводов
     useEffect(() => {
         if (!user) return;
-        const timer = setTimeout(() => {
-            fetch('/api/user/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: user.id,
-                    balance,
-                    inventory,
-                    history
-                })
-            }).catch(e => console.error("Save error:", e));
-        }, 1000);
+        const interval = setInterval(() => {
+            fetchWithdrawals(user.id);
+            // Также можно обновлять инвентарь, если админ отклонил вывод (предмет вернулся)
+            fetch('/api/user/sync', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ id: user.id })
+            }).then(r => r.json()).then(u => {
+                setInventory(u.inventory || []);
+                setBalance(u.balance || 0);
+            }).catch(()=>{});
 
-        return () => clearTimeout(timer);
-    }, [balance, inventory, history, user]);
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [user, fetchWithdrawals]);
 
     // --- ФУНКЦИИ ---
-
-    const updateCaseData = useCallback((updatedCase) => {
-        setCases(prev => prev.map(c => c.id === updatedCase.id ? updatedCase : c));
-    }, []);
 
     const updateBalance = useCallback((amount) => {
         setBalance(prev => prev + amount);
@@ -132,14 +125,49 @@ export const AppProvider = ({ children }) => {
         return false;
     }, [inventory, updateBalance, removeFromInventory]);
 
+    // Новое: Продать всё
+    const sellAllItems = useCallback(async () => {
+        if (!user) return;
+        try {
+            const res = await fetch('/api/user/sell-all', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ userId: user.id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setInventory([]);
+                setBalance(data.newBalance);
+            }
+        } catch (e) { console.error(e); }
+    }, [user]);
+
+    // Новое: Запрос вывода
+    const requestWithdrawal = useCallback(async (itemInventoryId, targetUsername) => {
+        if (!user) return;
+        try {
+            const res = await fetch('/api/withdraw/request', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ userId: user.id, itemInventoryId, targetUsername })
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Убираем предмет локально сразу, чтобы не ждать polling
+                removeFromInventory(itemInventoryId);
+                fetchWithdrawals(user.id); // Обновляем список выводов
+                return true;
+            }
+        } catch (e) { console.error(e); }
+        return false;
+    }, [user, removeFromInventory, fetchWithdrawals]);
+
     const getWeightedRandomPrize = useCallback((prizes) => {
         const prizePool = prizes || ALL_PRIZES;
         const totalChance = prizePool.reduce((sum, prize) => sum + prize.chance, 0);
         let random = Math.random() * totalChance;
         for (const prize of prizePool) {
-            if (random < prize.chance) {
-                return prize;
-            }
+            if (random < prize.chance) return prize;
             random -= prize.chance;
         }
         return prizePool[prizePool.length - 1];
@@ -165,31 +193,13 @@ export const AppProvider = ({ children }) => {
     const closeTopUpModal = () => setIsTopUpModalOpen(false);
 
     const value = {
-        user,
-        balance,
-        inventory,
-        history,
-        ALL_PRIZES,
-        ALL_CASES: cases,
-        isConfigLoaded,
-        updateCaseData,
-        updateBalance,
-        addToInventory,
-        sellItem,
-        removeFromInventory,
-        addToHistory,
-        getWeightedRandomPrize,
-        getUpgradeResult,
-        performUpgrade,
-        isTopUpModalOpen,
-        openTopUpModal,
-        closeTopUpModal,
-        refreshConfig
+        user, balance, inventory, history, withdrawals,
+        ALL_PRIZES, ALL_CASES: cases, isConfigLoaded,
+        updateBalance, addToInventory, sellItem, sellAllItems, requestWithdrawal,
+        removeFromInventory, addToHistory, getWeightedRandomPrize,
+        getUpgradeResult, performUpgrade,
+        isTopUpModalOpen, openTopUpModal, closeTopUpModal, refreshConfig
     };
 
-    return (
-        <AppContext.Provider value={value}>
-            {children}
-        </AppContext.Provider>
-    );
+    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
