@@ -13,13 +13,12 @@
 }
 .back-button:hover { opacity: 0.8; }
 
-/* === КАРУСЕЛЬ (РУЛЕТКА) === */
+/* === КАРУСЕЛЬ === */
 .item-carousel {
     display: flex;
     transform: translateX(0);
-    left: 0;
-    top: 0;
-    will-change: transform; /* Оптимизация анимации */
+    left: 0; top: 0;
+    will-change: transform;
 }
 .item-carousel.is-rolling {
     transition: transform 6s cubic-bezier(0.2, 0.85, 0.3, 1);
@@ -30,17 +29,13 @@
 .carousel-item {
     background-color: #2c3641;
     border-radius: 12px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display: flex; justify-content: center; align-items: center;
     flex-shrink: 0;
     position: relative;
-    /* Улучшенная отрисовка границ */
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); 
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
 }
 .carousel-item img {
-    max-width: 70%;
-    max-height: 70%;
+    max-width: 70%; max-height: 70%;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
 }
 .carousel-item.winning-item {
@@ -51,43 +46,27 @@
 }
 
 #multi-roll-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 12px;
-    min-height: 150px;
-    margin-bottom: 24px;
-    position: relative;
-    padding: 20px 0;
-    background: rgba(0,0,0,0.2);
-    border-radius: 16px;
+    display: flex; flex-direction: column; justify-content: center; gap: 12px;
+    min-height: 150px; margin-bottom: 24px; position: relative;
+    padding: 20px 0; background: rgba(0,0,0,0.2); border-radius: 16px;
 }
 
 .item-carousel-wrapper {
-    position: relative;
-    width: 100%;
-    overflow: hidden;
-    /* Градиентные маски по бокам для эффекта исчезновения */
+    position: relative; width: 100%; overflow: hidden;
     -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
     mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
 }
 
-/* Индикатор выигрыша (Стрелка) */
 .carousel-indicator {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0; 
-    height: 0;
-    border-left: 10px solid transparent;
-    border-right: 10px solid transparent;
-    z-index: 20;
-    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+    position: absolute; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 10px solid transparent; border-right: 10px solid transparent;
+    z-index: 20; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
 }
 .carousel-indicator:not(.bottom) { top: -5px; border-top: 14px solid #ffc107; }
 .carousel-indicator.bottom { bottom: -5px; border-bottom: 14px solid #ffc107; }
 
-/* Размеры карусели (Адаптивность высоты) */
+/* Размеры карусели */
 .item-carousel-wrapper.size-1 { height: 120px; }
 .size-1 .carousel-item { width: 100px; height: 100px; margin: 10px 5px; }
 .size-1 .item-carousel { height: 120px; }
@@ -103,132 +82,93 @@
 .item-carousel-wrapper.size-4 { height: 75px; }
 .size-4 .carousel-item { width: 65px; height: 65px; margin: 5px 3px; }
 .size-4 .item-carousel { height: 75px; }
-.size-4 .carousel-item img { max-width: 65%; max-height: 65%; }
 
 .item-carousel-wrapper.size-5 { height: 68px; }
 .size-5 .carousel-item { width: 58px; height: 58px; margin: 5px 3px; }
 .size-5 .item-carousel { height: 68px; }
-.size-5 .carousel-item img { max-width: 60%; max-height: 60%; }
 
 
 /* === ПАНЕЛЬ УПРАВЛЕНИЯ === */
 .controls-panel { display: flex; flex-direction: column; gap: 16px; }
 
 .roll-button {
-    position: relative; width: 100%; 
-    background: linear-gradient(180deg, #0088cc 0%, #0077b3 100%);
-    color: white; border: none;
-    border-radius: 14px; padding: 16px; 
-    font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
-    cursor: pointer;
-    overflow: hidden; 
-    display: flex; justify-content: center; align-items: center; gap: 8px;
-    box-shadow: 0 4px 0 #005580, 0 10px 20px rgba(0, 136, 204, 0.3);
-    transition: transform 0.1s, box-shadow 0.1s;
+    position: relative; width: 100%;
+    background-color: #0088cc; color: white; border: none;
+    border-radius: 12px; padding: 16px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    overflow: hidden; display: flex; justify-content: center; align-items: center; gap: 8px;
 }
-.roll-button:active:not(:disabled) {
-    transform: translateY(4px);
-    box-shadow: 0 0 0 #005580, inset 0 2px 10px rgba(0,0,0,0.2);
-}
-
 .roll-button-progress {
-    position: absolute; left: 0; top: 0; bottom: 0; 
-    background: rgba(255,255,255,0.15); 
-    width: 0%; z-index: 1; pointer-events: none;
+    position: absolute; left: 0; top: 0; bottom: 0; background-color: #00aaff; width: 0%; z-index: 1; pointer-events: none;
 }
-
 .roll-button-text, .roll-button-star { position: relative; z-index: 2; }
-.roll-button.disabled { 
-    background: #3a4552; 
-    box-shadow: none; 
-    color: #8a99a8; 
-    cursor: not-allowed; 
-}
+.roll-button.disabled { background-color: #555; cursor: not-allowed; }
 
-.roll-options { display: flex; justify-content: space-between; align-items: center; background: #1f272e; padding: 6px; border-radius: 12px; }
+.roll-options { display: flex; justify-content: space-between; align-items: center; }
 
-.quantity-selector { display: flex; gap: 2px; }
+.quantity-selector { display: flex; background-color: #2c3641; border-radius: 8px; overflow: hidden; }
 .quantity-btn {
-    background: transparent; border: none; color: #8a99a8; 
-    width: 36px; height: 36px; 
-    font-size: 14px; font-weight: 700; 
-    cursor: pointer; border-radius: 8px;
-    transition: all 0.2s;
+    background: none; border: none; color: #8a99a8; padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer; border-right: 1px solid #3a4552;
 }
-.quantity-btn:hover { background: rgba(255,255,255,0.05); }
-.quantity-btn.active { background-color: #00aaff; color: white; box-shadow: 0 2px 8px rgba(0, 170, 255, 0.4); }
+.quantity-selector .quantity-btn:last-child { border-right: none; }
+.quantity-btn.active { background-color: #00aaff; color: white; }
 
-.fast-roll-toggle { display: flex; align-items: center; gap: 10px; padding-right: 10px; }
-.fast-roll-toggle label { font-size: 13px; font-weight: 600; color: #8a99a8; cursor: pointer; }
+.fast-roll-toggle { display: flex; align-items: center; gap: 8px; }
 
-/* === СПИСОК ПРИЗОВ В КЕЙСЕ === */
-.prize-list { margin-top: 30px; }
-.prize-list-header { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; color: #5f6e7c; font-weight: 700; }
+/* === ПРОМОКОД === */
+.promo-container { display: flex; flex-direction: column; gap: 10px; }
+.promo-input {
+    width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #3a4552;
+    background-color: #2c3641; color: white; font-size: 16px; box-sizing: border-box;
+    outline: none; transition: border-color 0.2s;
+}
+.promo-input:focus { border-color: #00aaff; }
+
+/* === СПИСОК ПРИЗОВ === */
+.prize-list { margin-top: 24px; }
+.prize-list-header { font-size: 16px; margin-top: 20px; margin-bottom: 12px; color: #8a99a8; }
 .prize-item {
-    display: flex; align-items: center; background-color: #232b34; border-radius: 12px; padding: 8px 12px; margin-bottom: 8px;
-    border: 1px solid transparent; transition: border-color 0.2s;
+    display: flex; align-items: center; background-color: #2c3641; border-radius: 12px; padding: 10px; margin-bottom: 8px;
 }
-.prize-item:hover { border-color: rgba(255,255,255,0.1); }
 .prize-item-image-wrapper {
-    width: 42px; height: 42px; background-color: #1a2126; border-radius: 8px; display: flex;
+    width: 48px; height: 48px; background-color: #3a4552; border-radius: 8px; display: flex;
     justify-content: center; align-items: center; flex-shrink: 0; margin-right: 12px;
 }
 .prize-item-image-wrapper img { max-width: 80%; max-height: 80%; }
-.prize-item-info { display: flex; flex-direction: column; gap: 2px; }
-.prize-name { font-weight: 600; font-size: 14px; color: #e0e0e0; }
-.prize-value { display: flex; align-items: center; gap: 4px; color: #ffc107; font-weight: 700; font-size: 13px; }
+.prize-item-info { display: flex; flex-direction: column; gap: 4px; }
+.prize-name { font-weight: 500; }
+.prize-value { display: flex; align-items: center; gap: 4px; color: #ffc107; font-weight: 500; }
 
 
-/* === МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ (REDESIGN) === */
+/* === НОВОЕ КРАСИВОЕ МОДАЛЬНОЕ ОКНО === */
 .results-modal {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.85); /* Темный фон */
-    backdrop-filter: blur(10px); /* Сильное размытие */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 2000;
-    opacity: 0;
-    animation: fadeIn 0.3s forwards;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex; justify-content: center; align-items: center; z-index: 2000;
+    opacity: 0; animation: fadeIn 0.3s forwards;
 }
 
 .results-modal-content {
     background: linear-gradient(160deg, #232d36 0%, #171d24 100%);
-    padding: 24px;
-    border-radius: 24px;
-    width: 90%;
-    max-width: 420px;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 24px; border-radius: 24px; width: 90%; max-width: 420px;
+    text-align: center; border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-    transform: scale(0.9);
-    opacity: 0;
+    transform: scale(0.9); opacity: 0;
     animation: zoomIn 0.4s cubic-bezier(0.19, 1, 0.22, 1) forwards 0.1s;
-    position: relative;
-    overflow: hidden;
-}
-
-/* Светящийся эффект сверху модалки */
-.results-modal-content::before {
-    content: '';
-    position: absolute; top: -50px; left: 0; right: 0; height: 100px;
-    background: radial-gradient(ellipse at center, rgba(0, 170, 255, 0.15), transparent 70%);
-    pointer-events: none;
 }
 
 .results-modal-content h3 {
-    margin: 0 0 4px 0; font-size: 26px; color: #fff; letter-spacing: 0.5px;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    margin: 0 0 5px 0; font-size: 24px; color: #fff; text-transform: uppercase; letter-spacing: 1px;
 }
 
-.total-win-info {
+.win-summary {
     font-size: 14px; color: #8a99a8; margin-bottom: 20px;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
+    display: flex; justify-content: center; align-items: center; gap: 6px;
 }
-.total-win-info span { color: #ffc107; font-weight: 700; font-size: 16px; }
+.win-summary span { color: #ffc107; font-weight: 700; font-size: 16px; }
 
-/* Текстовая кнопка "Выбрать все" */
+/* Кнопка выбрать все */
 .select-all-btn {
     background: none; border: none; color: #00aaff; font-size: 13px; font-weight: 600;
     cursor: pointer; margin-bottom: 12px; padding: 4px 8px; border-radius: 6px;
@@ -236,96 +176,66 @@
 }
 .select-all-btn:hover { background: rgba(0, 170, 255, 0.1); }
 
-/* Сетка предметов */
 .results-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
-    gap: 12px;
-    margin-bottom: 24px;
-    max-height: 45vh;
-    overflow-y: auto;
-    padding: 4px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+    gap: 12px; margin-bottom: 25px; max-height: 45vh; overflow-y: auto; padding: 4px;
 }
 
 .result-item {
-    background-color: #2c3641;
-    border-radius: 16px;
-    padding: 10px;
+    background-color: #2c3641; border-radius: 14px; padding: 10px;
     display: flex; flex-direction: column; align-items: center; gap: 8px;
-    cursor: pointer; position: relative;
-    border: 2px solid transparent;
+    cursor: pointer; position: relative; border: 2px solid transparent;
     transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Цвета редкости */
+/* Стили редкости */
 .result-item.common { border-color: #546e7a; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
 .result-item.uncommon { border-color: #00aaff; box-shadow: 0 0 15px rgba(0, 170, 255, 0.2); }
 .result-item.rare { border-color: #d81b60; box-shadow: 0 0 15px rgba(216, 27, 96, 0.25); }
 .result-item.legendary { border-color: #ffc107; box-shadow: 0 0 20px rgba(255, 193, 7, 0.35); }
 
-/* Состояние "Выбрано для продажи" */
+/* Выбранный элемент (для продажи) */
 .result-item.selected {
-    background-color: rgba(244, 67, 54, 0.1);
-    border-color: #f44336;
-    transform: scale(0.96);
-    box-shadow: none;
+    background-color: rgba(244, 67, 54, 0.1); border-color: #f44336;
+    transform: scale(0.96); box-shadow: none;
 }
-/* Бейдж "Продать" поверх предмета */
 .result-item.selected::after {
-    content: 'ПРОДАТЬ';
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    background: rgba(244, 67, 54, 0.95);
-    color: white; font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px;
-    pointer-events: none; letter-spacing: 0.5px;
+    content: 'ПРОДАТЬ'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(244, 67, 54, 0.95); color: white; font-size: 10px; font-weight: 800;
+    padding: 4px 8px; border-radius: 6px; pointer-events: none;
 }
 
 .result-item img {
     width: 55px; height: 55px; object-fit: contain;
-    filter: drop-shadow(0 5px 5px rgba(0,0,0,0.4));
-    transition: transform 0.2s;
+    filter: drop-shadow(0 5px 5px rgba(0,0,0,0.4)); transition: transform 0.2s;
 }
 .result-item:hover img { transform: scale(1.1); }
 
-.res-prize-name { font-size: 11px; font-weight: 600; color: #fff; text-align: center; line-height: 1.2; opacity: 0.9; }
-.res-prize-val { 
-    background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 10px; margin-top: auto; 
+.res-name { font-size: 11px; font-weight: 600; color: #e0e0e0; line-height: 1.2; }
+.res-val { 
+    background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 8px; margin-top: auto; 
     font-size: 11px; color: #ffc107; font-weight: 700;
 }
 
-/* Кнопки действий */
 .results-actions { display: flex; flex-direction: column; gap: 10px; }
 
 .action-btn {
-    width: 100%; padding: 16px; border: none; border-radius: 12px;
-    font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
-    cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;
-    transition: transform 0.1s, filter 0.2s;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    width: 100%; padding: 14px; border: none; border-radius: 12px;
+    font-size: 15px; font-weight: 700; text-transform: uppercase; cursor: pointer;
+    display: flex; justify-content: center; align-items: center; gap: 8px;
+    transition: transform 0.1s;
 }
 .action-btn:active { transform: scale(0.98); }
 
-.btn-sell {
-    background: linear-gradient(90deg, #ff5252, #f44336);
-    color: white;
-    box-shadow: 0 5px 15px rgba(244, 67, 54, 0.3);
-}
-.btn-keep {
-    background: linear-gradient(90deg, #0088cc, #00aaff);
-    color: white;
-    box-shadow: 0 5px 15px rgba(0, 136, 204, 0.3);
-}
-.btn-secondary {
-    background: #2c3641; color: #e0e0e0;
-    border: 1px solid #3a4552;
-    font-size: 14px; padding: 14px;
-}
+.btn-sell { background: #f44336; color: white; box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3); }
+.btn-keep { background: #00aaff; color: white; box-shadow: 0 4px 15px rgba(0, 170, 255, 0.3); }
+.btn-sec { background: transparent; border: 1px solid #3a4552; color: #8a99a8; font-size: 13px; padding: 12px; }
+
+.tip-text { font-size: 12px; color: #5f6e7c; margin-top: 15px; }
 
 @keyframes fadeIn { to { opacity: 1; } }
 @keyframes zoomIn { to { opacity: 1; transform: scale(1); } }
 
-/* === МОБИЛЬНЫЕ СТИЛИ === */
 @media (max-width: 768px) {
-    .fast-roll-toggle {
-        margin-right: 4px; 
-    }
+    .fast-roll-toggle { margin-right: 8px; }
 }
