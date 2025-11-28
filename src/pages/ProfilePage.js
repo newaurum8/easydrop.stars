@@ -18,11 +18,11 @@ const ProfilePage = () => {
     }, [inventory]);
 
     const getRarityColor = (val) => {
-        if (val >= 50000) return '#ffd700'; // Gold/Legendary
-        if (val >= 10000) return '#ff4081'; // Pink
-        if (val >= 2000) return '#b388ff';  // Purple
-        if (val >= 500)   return '#40c4ff'; // Blue
-        return '#b0bec5';                   // Grey
+        if (val >= 50000) return '#ffd700';
+        if (val >= 10000) return '#ff4081';
+        if (val >= 2000) return '#b388ff';
+        if (val >= 500)   return '#40c4ff';
+        return '#b0bec5';
     };
 
     // --- HANDLERS ---
@@ -33,20 +33,22 @@ const ProfilePage = () => {
     const handleSell = () => {
         if (!selectedItem) return;
         sellItem(selectedItem.inventoryId);
-        setSelectedItem(null); // Закрыть шторку
+        setSelectedItem(null);
     };
 
     const handleOpenWithdraw = () => {
         setShowWithdrawModal(true);
+        // Не закрываем selectedItem, чтобы он оставался на фоне, но можно и закрыть
     };
 
     const handleConfirmWithdraw = async () => {
-        if (!targetUsername.trim()) return alert('Введите @username');
+        if (!targetUsername.trim()) return alert('Введите username');
         let cleanUsername = targetUsername.replace('@', '').trim();
         await requestWithdrawal(selectedItem.inventoryId, cleanUsername);
         setShowWithdrawModal(false);
         setSelectedItem(null);
-        alert('Заявка создана!');
+        setTargetUsername('');
+        alert('Заявка создана! Менеджер проверит её.');
     };
 
     const handleConfirmSellAll = () => {
@@ -63,24 +65,9 @@ const ProfilePage = () => {
     return (
         <div className="profile-page-wrapper">
             
-            {/* 1. ПРОФИЛЬ ХЕДЕР (Новый дизайн) */}
+            {/* 1. СТАТИСТИКА (Без имени и аватарки) */}
             <div className="profile-header-section">
-                <div className="user-identity">
-                    <div className="avatar-ring">
-                        <img 
-                            src={user?.photoUrl || '/images/profile.png'} 
-                            alt="avatar" 
-                            className="main-avatar"
-                            onError={(e) => {e.target.onerror = null; e.target.src="/images/profile.png"}}
-                        />
-                    </div>
-                    <div className="user-text">
-                        <h2 className="user-name">{user?.firstName || user?.username || 'User'}</h2>
-                        <span className="user-id">ID: {user?.id}</span>
-                    </div>
-                </div>
-
-                <div className="bento-stats">
+                <div className="bento-stats full-width">
                     <div className="bento-box balance-box">
                         <span className="bento-label">Стоимость инвентаря</span>
                         <div className="bento-value">
@@ -95,7 +82,7 @@ const ProfilePage = () => {
                 </div>
             </div>
 
-            {/* 2. ТАБЫ (iOS style) */}
+            {/* 2. ТАБЫ */}
             <div className="segmented-control">
                 <div 
                     className={`segment ${activeTab === 'inventory' ? 'active' : ''}`}
@@ -113,22 +100,24 @@ const ProfilePage = () => {
 
             {/* 3. КОНТЕНТ */}
             {activeTab === 'inventory' && (
-                <div className="fade-in-content">
+                <div className="fade-in-content" style={{height: '100%'}}>
                     {inventory.length > 0 && (
                         <button className="minimal-sell-all" onClick={handleConfirmSellAll}>
                             Продать всё за <img src="/images/stars.png" alt=""/> {stats.totalValue.toLocaleString()}
                         </button>
                     )}
 
-                    <div className="clean-grid">
-                        {inventory.length === 0 ? (
-                            <div className="empty-placeholder">
+                    {inventory.length === 0 ? (
+                        <div className="empty-placeholder-center">
+                            <div className="empty-content">
                                 <img src="/images/case.png" alt="" className="floating-empty" />
                                 <p>Здесь пока пусто</p>
-                                <span>Открывайте кейсы, чтобы получить крутые скины</span>
+                                <span>Открывайте кейсы, чтобы<br/>получить крутые скины</span>
                             </div>
-                        ) : (
-                            inventory.map((item) => {
+                        </div>
+                    ) : (
+                        <div className="clean-grid">
+                            {inventory.map((item) => {
                                 const rarityColor = getRarityColor(item.value);
                                 return (
                                     <div 
@@ -144,17 +133,20 @@ const ProfilePage = () => {
                                         <div className="rarity-dot" style={{background: rarityColor}}></div>
                                     </div>
                                 );
-                            })
-                        )}
-                    </div>
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
 
             {activeTab === 'withdrawals' && (
                 <div className="withdrawals-list fade-in-content">
                     {withdrawals.length === 0 ? (
-                         <div className="empty-placeholder">
-                            <p>История пуста</p>
+                         <div className="empty-placeholder-center">
+                             <div className="empty-content">
+                                <p>История пуста</p>
+                                <span>Вы еще не заказывали вывод предметов</span>
+                             </div>
                         </div>
                     ) : (
                         withdrawals.map(w => (
@@ -173,30 +165,24 @@ const ProfilePage = () => {
                 </div>
             )}
 
-            {/* 4. DRAWER (Шторка с деталями предмета) */}
-            {/* Оверлей */}
+            {/* 4. ШТОРКА (DRAWER) */}
             <div className={`drawer-overlay ${selectedItem ? 'open' : ''}`} onClick={() => setSelectedItem(null)}></div>
-            
-            {/* Сама шторка */}
             <div className={`bottom-drawer ${selectedItem ? 'open' : ''}`}>
                 {selectedItem && (
                     <div className="drawer-content">
                         <div className="drawer-handle"></div>
-                        
                         <div className="drawer-image-wrapper">
                             <div className="glow-bg" style={{background: getRarityColor(selectedItem.value)}}></div>
                             <img src={selectedItem.image} alt="" className="drawer-img" />
                         </div>
-                        
                         <h3 className="drawer-title">{selectedItem.name}</h3>
                         <div className="drawer-price">
                             <img src="/images/stars.png" alt="" />
                             {selectedItem.value.toLocaleString()}
                         </div>
-
                         <div className="drawer-actions">
                             <button className="btn-action withdraw" onClick={handleOpenWithdraw}>
-                                Вывести в Telegram
+                                Вывести
                             </button>
                             <button className="btn-action sell" onClick={handleSell}>
                                 Продать
@@ -206,25 +192,39 @@ const ProfilePage = () => {
                 )}
             </div>
 
-            {/* МОДАЛКА ВВОДА НИКА (Оставляем простой) */}
+            {/* 5. КРАСИВОЕ МОДАЛЬНОЕ ОКНО ВЫВОДА */}
             {showWithdrawModal && (
                 <div className="custom-modal-overlay">
-                    <div className="custom-modal">
-                        <h3>Вывод скина</h3>
-                        <p style={{fontSize:13, color:'#888', marginBottom: 15}}>
-                            Укажите username для отправки подарка
+                    <div className="modern-modal">
+                        <div className="modal-icon-wrap">
+                            <img src="/images/case/item1.png" alt="icon" /> 
+                            {/* Можно заменить на иконку Telegram или Gift */}
+                        </div>
+                        <h3>Вывод предмета</h3>
+                        <p className="modal-subtitle">
+                            Введите ваш <b>Telegram Username</b>.<br/>
+                            Наш менеджер свяжется с вами для передачи.
                         </p>
-                        <input 
-                            type="text" 
-                            className="modal-input"
-                            placeholder="@durov" 
-                            value={targetUsername}
-                            onChange={e => setTargetUsername(e.target.value)}
-                            autoFocus
-                        />
-                        <div className="modal-actions">
-                            <button className="modal-btn cancel" onClick={() => setShowWithdrawModal(false)}>Отмена</button>
-                            <button className="modal-btn confirm" onClick={handleConfirmWithdraw}>Отправить</button>
+                        
+                        <div className="input-field-wrapper">
+                            <span className="input-icon">@</span>
+                            <input 
+                                type="text" 
+                                className="modern-input-field"
+                                placeholder="username" 
+                                value={targetUsername}
+                                onChange={e => setTargetUsername(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="modal-actions-row">
+                            <button className="modal-btn-secondary" onClick={() => setShowWithdrawModal(false)}>
+                                Отмена
+                            </button>
+                            <button className="modal-btn-primary" onClick={handleConfirmWithdraw}>
+                                Подтвердить
+                            </button>
                         </div>
                     </div>
                 </div>
