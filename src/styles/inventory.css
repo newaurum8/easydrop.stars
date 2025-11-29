@@ -1,5 +1,12 @@
 /* src/styles/inventory.css */
 
+/* --- АНИМАЦИИ --- */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInOverlay { to { opacity: 1; } }
+@keyframes popInModal { from { transform: scale(0.9); } to { transform: scale(1); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+/* --- ОСНОВНОЙ КОНТЕЙНЕР --- */
 .profile-page-wrapper {
     padding: 12px 16px 100px 16px;
     font-family: 'Inter', sans-serif;
@@ -50,7 +57,8 @@
 }
 .bento-value img { width: 22px; height: 22px; }
 
-/* --- 2. ТАБЫ --- */
+
+/* --- 2. ТАБЫ (SEGMENTED CONTROL) --- */
 .segmented-control {
     background: #161a1f;
     border-radius: 14px;
@@ -75,27 +83,28 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-/* --- 3. ПУСТОЕ СОСТОЯНИЕ (FIX) --- */
+
+/* --- 3. ПУСТОЕ СОСТОЯНИЕ (ЦЕНТРИРОВАНИЕ) --- */
 .empty-placeholder-center {
     width: 100%;
-    flex: 1;
+    flex: 1; /* Занимает все доступное место */
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 40px 0;
-    min-height: 300px; /* Чтобы не сплющивалось */
+    min-height: 300px;
 }
 
 .empty-content {
     display: flex;
     flex-direction: column;
-    align-items: center; /* Центрируем всё по горизонтали */
+    align-items: center;
     justify-content: center;
     position: relative;
-    text-align: center; /* Текст тоже по центру */
+    text-align: center;
 }
 
-/* Красивое свечение за кейсом */
+/* Свечение за пустым кейсом */
 .empty-content::before {
     content: '';
     position: absolute;
@@ -114,7 +123,7 @@
     display: block;
     width: 120px;
     height: auto;
-    margin: 0 auto 16px auto; /* margin: 0 auto - железобетонное центрирование */
+    margin: 0 auto 16px auto;
     position: relative;
     z-index: 1;
     animation: float 4s ease-in-out infinite;
@@ -136,6 +145,7 @@
     max-width: 220px;
     z-index: 1;
 }
+
 
 /* --- 4. СЕТКА ПРЕДМЕТОВ --- */
 .minimal-sell-all {
@@ -213,7 +223,6 @@
     animation: popInModal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
-/* Иконка предмета в круге */
 .modal-item-preview {
     width: 80px; height: 80px;
     margin: 0 auto 20px auto;
@@ -266,7 +275,7 @@
 .btn-confirm { background: #00aaff; color: white; box-shadow: 0 4px 15px rgba(0, 170, 255, 0.25); }
 
 
-/* --- 6. ШТОРКА (DRAWER) --- */
+/* --- 6. ШТОРКА (DRAWER) С SWIPE --- */
 .drawer-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
@@ -276,20 +285,51 @@
 
 .bottom-drawer {
     position: fixed; bottom: 0; left: 0; right: 0;
-    background: #1c2128; border-top-left-radius: 24px; border-top-right-radius: 24px;
-    padding: 24px; z-index: 2001; transform: translateY(110%);
+    background: #1c2128;
+    border-top-left-radius: 24px; border-top-right-radius: 24px;
+    padding: 24px; padding-bottom: 40px; /* Отступ снизу для безопасности на мобилках */
+    z-index: 2001; 
+    
+    /* Скрыта внизу по умолчанию */
+    transform: translateY(110%);
+    
+    /* Плавная анимация */
     transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    
     box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
     max-width: 500px; margin: 0 auto;
+    
+    /* ! ВАЖНО: Отключает прокрутку страницы браузером при свайпе шторки */
+    touch-action: none; 
 }
+
+/* Состояние "Открыто" */
 .bottom-drawer.open { transform: translateY(0); }
 
-.drawer-handle { width: 40px; height: 4px; background: #3a4552; border-radius: 2px; margin: -10px auto 20px auto; opacity: 0.5; }
+/* ! ВАЖНО: Отключаем анимацию, пока тянем пальцем (для мгновенной реакции) */
+.bottom-drawer.is-dragging { transition: none; }
+
+/* Зона захвата для пальца */
+.drawer-handle-area {
+    width: 100%; height: 40px; /* Увеличенная зона клика */
+    display: flex; justify-content: center; align-items: flex-start;
+    margin-top: -10px; cursor: grab;
+    touch-action: none;
+}
+
+.drawer-handle {
+    width: 40px; height: 4px; background: #3a4552; border-radius: 2px; opacity: 0.5;
+}
+
 .drawer-content { display: flex; flex-direction: column; align-items: center; text-align: center; }
 
 .drawer-image-wrapper { position: relative; width: 140px; height: 140px; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
 .glow-bg { position: absolute; width: 100%; height: 100%; border-radius: 50%; filter: blur(40px); opacity: 0.3; }
-.drawer-img { width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 1; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4)); animation: float 4s ease-in-out infinite; }
+.drawer-img { 
+    width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 1; 
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4)); 
+    pointer-events: none; /* Чтобы картинка не перетаскивалась браузером */
+}
 
 .drawer-title { margin: 0 0 8px 0; font-size: 20px; color: #fff; font-weight: 700; }
 .drawer-price { display: flex; align-items: center; gap: 6px; font-size: 24px; color: #ffc107; font-weight: 800; margin-bottom: 30px; }
@@ -299,9 +339,3 @@
 .btn-action { width: 100%; padding: 16px; border-radius: 14px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
 .btn-action.withdraw { background: linear-gradient(90deg, #00aaff, #0088cc); color: white; box-shadow: 0 4px 15px rgba(0, 170, 255, 0.3); }
 .btn-action.sell { background: #2c3641; color: #f85149; border: 1px solid #3a4552; }
-
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes fadeInOverlay { to { opacity: 1; } }
-@keyframes popInModal { to { transform: scale(1); } }
-@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
