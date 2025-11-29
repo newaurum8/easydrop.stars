@@ -1,4 +1,4 @@
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import '../styles/inventory.css';
 
@@ -10,6 +10,21 @@ const ProfilePage = () => {
     const [selectedItem, setSelectedItem] = useState(null); // Предмет, открытый в шторке
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
     const [targetUsername, setTargetUsername] = useState('');
+
+    // --- SWIPE LOGIC STATE ---
+    const [dragY, setDragY] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const startY = useRef(0);
+    const currentY = useRef(0);
+    const drawerRef = useRef(null);
+
+    // Сброс позиции при открытии
+    useEffect(() => {
+        if (selectedItem) {
+            setDragY(0);
+            setIsDragging(false);
+        }
+    }, [selectedItem]);
 
     // --- LOGIC ---
     const stats = useMemo(() => {
@@ -37,8 +52,7 @@ const ProfilePage = () => {
     };
 
     const handleOpenWithdraw = () => {
-        // Открываем модалку вывода и закрываем шторку предмета,
-        // чтобы не перегружать интерфейс слоями
+        // Открываем модалку вывода и закрываем шторку предмета
         setShowWithdrawModal(true);
     };
 
@@ -61,6 +75,38 @@ const ProfilePage = () => {
     const formatDate = (dateString) => {
         const d = new Date(dateString);
         return d.toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'}) + ', ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    };
+
+    // --- SWIPE HANDLERS ---
+    const onTouchStart = (e) => {
+        startY.current = e.touches[0].clientY;
+        setIsDragging(true);
+    };
+
+    const onTouchMove = (e) => {
+        if (!isDragging) return;
+        const touchY = e.touches[0].clientY;
+        const delta = touchY - startY.current;
+
+        // Разрешаем тянуть только вниз (delta > 0)
+        if (delta > 0) {
+            // Блокируем скролл страницы, если это возможно, для плавности перетаскивания
+            if (e.cancelable) e.preventDefault(); 
+            currentY.current = delta;
+            setDragY(delta);
+        }
+    };
+
+    const onTouchEnd = () => {
+        setIsDragging(false);
+        // Если утянули больше чем на 120px — закрываем
+        if (currentY.current > 120) {
+            setSelectedItem(null);
+        } else {
+            // Иначе возвращаем на место
+            setDragY(0);
+        }
+        currentY.current = 0;
     };
 
     return (
@@ -166,15 +212,27 @@ const ProfilePage = () => {
                 </div>
             )}
 
-            {/* 4. ШТОРКА ПРЕДМЕТА */}
+            {/* 4. ШТОРКА ПРЕДМЕТА С ПОДДЕРЖКОЙ СВАЙПА */}
             <div className={`drawer-overlay ${selectedItem ? 'open' : ''}`} onClick={() => setSelectedItem(null)}></div>
-            <div className={`bottom-drawer ${selectedItem ? 'open' : ''}`}>
+            
+            <div 
+                ref={drawerRef}
+                className={`bottom-drawer ${selectedItem ? 'open' : ''} ${isDragging ? 'is-dragging' : ''}`}
+                style={{ transform: selectedItem ? `translateY(${dragY}px)` : 'translateY(110%)' }}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+            >
                 {selectedItem && (
                     <div className="drawer-content">
-                        <div className="drawer-handle"></div>
+                        {/* Зона для захвата пальцем */}
+                        <div className="drawer-handle-area">
+                            <div className="drawer-handle"></div>
+                        </div>
+                        
                         <div className="drawer-image-wrapper">
                             <div className="glow-bg" style={{background: getRarityColor(selectedItem.value)}}></div>
-                            <img src={selectedItem.image} alt="" className="drawer-img" />
+                            <img src={selectedItem.image} alt="" className="drawer-img" draggable="false" />
                         </div>
                         <h3 className="drawer-title">{selectedItem.name}</h3>
                         <div className="drawer-price">
