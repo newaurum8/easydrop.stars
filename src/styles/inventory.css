@@ -3,7 +3,7 @@
 .profile-page-wrapper {
     padding: 12px 16px 100px 16px;
     font-family: 'Inter', sans-serif;
-    min-height: 80vh; /* Чтобы было место для центрирования */
+    min-height: 80vh;
     display: flex;
     flex-direction: column;
 }
@@ -13,7 +13,6 @@
     margin-bottom: 24px;
 }
 
-/* Растягиваем на всю ширину и делим пополам */
 .bento-stats.full-width {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -25,11 +24,11 @@
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 20px;
-    padding: 20px 16px; /* Чуть больше паддинг */
+    padding: 20px 16px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: flex-start; /* Выравнивание по левому краю */
+    align-items: flex-start;
 }
 
 .bento-label {
@@ -42,7 +41,7 @@
 }
 
 .bento-value {
-    font-size: 24px; /* Крупнее шрифт */
+    font-size: 24px;
     font-weight: 800;
     color: #fff;
     display: flex;
@@ -50,7 +49,6 @@
     gap: 6px;
 }
 .bento-value img { width: 22px; height: 22px; }
-
 
 /* --- 2. ТАБЫ --- */
 .segmented-control {
@@ -77,46 +75,67 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-/* --- 3. ПУСТОЙ ИНВЕНТАРЬ (Центрирование) --- */
+/* --- 3. ПУСТОЕ СОСТОЯНИЕ (FIX) --- */
 .empty-placeholder-center {
-    flex: 1; /* Занимает все оставшееся место */
+    width: 100%;
+    flex: 1;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: 40vh; /* Минимальная высота для красоты */
-    animation: fadeIn 0.5s ease;
+    padding: 40px 0;
+    min-height: 300px; /* Чтобы не сплющивалось */
 }
 
 .empty-content {
-    text-align: center;
-    background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
-    padding: 40px;
-    border-radius: 50%; /* Визуальный круг света */
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Центрируем всё по горизонтали */
+    justify-content: center;
+    position: relative;
+    text-align: center; /* Текст тоже по центру */
+}
+
+/* Красивое свечение за кейсом */
+.empty-content::before {
+    content: '';
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 140px;
+    height: 140px;
+    background: radial-gradient(circle, rgba(0, 170, 255, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    z-index: 0;
+    pointer-events: none;
 }
 
 .floating-empty {
-    width: 100px;
-    opacity: 0.8;
-    margin-bottom: 20px;
-    animation: float 6s ease-in-out infinite;
-    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+    display: block;
+    width: 120px;
+    height: auto;
+    margin: 0 auto 16px auto; /* margin: 0 auto - железобетонное центрирование */
+    position: relative;
+    z-index: 1;
+    animation: float 4s ease-in-out infinite;
+    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.3));
 }
 
-.empty-content p {
+.empty-title {
     font-size: 18px;
     font-weight: 700;
     color: #fff;
     margin: 0 0 8px 0;
+    z-index: 1;
 }
 
-.empty-content span {
+.empty-desc {
     font-size: 14px;
     color: #8a99a8;
     line-height: 1.5;
-    display: block;
+    max-width: 220px;
+    z-index: 1;
 }
-
 
 /* --- 4. СЕТКА ПРЕДМЕТОВ --- */
 .minimal-sell-all {
@@ -170,65 +189,81 @@
 .h-info { flex: 1; min-width: 0; }
 .h-name { font-size: 14px; color: #fff; font-weight: 500; }
 .h-meta { font-size: 11px; color: #5f6e7c; margin-top: 2px; }
+.h-status { font-size: 14px; }
 
 
-/* --- 5. НОВОЕ КРАСИВОЕ МОДАЛЬНОЕ ОКНО --- */
+/* --- 5. НОВОЕ МОДАЛЬНОЕ ОКНО ВЫВОДА (SUPER CLEAN) --- */
 .custom-modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
     z-index: 3000;
     display: flex; justify-content: center; align-items: center;
+    opacity: 0; animation: fadeInOverlay 0.3s forwards;
 }
 
 .modern-modal {
-    background: #1e2329;
-    width: 85%; max-width: 320px;
-    padding: 30px 24px;
+    background: #1c2128;
+    width: 90%; max-width: 340px;
     border-radius: 24px;
+    padding: 32px 24px;
     text-align: center;
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-    position: relative;
-    overflow: hidden;
-    animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.05);
+    transform: scale(0.9);
+    animation: popInModal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
-.modal-icon-wrap {
-    width: 60px; height: 60px;
-    background: linear-gradient(135deg, #0088cc20, #00c6ff20);
-    border-radius: 20px;
-    display: flex; justify-content: center; align-items: center;
+/* Иконка предмета в круге */
+.modal-item-preview {
+    width: 80px; height: 80px;
     margin: 0 auto 20px auto;
+    position: relative;
+    display: flex; justify-content: center; align-items: center;
 }
-.modal-icon-wrap img { width: 32px; height: 32px; filter: drop-shadow(0 4px 6px rgba(0,136,204,0.4)); }
+.modal-item-preview::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle, rgba(0,170,255,0.2), transparent 70%);
+    border-radius: 50%;
+}
+.modal-item-img {
+    width: 100%; height: 100%; object-fit: contain;
+    position: relative; z-index: 1;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.3));
+}
 
-.modern-modal h3 { margin: 0 0 10px 0; font-size: 20px; color: #fff; }
-.modal-subtitle { font-size: 13px; color: #8a99a8; margin: 0 0 20px 0; line-height: 1.5; }
+.modal-title { font-size: 20px; font-weight: 800; color: white; margin: 0 0 8px 0; }
+.modal-desc { font-size: 14px; color: #8a99a8; margin: 0 0 24px 0; line-height: 1.4; }
 
 /* Поле ввода */
-.input-field-wrapper { position: relative; margin-bottom: 25px; }
-.input-icon {
-    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
-    color: #5f6e7c; font-weight: 600; font-size: 18px; pointer-events: none;
+.input-wrapper {
+    position: relative;
+    background: #0d1117;
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex; align-items: center;
+    border: 1px solid #30363d;
+    transition: border-color 0.2s;
+    margin-bottom: 24px;
 }
-.modern-input-field {
-    width: 100%; padding: 16px 16px 16px 40px; /* Отступ под иконку */
-    background: #161a1f; border: 1px solid #3a4552; border-radius: 14px;
-    color: #fff; font-size: 18px; font-weight: 500; outline: none; transition: all 0.2s;
-    box-sizing: border-box;
-}
-.modern-input-field:focus {
-    border-color: #00aaff; background: #121519;
-    box-shadow: 0 0 0 4px rgba(0, 170, 255, 0.1);
-}
+.input-wrapper:focus-within { border-color: #00aaff; box-shadow: 0 0 0 3px rgba(0, 170, 255, 0.15); }
 
-.modal-actions-row { display: flex; gap: 10px; }
-.modal-btn-primary, .modal-btn-secondary {
-    flex: 1; padding: 14px; border-radius: 12px; border: none;
-    font-size: 14px; font-weight: 700; cursor: pointer;
+.input-icon { color: #00aaff; font-weight: 700; margin-right: 8px; font-size: 16px; }
+.modal-input {
+    background: transparent; border: none; outline: none;
+    color: white; font-size: 16px; font-weight: 500; width: 100%;
+    font-family: inherit;
 }
-.modal-btn-primary { background: #00aaff; color: white; box-shadow: 0 4px 12px rgba(0,170,255,0.3); }
-.modal-btn-secondary { background: #2c3641; color: #8a99a8; }
+.modal-input::placeholder { color: #5f6e7c; font-weight: 400; }
+
+.modal-actions { display: flex; gap: 10px; }
+.btn-cancel, .btn-confirm {
+    flex: 1; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: transform 0.1s;
+}
+.btn-cancel:active, .btn-confirm:active { transform: scale(0.96); }
+
+.btn-cancel { background: #2c3641; color: #8b949e; }
+.btn-confirm { background: #00aaff; color: white; box-shadow: 0 4px 15px rgba(0, 170, 255, 0.25); }
 
 
 /* --- 6. ШТОРКА (DRAWER) --- */
@@ -265,6 +300,8 @@
 .btn-action.withdraw { background: linear-gradient(90deg, #00aaff, #0088cc); color: white; box-shadow: 0 4px 15px rgba(0, 170, 255, 0.3); }
 .btn-action.sell { background: #2c3641; color: #f85149; border: 1px solid #3a4552; }
 
+
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+@keyframes fadeInOverlay { to { opacity: 1; } }
+@keyframes popInModal { to { transform: scale(1); } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
