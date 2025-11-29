@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useTonConnectUI, useTonWallet, TonConnectButton } from '@tonconnect/ui-react';
 import { toNano } from '@ton/core';
+import '../styles/modals.css'; // Убедитесь, что стили подключены
 
 const TopUpModal = () => {
     const { closeTopUpModal, user } = useContext(AppContext);
@@ -9,21 +10,23 @@ const TopUpModal = () => {
     const [amount, setAmount] = useState('');
     const wallet = useTonWallet();
     const [tonConnectUI] = useTonConnectUI();
-    
     const [isConnectionModalOpen, setIsConnectionModalOpen] = useState(false);
+
+    // Пресеты для быстрого выбора
+    const PRESETS = {
+        stars: [50, 100, 500, 1000],
+        ton: [0.5, 1, 5, 10]
+    };
 
     useEffect(() => {
         const unsubscribe = tonConnectUI.onModalStateChange((state) => {
-            const isOpen = state && (state.status === 'opened' || state === 'opened');
-            setIsConnectionModalOpen(isOpen);
+            setIsConnectionModalOpen(state && (state.status === 'opened' || state === 'opened'));
         });
         return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
     }, [tonConnectUI]);
 
-    // Оплата Stars
     const handleTopUpStars = async () => {
         if (!user || !amount || amount <= 0) return alert('Введите корректную сумму');
-        
         try {
             const res = await fetch('/api/create-invoice', {
                 method: 'POST',
@@ -31,27 +34,21 @@ const TopUpModal = () => {
                 body: JSON.stringify({ amount: parseInt(amount), userId: user.id }),
             });
             const data = await res.json();
-            
             if (data.invoiceLink) {
                 window.Telegram.WebApp.openInvoice(data.invoiceLink, (status) => {
                     if (status === 'paid') {
-                        alert('Оплата прошла успешно! Баланс скоро обновится.');
                         closeTopUpModal();
                         window.location.reload();
                     }
                 });
             } else {
-                alert('Ошибка создания счета: ' + (data.error || 'Unknown error'));
+                alert('Ошибка: ' + (data.error || 'Unknown error'));
             }
-        } catch (e) { 
-            alert('Ошибка соединения: ' + e.message); 
-        }
+        } catch (e) { alert('Ошибка сети: ' + e.message); }
     };
 
-    // Оплата TON
     const handleTopUpTon = async () => {
-        if (!wallet) return alert('Пожалуйста, подключите кошелек');
-        
+        if (!wallet) return alert('Подключите кошелек');
         const val = parseFloat(amount);
         if (!val || val <= 0) return alert('Введите корректную сумму');
         
@@ -59,102 +56,100 @@ const TopUpModal = () => {
 
         const transaction = {
             validUntil: Math.floor(Date.now() / 1000) + 600, 
-            messages: [
-                {
-                    address: RECIPIENT_WALLET,
-                    amount: toNano(val).toString(),
-                }
-            ]
+            messages: [{ address: RECIPIENT_WALLET, amount: toNano(val).toString() }]
         };
 
         try {
             const result = await tonConnectUI.sendTransaction(transaction);
-            
             await fetch('/api/verify-ton-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    boc: result.boc, 
-                    userId: user.id, 
-                    amount: val 
-                }),
+                body: JSON.stringify({ boc: result.boc, userId: user.id, amount: val }),
             });
-
-            alert('Транзакция отправлена! Средства зачислятся после проверки.');
+            alert('Транзакция отправлена! Ожидайте зачисления.');
             closeTopUpModal();
-        } catch (e) { 
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     };
 
-    if (isConnectionModalOpen) {
-        return null; 
-    }
+    if (isConnectionModalOpen) return null;
+
+    // Курс и иконка для кнопки
+    const isStars = activeTab === 'stars';
+    const rateText = isStars ? '1 Stars = 50 звёзд' : '1 TON = 3000 Stars'; // Подстройте курс под себя
+    const btnColor = isStars ? 'btn-gold' : 'btn-blue';
 
     return (
-        <div className="top-up-modal">
-            <div className="top-up-modal-content">
-                <button onClick={closeTopUpModal} className="close-modal-btn">&times;</button>
-                <h2>Пополнение баланса</h2>
+        <div className="custom-modal-overlay">
+            <div className="payment-modal">
+                <div className="payment-header">
+                    <h3>Пополнение</h3>
+                    <button onClick={closeTopUpModal} className="close-btn-cross">×</button>
+                </div>
                 
-                <div className="top-up-tabs">
+                {/* Табы */}
+                <div className="payment-tabs">
                     <button 
-                        className={`top-up-tab ${activeTab === 'stars' ? 'active' : ''}`} 
+                        className={`pay-tab ${activeTab === 'stars' ? 'active-stars' : ''}`} 
                         onClick={() => {setActiveTab('stars'); setAmount('')}}
                     >
-                        <img src="/images/stars.png" alt="" className="star-icon small" /> Stars
+                        <img src="/images/stars.png" alt="" className="tab-icon" />
+                        <span>Stars</span>
                     </button>
                     <button 
-                        className={`top-up-tab ${activeTab === 'ton' ? 'active' : ''}`} 
+                        className={`pay-tab ${activeTab === 'ton' ? 'active-ton' : ''}`} 
                         onClick={() => {setActiveTab('ton'); setAmount('')}}
                     >
-                        <img src="/images/ton.png" alt="" className="star-icon small" style={{width:20}} /> TON
+                        <img src="/images/ton.png" alt="" className="tab-icon ton-fix" />
+                        <span>TON</span>
                     </button>
                 </div>
 
-                <div className="tab-panel">
-                    {activeTab === 'ton' && (
-                        <div style={{display:'flex', justifyContent:'center', marginBottom:15}}>
+                {/* Основной контент */}
+                <div className="payment-body">
+                    {activeTab === 'ton' && !wallet && (
+                        <div className="connect-wallet-wrap">
                             <TonConnectButton />
                         </div>
                     )}
-                    
-                    <label>
-                        {activeTab === 'stars' ? 'Количество звезд' : 'Сумма TON'}
-                    </label>
-                    <input 
-                        type="number" 
-                        className="admin-input" 
-                        style={{marginBottom:15}} 
-                        value={amount} 
-                        onChange={e => setAmount(e.target.value)} 
-                        placeholder={activeTab === 'stars' ? "10" : "0.1"} 
-                    />
-                    
-                    {activeTab === 'stars' ? (
-                        <>
-                            <button className="upgrade-button" onClick={handleTopUpStars}>
-                                Купить за Stars
-                            </button>
-                            <p style={{textAlign:'center', fontSize:'12px', color:'#888', marginTop:'10px'}}>
-                                Курс: 1 Stars = 50 звёзд
-                            </p>
-                        </>
-                    ) : (
-                        <>
+
+                    <div className="input-label">
+                        {isStars ? 'Количество звезд' : 'Сумма TON'}
+                    </div>
+
+                    <div className={`amount-input-wrapper ${isStars ? 'focus-gold' : 'focus-blue'}`}>
+                        <input 
+                            type="number" 
+                            className="amount-input"
+                            value={amount} 
+                            onChange={e => setAmount(e.target.value)} 
+                            placeholder="0" 
+                            autoFocus
+                        />
+                        <span className="currency-suffix">{isStars ? 'STR' : 'TON'}</span>
+                    </div>
+
+                    {/* Быстрые кнопки */}
+                    <div className="quick-amounts">
+                        {PRESETS[activeTab].map(val => (
                             <button 
-                                className="upgrade-button" 
-                                onClick={handleTopUpTon} 
-                                disabled={!wallet} 
-                                style={{opacity: wallet ? 1 : 0.5}}
+                                key={val} 
+                                className="quick-chip" 
+                                onClick={() => setAmount(val)}
                             >
-                                {wallet ? `Оплатить ${amount || 0} TON` : 'Подключите кошелек'}
+                                +{val}
                             </button>
-                            <p style={{textAlign:'center', fontSize:'12px', color:'#888', marginTop:'10px'}}>
-                                Курс: 0.1 TON = 300 звёзд
-                            </p>
-                        </>
-                    )}
+                        ))}
+                    </div>
+                    
+                    <div className="rate-info">{rateText}</div>
+
+                    <button 
+                        className={`pay-action-btn ${btnColor}`}
+                        onClick={isStars ? handleTopUpStars : handleTopUpTon}
+                        disabled={activeTab === 'ton' && !wallet}
+                    >
+                        {isStars ? 'Купить' : (wallet ? 'Оплатить' : 'Подключите Wallet')}
+                    </button>
                 </div>
             </div>
         </div>
