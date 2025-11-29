@@ -1,32 +1,128 @@
-/* modals.css */
-.top-up-modal {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7);
-    display: flex; justify-content: center; align-items: center; z-index: 2000;
+/* src/styles/modals.css */
+
+/* --- ОБЩИЙ ОВЕРЛЕЙ --- */
+.custom-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(12px); /* Размытие фона */
+    z-index: 5000;
+    display: flex; justify-content: center; align-items: center;
+    opacity: 0; animation: fadeInOverlay 0.3s forwards;
 }
-.top-up-modal-content {
-    background-color: #2c3641; padding: 20px; border-radius: 16px; width: 90%; max-width: 380px; position: relative; color: #e0e0e0;
+
+/* --- САМО ОКНО --- */
+.payment-modal {
+    background: #1c2128;
+    width: 90%; max-width: 360px;
+    border-radius: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    position: relative;
+    transform: scale(0.95);
+    animation: popInModal 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
-.top-up-modal-content h2 { text-align: center; margin-top: 0; margin-bottom: 20px; font-weight: 500; }
-.close-modal-btn {
-    position: absolute; top: 15px; right: 15px; background: none; border: none; color: #8a99a8; font-size: 28px; cursor: pointer;
+
+/* --- ЗАГОЛОВОК --- */
+.payment-header {
+    display: flex; justify-content: center; align-items: center;
+    padding: 20px; position: relative;
 }
-.top-up-tabs {
-    display: flex; background-color: #212a31; border-radius: 12px; padding: 4px; margin-bottom: 20px;
+.payment-header h3 {
+    margin: 0; font-size: 18px; font-weight: 700; color: #fff;
 }
-.top-up-tab {
-    flex: 1; padding: 10px; border: none; background-color: transparent; color: #8a99a8;
-    border-radius: 10px; font-weight: 500; cursor: pointer; transition: all 0.2s ease;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
+.close-btn-cross {
+    position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+    background: rgba(255,255,255,0.1); border: none; color: #8a99a8;
+    width: 30px; height: 30px; border-radius: 50%; font-size: 20px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
 }
-.top-up-tab.active { background-color: #3a4552; color: #e0e0e0; }
-.ton-bonus { background-color: #f44336; color: white; font-size: 10px; padding: 2px 5px; border-radius: 6px; font-weight: 700; }
-.tab-panel { display: flex; flex-direction: column; gap: 12px; }
-.tab-panel label { font-size: 14px; color: #8a99a8; }
-.tab-panel input {
-    width: 100%; padding: 14px; border-radius: 8px; border: 1px solid #3a4552; background-color: #212a31; color: white; font-size: 16px; box-sizing: border-box;
+.close-btn-cross:active { background: rgba(255,255,255,0.2); color: #fff; }
+
+/* --- ТАБЫ --- */
+.payment-tabs {
+    display: flex; background: #121519;
+    margin: 0 20px 24px 20px; padding: 4px; border-radius: 16px;
 }
-.top-up-action-btn {
-    width: 100%; padding: 14px; font-size: 16px; font-weight: 500; background-color: #0088cc; color: white; border: none; border-radius: 10px; cursor: pointer;
+.pay-tab {
+    flex: 1; border: none; background: transparent; padding: 10px;
+    border-radius: 12px; font-size: 14px; font-weight: 600; color: #5f6e7c;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
-.connect-wallet-btn { margin-bottom: 10px; }
-.ton-calculation { text-align: center; font-size: 14px; color: #8a99a8; }
+.tab-icon { width: 18px; height: 18px; object-fit: contain; filter: grayscale(1); opacity: 0.7; }
+
+/* АКТИВНЫЕ ТАБЫ */
+.pay-tab.active-stars { background: #2c3641; color: #ffc107; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.pay-tab.active-stars .tab-icon { filter: none; opacity: 1; }
+
+.pay-tab.active-ton { background: #2c3641; color: #00aaff; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.pay-tab.active-ton .tab-icon { filter: none; opacity: 1; }
+
+/* ФИКС ИКОНКИ TON (чтобы не плющило) */
+.ton-fix {
+    width: 18px; height: 18px;
+    border-radius: 50%; /* Если иконка квадратная - скруглит */
+    /* Важно: если иконка TON синяя на синем фоне, лучше использовать PNG с прозрачностью */
+}
+
+/* --- ТЕЛО МОДАЛКИ --- */
+.payment-body { padding: 0 24px 32px 24px; display: flex; flex-direction: column; }
+
+.input-label { font-size: 13px; color: #8a99a8; margin-bottom: 8px; font-weight: 500; }
+
+.amount-input-wrapper {
+    position: relative; background: #0d1117; border-radius: 16px;
+    border: 1px solid #30363d; padding: 16px;
+    display: flex; align-items: center; transition: all 0.2s;
+}
+.amount-input-wrapper.focus-gold:focus-within { border-color: #ffc107; box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.15); }
+.amount-input-wrapper.focus-blue:focus-within { border-color: #00aaff; box-shadow: 0 0 0 4px rgba(0, 170, 255, 0.15); }
+
+.amount-input {
+    background: transparent; border: none; outline: none;
+    font-size: 24px; font-weight: 700; color: #fff; width: 100%;
+    font-family: inherit;
+}
+.currency-suffix { font-size: 16px; font-weight: 600; color: #5f6e7c; margin-left: 10px; }
+
+/* --- ЧИПСЫ (БЫСТРЫЙ ВЫБОР) --- */
+.quick-amounts { display: flex; gap: 8px; margin-top: 12px; margin-bottom: 24px; }
+.quick-chip {
+    flex: 1; padding: 8px 0; background: #232b34; border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px; color: #fff; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: background 0.1s;
+}
+.quick-chip:active { background: #3a4552; transform: scale(0.95); }
+
+/* --- ИНФО О КУРСЕ --- */
+.rate-info { text-align: center; font-size: 12px; color: #5f6e7c; margin-bottom: 12px; }
+
+/* --- КНОПКА ДЕЙСТВИЯ --- */
+.pay-action-btn {
+    width: 100%; padding: 16px; border: none; border-radius: 16px;
+    font-size: 16px; font-weight: 800; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    transition: transform 0.1s, box-shadow 0.2s;
+    color: #fff;
+}
+.pay-action-btn:active { transform: scale(0.97); }
+.pay-action-btn:disabled { background: #3a4552; color: #8a99a8; cursor: not-allowed; box-shadow: none; }
+
+.btn-gold { 
+    background: linear-gradient(90deg, #ffb300, #ff8f00); 
+    box-shadow: 0 4px 15px rgba(255, 143, 0, 0.3);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+}
+.btn-blue { 
+    background: linear-gradient(90deg, #00aaff, #0088cc); 
+    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+}
+
+/* Кнопка Connect Wallet внутри */
+.connect-wallet-wrap { display: flex; justify-content: center; margin-bottom: 20px; }
+
+/* АНИМАЦИИ */
+@keyframes fadeInOverlay { to { opacity: 1; } }
+@keyframes popInModal { to { transform: scale(1); } }
