@@ -57,7 +57,6 @@ const AdminPage = () => {
                 <aside className="admin-sidebar">
                     <div className="sidebar-header">
                         <h1>EasyDrop</h1>
-                        {/* Текст Control Panel убран */}
                     </div>
                     <nav className="sidebar-nav">
                         <button className={`nav-btn ${activeTab === 'items' ? 'active' : ''}`} onClick={() => setActiveTab('items')}>
@@ -110,7 +109,6 @@ const ItemManager = ({ prizes, onUpdate }) => {
 
     return (
         <div className="cases-layout">
-            {/* САЙДБАР ПРЕДМЕТОВ */}
             <div className="cases-sidebar">
                 <div className="cases-sidebar-header">
                     <button className="modern-button primary full-width" onClick={() => {setSelectedItemId(null); setIsCreating(true);}}>
@@ -134,7 +132,6 @@ const ItemManager = ({ prizes, onUpdate }) => {
                 </div>
             </div>
 
-            {/* ОБЛАСТЬ РЕДАКТИРОВАНИЯ */}
             <div className="cases-content">
                 {(selectedItem || isCreating) ? (
                     <ItemEditor 
@@ -177,8 +174,9 @@ const ItemEditor = ({ item, onSave, isNew }) => {
         const data = new FormData();
         if(!isNew) data.append('id', formData.id);
         data.append('name', formData.name);
-        data.append('value', formData.value);
-        data.append('chance', formData.chance);
+        // Защита от NaN
+        data.append('value', Number(formData.value) || 0);
+        data.append('chance', Number(formData.chance) || 0);
         data.append('existingImage', formData.image);
         if(selectedFile) data.append('imageFile', selectedFile);
         onSave(data);
@@ -210,12 +208,22 @@ const ItemEditor = ({ item, onSave, isNew }) => {
                     
                     <div className="form-group">
                         <label>Цена (Stars)</label>
-                        <input type="number" className="modern-input" value={formData.value} onChange={e => setFormData({...formData, value: parseInt(e.target.value)})} />
+                        <input 
+                            type="number" 
+                            className="modern-input" 
+                            value={formData.value} 
+                            onChange={e => setFormData({...formData, value: e.target.value})} 
+                        />
                     </div>
                     
                     <div className="form-group">
                         <label>Базовый шанс (%)</label>
-                        <input type="number" className="modern-input" value={formData.chance} onChange={e => setFormData({...formData, chance: parseFloat(e.target.value)})} />
+                        <input 
+                            type="number" 
+                            className="modern-input" 
+                            value={formData.chance} 
+                            onChange={e => setFormData({...formData, chance: e.target.value})} 
+                        />
                     </div>
                 </div>
             </div>
@@ -224,7 +232,7 @@ const ItemEditor = ({ item, onSave, isNew }) => {
 };
 
 // ==================================================
-// 2. МЕНЕДЖЕР КЕЙСОВ (СПИСОК + РЕДАКТОР)
+// 2. МЕНЕДЖЕР КЕЙСОВ (ИСПРАВЛЕНО)
 // ==================================================
 const CaseManager = ({ cases, allPrizes, onUpdate }) => {
     const [selectedCaseId, setSelectedCaseId] = useState(null);
@@ -235,18 +243,31 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
         const url = isCreating ? '/api/admin/case/create' : '/api/admin/case/update';
         try {
             const res = await fetch(url, { method: 'POST', body: formData });
+            
             if(res.ok) { 
                 onUpdate(); 
                 setIsCreating(false); 
-                if(isCreating) { const d = await res.json(); setSelectedCaseId(d.id); } 
+                // Для нового кейса можно попробовать получить ID, но для обновления это не критично
+                if(isCreating) {
+                    try {
+                        const d = await res.json(); 
+                        if(d && d.id) setSelectedCaseId(d.id); 
+                    } catch(e) {} 
+                } 
                 alert('Кейс сохранен!'); 
+            } else {
+                // ВАЖНО: Показываем ошибку, если сервер вернул не 200 OK
+                const errData = await res.json().catch(() => ({}));
+                alert(`Ошибка при сохранении: ${errData.error || res.statusText}`);
             }
-        } catch(e) { console.error(e); alert('Ошибка'); }
+        } catch(e) { 
+            console.error(e); 
+            alert('Ошибка сети или сервера'); 
+        }
     };
 
     return (
         <div className="cases-layout">
-            {/* САЙДБАР КЕЙСОВ */}
             <div className="cases-sidebar">
                 <div className="cases-sidebar-header">
                     <button className="modern-button primary full-width" onClick={() => {setSelectedCaseId(null); setIsCreating(true);}}>
@@ -270,7 +291,6 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
                 </div>
             </div>
 
-            {/* ОБЛАСТЬ РЕДАКТИРОВАНИЯ КЕЙСА */}
             <div className="cases-content">
                 {(selectedCase || isCreating) ? (
                     <CaseEditor 
@@ -295,6 +315,7 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(caseItem.image);
+    // Приводим ID предметов к правильному формату
     const [selectedPrizeIds, setSelectedPrizeIds] = useState(() => (caseItem.prizeIds || []).map(i => typeof i === 'string' ? { id: i, chance: 0 } : i));
 
     useEffect(() => { return () => { if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); }; }, [previewUrl]);
@@ -315,16 +336,23 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
 
     const handleSave = () => {
         const data = new FormData();
-        if(!isNew) data.append('id', formData.id);
+        if(!isNew && formData.id) data.append('id', formData.id);
+        
         data.append('name', formData.name);
-        data.append('price', formData.price);
+        
+        // ВАЖНО: Защита от NaN для числовых полей
+        data.append('price', Number(formData.price) || 0);
         data.append('tag', formData.tag);
         data.append('isPromo', formData.isPromo);
         data.append('promoCode', formData.promoCode || '');
-        data.append('maxActivations', formData.maxActivations || 0);
+        data.append('maxActivations', Number(formData.maxActivations) || 0);
+        
+        // Сериализуем список предметов
         data.append('prizeIds', JSON.stringify(selectedPrizeIds));
+        
         data.append('existingImage', formData.image);
         if(selectedFile) data.append('imageFile', selectedFile);
+        
         onSave(data);
     };
 
@@ -356,7 +384,13 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                     
                     <div className="form-group">
                         <label>Цена</label>
-                        <input type="number" className="modern-input" value={formData.price} onChange={e => setFormData({...formData, price: parseInt(e.target.value)})} disabled={formData.isPromo} />
+                        <input 
+                            type="number" 
+                            className="modern-input" 
+                            value={formData.price} 
+                            onChange={e => setFormData({...formData, price: e.target.value})} 
+                            disabled={formData.isPromo} 
+                        />
                     </div>
                     
                     <div className="form-group">
@@ -389,7 +423,12 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
 
                     <div className="form-group full-row">
                         <label>Лимит открытий (0 = безлимит)</label>
-                        <input type="number" className="modern-input" value={formData.maxActivations || 0} onChange={e => setFormData({...formData, maxActivations: parseInt(e.target.value)})} />
+                        <input 
+                            type="number" 
+                            className="modern-input" 
+                            value={formData.maxActivations} 
+                            onChange={e => setFormData({...formData, maxActivations: e.target.value})} 
+                        />
                     </div>
                 </div>
             </div>
@@ -405,7 +444,13 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                                 <div key={p.id} className="picker-item">
                                     <img src={item.image} alt="" />
                                     <div className="picker-info"><div className="picker-name">{item.name}</div></div>
-                                    <input className="chance-input" value={p.chance} onChange={e => setSelectedPrizeIds(prev => prev.map(x => x.id === p.id ? {...x, chance: e.target.value} : x))} /><span style={{fontSize:12, color:'#8b949e'}}>%</span>
+                                    <input 
+                                        className="chance-input" 
+                                        value={p.chance} 
+                                        type="number"
+                                        onChange={e => setSelectedPrizeIds(prev => prev.map(x => x.id === p.id ? {...x, chance: parseFloat(e.target.value) || 0} : x))} 
+                                    />
+                                    <span style={{fontSize:12, color:'#8b949e'}}>%</span>
                                     <button className="mini-btn remove" onClick={() => setSelectedPrizeIds(prev => prev.filter(x => x.id !== p.id))}>&times;</button>
                                 </div>
                             )
