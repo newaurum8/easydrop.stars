@@ -3,7 +3,7 @@ import { AppContext } from '../context/AppContext';
 import '../styles/inventory.css';
 
 const ProfilePage = () => {
-    const { user, inventory, withdrawals, sellItem, sellAllItems, requestWithdrawal } = useContext(AppContext);
+    const { inventory, withdrawals, sellItem, sellAllItems, requestWithdrawal } = useContext(AppContext);
     
     // --- STATE ---
     const [activeTab, setActiveTab] = useState('inventory');
@@ -37,8 +37,9 @@ const ProfilePage = () => {
     };
 
     const handleOpenWithdraw = () => {
+        // Открываем модалку вывода и закрываем шторку предмета,
+        // чтобы не перегружать интерфейс слоями
         setShowWithdrawModal(true);
-        // Не закрываем selectedItem, чтобы он оставался на фоне, но можно и закрыть
     };
 
     const handleConfirmWithdraw = async () => {
@@ -48,7 +49,7 @@ const ProfilePage = () => {
         setShowWithdrawModal(false);
         setSelectedItem(null);
         setTargetUsername('');
-        alert('Заявка создана! Менеджер проверит её.');
+        alert('Заявка на вывод отправлена!');
     };
 
     const handleConfirmSellAll = () => {
@@ -65,7 +66,7 @@ const ProfilePage = () => {
     return (
         <div className="profile-page-wrapper">
             
-            {/* 1. СТАТИСТИКА (Без имени и аватарки) */}
+            {/* 1. СТАТИСТИКА (Только Bento-блоки, без профиля) */}
             <div className="profile-header-section">
                 <div className="bento-stats full-width">
                     <div className="bento-box balance-box">
@@ -100,7 +101,7 @@ const ProfilePage = () => {
 
             {/* 3. КОНТЕНТ */}
             {activeTab === 'inventory' && (
-                <div className="fade-in-content" style={{height: '100%'}}>
+                <div className="fade-in-content" style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
                     {inventory.length > 0 && (
                         <button className="minimal-sell-all" onClick={handleConfirmSellAll}>
                             Продать всё за <img src="/images/stars.png" alt=""/> {stats.totalValue.toLocaleString()}
@@ -111,8 +112,8 @@ const ProfilePage = () => {
                         <div className="empty-placeholder-center">
                             <div className="empty-content">
                                 <img src="/images/case.png" alt="" className="floating-empty" />
-                                <p>Здесь пока пусто</p>
-                                <span>Открывайте кейсы, чтобы<br/>получить крутые скины</span>
+                                <div className="empty-title">Здесь пока пусто</div>
+                                <div className="empty-desc">Открывайте кейсы, чтобы<br/>получить крутые скины</div>
                             </div>
                         </div>
                     ) : (
@@ -144,8 +145,8 @@ const ProfilePage = () => {
                     {withdrawals.length === 0 ? (
                          <div className="empty-placeholder-center">
                              <div className="empty-content">
-                                <p>История пуста</p>
-                                <span>Вы еще не заказывали вывод предметов</span>
+                                <div className="empty-title">История пуста</div>
+                                <div className="empty-desc">Вы еще не выводили предметы</div>
                              </div>
                         </div>
                     ) : (
@@ -165,7 +166,7 @@ const ProfilePage = () => {
                 </div>
             )}
 
-            {/* 4. ШТОРКА (DRAWER) */}
+            {/* 4. ШТОРКА ПРЕДМЕТА */}
             <div className={`drawer-overlay ${selectedItem ? 'open' : ''}`} onClick={() => setSelectedItem(null)}></div>
             <div className={`bottom-drawer ${selectedItem ? 'open' : ''}`}>
                 {selectedItem && (
@@ -192,38 +193,36 @@ const ProfilePage = () => {
                 )}
             </div>
 
-            {/* 5. КРАСИВОЕ МОДАЛЬНОЕ ОКНО ВЫВОДА */}
-            {showWithdrawModal && (
+            {/* 5. МОДАЛКА ВЫВОДА (SUPER CLEAN) */}
+            {showWithdrawModal && selectedItem && (
                 <div className="custom-modal-overlay">
                     <div className="modern-modal">
-                        <div className="modal-icon-wrap">
-                            <img src="/images/case/item1.png" alt="icon" /> 
-                            {/* Можно заменить на иконку Telegram или Gift */}
+                        <div className="modal-item-preview">
+                            <img src={selectedItem.image} alt="" className="modal-item-img"/>
                         </div>
-                        <h3>Вывод предмета</h3>
-                        <p className="modal-subtitle">
-                            Введите ваш <b>Telegram Username</b>.<br/>
-                            Наш менеджер свяжется с вами для передачи.
-                        </p>
+                        <h3 className="modal-title">Вывод предмета</h3>
+                        <div className="modal-desc">
+                            Введите <b>Telegram username</b> на который нужно отправить предмет.
+                        </div>
                         
-                        <div className="input-field-wrapper">
+                        <div className="input-wrapper">
                             <span className="input-icon">@</span>
                             <input 
                                 type="text" 
-                                className="modern-input-field"
-                                placeholder="username" 
+                                className="modal-input"
+                                placeholder="username"
                                 value={targetUsername}
                                 onChange={e => setTargetUsername(e.target.value)}
                                 autoFocus
                             />
                         </div>
 
-                        <div className="modal-actions-row">
-                            <button className="modal-btn-secondary" onClick={() => setShowWithdrawModal(false)}>
+                        <div className="modal-actions">
+                            <button className="btn-cancel" onClick={() => setShowWithdrawModal(false)}>
                                 Отмена
                             </button>
-                            <button className="modal-btn-primary" onClick={handleConfirmWithdraw}>
-                                Подтвердить
+                            <button className="btn-confirm" onClick={handleConfirmWithdraw}>
+                                Отправить
                             </button>
                         </div>
                     </div>
