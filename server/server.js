@@ -164,11 +164,11 @@ bot.on('callback_query', async (query) => {
             await pool.query("UPDATE withdrawals SET status = 'withdrawn' WHERE id = $1", [withdrawId]);
             
             // 2. Редактируем сообщение в чате админов
-            const confirmedCaption = `✅ <b>ЗАЯВКА #${withdrawId} ПОДТВЕРЖДЕНА</b>\n\n` +
-                                     `👤 <b>От:</b> ${withdraw.username} (ID: ${withdraw.user_id})\n` +
+            const confirmedCaption = `✅ <b>Заявка #${withdrawId}</b>\n\n` +
+                                     `👤 <b>От:</b> ${withdraw.username}\n🆔: ${withdraw.user_id}\n` +
                                      `🎁 <b>Предмет:</b> ${withdraw.item_data.name}\n` +
                                      `📩 <b>Кому:</b> @${withdraw.target_username}\n\n` +
-                                     `<i>Статус: Выведено</i>`;
+                                     `<b>Выведено</b>`;
                                      
             await bot.editMessageCaption(confirmedCaption, {
                 chat_id: chatId,
@@ -196,10 +196,10 @@ bot.on('callback_query', async (query) => {
             }
 
             // 3. Редактируем сообщение в чате админов
-            const rejectedCaption = `❌ <b>ЗАЯВКА #${withdrawId} ОТКЛОНЕНА</b>\n\n` +
-                                    `👤 <b>От:</b> ${withdraw.username} (ID: ${withdraw.user_id})\n` +
+            const rejectedCaption = `❌ <b>Заявка #${withdrawId}/b>\n\n` +
+                                    `👤 <b>От:</b> ${withdraw.username}\n🆔: <code>${withdraw.user_id}</code>\n` +
                                     `🎁 <b>Предмет:</b> ${withdraw.item_data.name}\n\n` +
-                                    `<i>Предмет возвращен в инвентарь пользователя.</i>`;
+                                    `<b>Отклонено</b>`;
 
             await bot.editMessageCaption(rejectedCaption, {
                 chat_id: chatId,
@@ -375,8 +375,8 @@ app.post('/api/withdraw/request', async (req, res) => {
             imageUrl = `${APP_URL}${imageUrl}`;
         }
 
-        const caption = `📦 <b>ЗАЯВКА НА ВЫВОД #${withdrawId}</b>\n\n` +
-                        `👤 <b>Юзернейм:</b> @${user.username} (ID: ${userId})\n` +
+        const caption = `📦 <b>Заявка #${withdrawId}</b>\n\n` +
+                        `👤 <b>Юзернейм:</b> @${user.username}\n🆔: <code>${userId}</code>\n` +
                         `🎁 <b>Предмет:</b> ${itemToWithdraw.name}\n` +
                         `📩 <b>Вывод на:</b> @${targetUsername}\n` +
                         `💰 <b>Цена:</b> ${itemToWithdraw.value}`;
@@ -403,7 +403,7 @@ app.post('/api/withdraw/request', async (req, res) => {
             }
         } catch (botErr) {
             console.error("Ошибка отправки в Telegram:", botErr.message);
-            // Не прерываем выполнение, заявка в базе все равно создана
+            
         }
 
         res.json({ success: true });
@@ -556,3 +556,4 @@ app.listen(PORT, async () => {
     console.log(`Server started on port ${PORT}`);
     try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`Webhook OK`); } catch (e) { console.error(e.message); }
 });
+
