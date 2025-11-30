@@ -101,16 +101,16 @@ const initDB = async () => {
             );
         `);
 
-        // === МИГРАЦИИ (ДОБАВЛЕНИЕ НЕДОСТАЮЩИХ КОЛОНОК) ===
+        // === МИГРАЦИИ (ВАЖНО: ДОБАВЛЕНИЕ НЕДОСТАЮЩИХ КОЛОНОК) ===
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent BIGINT DEFAULT 0`); } catch(e){}
         
-        // Исправления для таблицы кейсов:
+        // Исправления для таблицы кейсов (добавляем колонки, если их нет):
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`); } catch(e){}
-        // ==================================================
+        // ==========================================================
 
         // Заливка начальных данных (если таблицы пустые)
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
@@ -446,7 +446,7 @@ app.post('/api/admin/user/balance', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- КЕЙСЫ (С загрузкой фото) ---
+// --- КЕЙСЫ (С загрузкой фото и ЗАЩИТОЙ ТИПОВ) ---
 app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) => {
     const { name, price, prizeIds, tag, isPromo, promoCode, maxActivations } = req.body;
     const id = `case_${Date.now()}`;
@@ -570,6 +570,25 @@ bot.on('message', async (msg) => {
         const p = msg.successful_payment;
         const payload = JSON.parse(p.invoice_payload);
         await creditUserBalance(payload.userId, p.total_amount, p.telegram_payment_charge_id, 'XTR');
+    }
+});
+
+// --- РЕМОНТНАЯ ССЫЛКА (ДЛЯ ОБНОВЛЕНИЯ БД ВРУЧНУЮ) ---
+app.get('/api/fix-database', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        try {
+            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
+            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`);
+            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`);
+            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false`);
+            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`);
+            res.send("<h1>✅ База данных успешно обновлена!</h1><p>Колонки добавлены. Теперь попробуй сохранить кейс в админке.</p>");
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        res.send(`<h1>❌ Ошибка обновления БД</h1><pre>${err.message}</pre>`);
     }
 });
 
