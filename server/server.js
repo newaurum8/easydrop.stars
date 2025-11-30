@@ -75,7 +75,7 @@ const initDB = async () => {
             -- Таблица транзакций (пополнения)
             CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, tx_hash TEXT UNIQUE, user_id BIGINT, amount DECIMAL, currency TEXT, created_at TIMESTAMP DEFAULT NOW());
             
-            -- Таблица выводов (НОВАЯ)
+            -- Таблица выводов
             CREATE TABLE IF NOT EXISTS withdrawals (
                 id SERIAL PRIMARY KEY, 
                 user_id BIGINT, 
@@ -101,12 +101,17 @@ const initDB = async () => {
             );
         `);
 
-        // Миграции (на всякий случай)
+        // === МИГРАЦИИ (ДОБАВЛЕНИЕ НЕДОСТАЮЩИХ КОЛОНОК) ===
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent BIGINT DEFAULT 0`); } catch(e){}
+        
+        // Исправления для таблицы кейсов:
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`); } catch(e){}
-        
+        try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false`); } catch(e){}
+        try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`); } catch(e){}
+        // ==================================================
+
         // Заливка начальных данных (если таблицы пустые)
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
         if (parseInt(prizeCount.rows[0].count) === 0) {
@@ -196,7 +201,7 @@ bot.on('callback_query', async (query) => {
             }
 
             // 3. Редактируем сообщение в чате админов
-            const rejectedCaption = `❌ <b>Заявка #${withdrawId}/b>\n\n` +
+            const rejectedCaption = `❌ <b>Заявка #${withdrawId}</b>\n\n` +
                                     `👤 <b>От:</b> ${withdraw.username}\n🆔: <code>${withdraw.user_id}</code>\n` +
                                     `🎁 <b>Предмет:</b> ${withdraw.item_data.name}\n\n` +
                                     `<b>Отклонено</b>`;
@@ -452,12 +457,22 @@ app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) 
     }
     try {
         const parsedPrizeIds = JSON.parse(prizeIds);
+        
+        // --- ФИКС ДАННЫХ ---
+        const priceInt = parseInt(price) || 0;
+        const maxActivationsInt = parseInt(maxActivations) || 0;
+        const isPromoBool = isPromo === 'true';
+        // -------------------
+
         const r = await pool.query(
             'INSERT INTO cases (id, name, image, price, prize_ids, tag, is_promo, promo_code, max_activations) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *', 
-            [id, name, imagePath, price, JSON.stringify(parsedPrizeIds), tag, isPromo === 'true', promoCode, maxActivations || 0]
+            [id, name, imagePath, priceInt, JSON.stringify(parsedPrizeIds), tag, isPromoBool, promoCode, maxActivationsInt]
         );
         res.json(r.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error(err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) => {
@@ -469,12 +484,22 @@ app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) 
     }
     try {
         const parsedPrizeIds = JSON.parse(prizeIds);
+
+        // --- ФИКС ДАННЫХ ---
+        const priceInt = parseInt(price) || 0;
+        const maxActivationsInt = parseInt(maxActivations) || 0;
+        const isPromoBool = isPromo === 'true';
+        // -------------------
+
         const r = await pool.query(
             'UPDATE cases SET name=$1, price=$2, prize_ids=$3, tag=$4, image=$5, is_promo=$6, promo_code=$7, max_activations=$8 WHERE id=$9 RETURNING *', 
-            [name, price, JSON.stringify(parsedPrizeIds), tag, imagePath, isPromo === 'true', promoCode, maxActivations || 0, id]
+            [name, priceInt, JSON.stringify(parsedPrizeIds), tag, imagePath, isPromoBool, promoCode, maxActivationsInt, id]
         );
         res.json(r.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error(err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // --- ПРЕДМЕТЫ ---
@@ -556,4 +581,3 @@ app.listen(PORT, async () => {
     console.log(`Server started on port ${PORT}`);
     try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`Webhook OK`); } catch (e) { console.error(e.message); }
 });
-
