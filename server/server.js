@@ -15,7 +15,6 @@ const fs = require('fs');
 const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAGMH6gGvb-tamh6W6sa47jBXUQ8Tl4pans'; 
 
 // !!! ВСТАВЬТЕ СЮДА ID ГРУППЫ ИЛИ АДМИНА ДЛЯ ЗАЯВОК НА ВЫВОД !!!
-// Чтобы узнать ID, перешлите сообщение из группы боту @userinfobot
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '-1003208391916'; 
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb';
@@ -28,7 +27,7 @@ const PORT = process.env.PORT || 3001;
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Инициализация бота. polling: false, так как мы используем вебхук через POST /bot...
+// Инициализация бота. polling: false, так как мы используем вебхук
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
 app.use(cors());
@@ -72,10 +71,8 @@ const initDB = async () => {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (id BIGINT PRIMARY KEY, first_name TEXT, username TEXT, photo_url TEXT, balance INT DEFAULT 0, inventory JSONB DEFAULT '[]', history JSONB DEFAULT '[]', total_top_up INT DEFAULT 0, total_spent BIGINT DEFAULT 0);
             
-            -- Таблица транзакций (пополнения)
             CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, tx_hash TEXT UNIQUE, user_id BIGINT, amount DECIMAL, currency TEXT, created_at TIMESTAMP DEFAULT NOW());
             
-            -- Таблица выводов
             CREATE TABLE IF NOT EXISTS withdrawals (
                 id SERIAL PRIMARY KEY, 
                 user_id BIGINT, 
@@ -93,8 +90,8 @@ const initDB = async () => {
                 image TEXT, 
                 price INT, 
                 prize_ids JSONB, 
-                is_promo BOOLEAN, 
-                tag TEXT,
+                is_promo BOOLEAN DEFAULT false, 
+                tag TEXT DEFAULT 'common',
                 promo_code TEXT,
                 max_activations INT DEFAULT 0,
                 current_activations INT DEFAULT 0
@@ -102,17 +99,19 @@ const initDB = async () => {
         `);
 
         // === МИГРАЦИИ (ДОБАВЛЕНИЕ КОЛОНОК ЕСЛИ ИХ НЕТ) ===
-        try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent BIGINT DEFAULT 0`); } catch(e){}
-        
-        // Исправления для таблицы кейсов:
-        try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`); } catch(e){}
-        try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`); } catch(e){}
-        try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`); } catch(e){}
-        
-        // !!! ВОТ ЭТИ СТРОКИ БЫЛИ ПРОПУЩЕНЫ, ИЗ-ЗА НИХ ОШИБКА !!!
-        try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false`); } catch(e){}
-        try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`); } catch(e){}
-        // =========================================================
+        // Принудительно добавляем все возможные недостающие поля
+        const alterations = [
+            `ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent BIGINT DEFAULT 0`,
+            `ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`,
+            `ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`,
+            `ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`,
+            `ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false`,
+            `ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`
+        ];
+
+        for (const alterQuery of alterations) {
+            try { await pool.query(alterQuery); } catch(e) { console.log('Alter notice:', e.message); }
+        }
 
         // Заливка начальных данных (если таблицы пустые)
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
@@ -135,7 +134,7 @@ const initDB = async () => {
             }
         }
         
-        console.log('>>> БД готова!');
+        console.log('>>> БД готова и проверена!');
     } catch (err) { console.error('🚨 Init Error:', err.message); }
 };
 
@@ -257,7 +256,7 @@ app.get('/api/config', async (req, res) => {
 app.post('/api/case/spin', async (req, res) => {
     const { caseId, userId, quantity } = req.body;
     try {
-        const check = await pool.query('SELECT price, max_activations, current_activations FROM cases WHERE id = $1', [caseId]);
+        const check = await pool.query('SELECT price, max_activations, current_activations, is_promo, promo_code FROM cases WHERE id = $1', [caseId]);
         if (check.rows.length > 0) {
             const c = check.rows[0];
             const qty = parseInt(quantity) || 1;
@@ -269,7 +268,8 @@ app.post('/api/case/spin', async (req, res) => {
             await pool.query('UPDATE cases SET current_activations = current_activations + $1 WHERE id = $2', [qty, caseId]);
 
             const price = Number(c.price);
-            if (userId && price > 0) {
+            // Если кейс не промо, списываем деньги и засчитываем траты
+            if (!c.is_promo && userId && price > 0) {
                 const totalCost = price * qty;
                 await pool.query('UPDATE users SET total_spent = COALESCE(total_spent, 0) + $1 WHERE id = $2::bigint', [totalCost, userId]);
             }
@@ -432,10 +432,9 @@ app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) 
     try {
         const parsedPrizeIds = JSON.parse(prizeIds);
         
-        // --- ПРЕОБРАЗОВАНИЕ ТИПОВ (ЧТОБЫ НЕ БЫЛО ОШИБОК) ---
         const priceInt = parseInt(price) || 0;
         const maxActivationsInt = parseInt(maxActivations) || 0;
-        const isPromoBool = isPromo === 'true'; // FormData передает булевые как строки
+        const isPromoBool = isPromo === 'true'; 
 
         const r = await pool.query(
             'INSERT INTO cases (id, name, image, price, prize_ids, tag, is_promo, promo_code, max_activations) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *', 
@@ -458,7 +457,6 @@ app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) 
     try {
         const parsedPrizeIds = JSON.parse(prizeIds);
 
-        // --- ПРЕОБРАЗОВАНИЕ ТИПОВ ---
         const priceInt = parseInt(price) || 0;
         const maxActivationsInt = parseInt(maxActivations) || 0;
         const isPromoBool = isPromo === 'true';
@@ -545,19 +543,31 @@ bot.on('message', async (msg) => {
     }
 });
 
-// --- РЕМОНТНАЯ ССЫЛКА ДЛЯ ПРИНУДИТЕЛЬНОГО ОБНОВЛЕНИЯ БД ---
-app.get('/api/fix-database', async (req, res) => {
+// --- НОВЫЙ МОЩНЫЙ FIX ENDPOINT ---
+app.get('/api/fix-database-full', async (req, res) => {
     try {
         const client = await pool.connect();
         try {
-            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false`);
-            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`);
-            res.send("<h1>✅ Database fixed!</h1><p>Columns 'is_promo' and 'promo_code' added.</p>");
+            await client.query("ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false;");
+            await client.query("ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT;");
+            await client.query("ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common';");
+            await client.query("ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0;");
+            await client.query("ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0;");
+            
+            const result = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'cases';");
+            const columns = result.rows.map(r => r.column_name).sort().join(', ');
+            
+            res.send(`
+                <h1>✅ База данных успешно восстановлена!</h1>
+                <p>Все необходимые колонки добавлены.</p>
+                <p><b>Текущие столбцы в таблице cases:</b><br/> ${columns}</p>
+                <p>Теперь попробуйте сохранить кейс в админке.</p>
+            `);
         } finally {
             client.release();
         }
     } catch (err) {
-        res.send(`<h1>❌ Fix Error</h1><pre>${err.message}</pre>`);
+        res.send(`<h1>❌ Ошибка при исправлении</h1><pre>${err.message}</pre>`);
     }
 });
 
