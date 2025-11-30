@@ -232,7 +232,7 @@ const ItemEditor = ({ item, onSave, isNew }) => {
 };
 
 // ==================================================
-// 2. МЕНЕДЖЕР КЕЙСОВ (ИСПРАВЛЕНО)
+// 2. МЕНЕДЖЕР КЕЙСОВ (ОБНОВЛЕННЫЙ)
 // ==================================================
 const CaseManager = ({ cases, allPrizes, onUpdate }) => {
     const [selectedCaseId, setSelectedCaseId] = useState(null);
@@ -244,25 +244,36 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
         try {
             const res = await fetch(url, { method: 'POST', body: formData });
             
-            if(res.ok) { 
+            // --- УЛУЧШЕННАЯ ОБРАБОТКА ОШИБОК ---
+            const responseText = await res.text();
+
+            if (res.ok) { 
                 onUpdate(); 
                 setIsCreating(false); 
-                // Для нового кейса можно попробовать получить ID, но для обновления это не критично
+                
+                // Если создавали новый, пробуем получить его ID из ответа
                 if(isCreating) {
                     try {
-                        const d = await res.json(); 
+                        const d = JSON.parse(responseText); 
                         if(d && d.id) setSelectedCaseId(d.id); 
                     } catch(e) {} 
                 } 
-                alert('Кейс сохранен!'); 
+                alert('Кейс сохранен успешно!'); 
             } else {
-                // ВАЖНО: Показываем ошибку, если сервер вернул не 200 OK
-                const errData = await res.json().catch(() => ({}));
-                alert(`Ошибка при сохранении: ${errData.error || res.statusText}`);
+                // Пробуем распарсить JSON, иначе показываем текст
+                let errorMsg = responseText;
+                try {
+                    const json = JSON.parse(responseText);
+                    if (json.error) errorMsg = json.error;
+                } catch (e) {
+                    errorMsg = responseText.substring(0, 200); // Ограничиваем длину
+                }
+                console.error("Server Error:", responseText);
+                alert(`ОШИБКА СЕРВЕРА:\n${errorMsg}`);
             }
         } catch(e) { 
             console.error(e); 
-            alert('Ошибка сети или сервера'); 
+            alert('Ошибка сети или сервера (см. консоль)'); 
         }
     };
 
