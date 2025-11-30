@@ -101,16 +101,18 @@ const initDB = async () => {
             );
         `);
 
-        // === МИГРАЦИИ (ВАЖНО: ДОБАВЛЕНИЕ НЕДОСТАЮЩИХ КОЛОНОК) ===
+        // === МИГРАЦИИ (ДОБАВЛЕНИЕ КОЛОНОК ЕСЛИ ИХ НЕТ) ===
         try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent BIGINT DEFAULT 0`); } catch(e){}
         
-        // Исправления для таблицы кейсов (добавляем колонки, если их нет):
+        // Исправления для таблицы кейсов:
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`); } catch(e){}
+        
+        // !!! ВОТ ЭТИ СТРОКИ БЫЛИ ПРОПУЩЕНЫ, ИЗ-ЗА НИХ ОШИБКА !!!
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false`); } catch(e){}
         try { await pool.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`); } catch(e){}
-        // ==========================================================
+        // =========================================================
 
         // Заливка начальных данных (если таблицы пустые)
         const prizeCount = await pool.query('SELECT COUNT(*) FROM prizes');
@@ -145,11 +147,10 @@ initDB();
 
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
-    const data = query.data; // ожидаем формат: "accept_ID" или "reject_ID"
+    const data = query.data; 
     const [action, withdrawId] = data.split('_');
 
     try {
-        // Ищем заявку
         const withdrawRes = await pool.query('SELECT * FROM withdrawals WHERE id = $1', [withdrawId]);
         if (withdrawRes.rows.length === 0) {
             return bot.answerCallbackQuery(query.id, { text: 'Заявка не найдена' });
@@ -157,18 +158,13 @@ bot.on('callback_query', async (query) => {
 
         const withdraw = withdrawRes.rows[0];
 
-        // Проверяем, не обработана ли уже
         if (withdraw.status !== 'processing') {
             return bot.answerCallbackQuery(query.id, { text: 'Заявка уже была обработана' });
         }
 
         if (action === 'accept') {
-            // === ПОДТВЕРЖДЕНИЕ ===
-            
-            // 1. Меняем статус в БД
             await pool.query("UPDATE withdrawals SET status = 'withdrawn' WHERE id = $1", [withdrawId]);
             
-            // 2. Редактируем сообщение в чате админов
             const confirmedCaption = `✅ <b>Заявка #${withdrawId}</b>\n\n` +
                                      `👤 <b>От:</b> ${withdraw.username}\n🆔: ${withdraw.user_id}\n` +
                                      `🎁 <b>Предмет:</b> ${withdraw.item_data.name}\n` +
@@ -184,23 +180,17 @@ bot.on('callback_query', async (query) => {
             bot.answerCallbackQuery(query.id, { text: 'Вывод подтвержден!' });
 
         } else if (action === 'reject') {
-            // === ОТКЛОНЕНИЕ ===
-
-            // 1. Меняем статус в БД
             await pool.query("UPDATE withdrawals SET status = 'cancelled' WHERE id = $1", [withdrawId]);
 
-            // 2. Возвращаем предмет в инвентарь пользователя
             const userRes = await pool.query('SELECT inventory FROM users WHERE id = $1', [withdraw.user_id]);
             if (userRes.rows.length > 0) {
                 let currentInventory = userRes.rows[0].inventory || [];
-                // Генерируем новый уникальный inventoryId, чтобы не было дублей
                 const returnedItem = { ...withdraw.item_data, inventoryId: Date.now() + Math.random() };
                 currentInventory.push(returnedItem);
                 
                 await pool.query('UPDATE users SET inventory = $1 WHERE id = $2', [JSON.stringify(currentInventory), withdraw.user_id]);
             }
 
-            // 3. Редактируем сообщение в чате админов
             const rejectedCaption = `❌ <b>Заявка #${withdrawId}</b>\n\n` +
                                     `👤 <b>От:</b> ${withdraw.username}\n🆔: <code>${withdraw.user_id}</code>\n` +
                                     `🎁 <b>Предмет:</b> ${withdraw.item_data.name}\n\n` +
@@ -292,7 +282,6 @@ app.post('/api/case/spin', async (req, res) => {
 app.post('/api/user/sync', async (req, res) => {
     const { id, first_name, username, photo_url } = req.body;
     try {
-        // Обновляем данные пользователя при каждом входе
         const query = `
             INSERT INTO users (id, first_name, username, photo_url, balance) 
             VALUES ($1, $2, $3, $4, 0) 
@@ -313,10 +302,6 @@ app.post('/api/user/save', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==================================================
-// === НОВЫЕ ФУНКЦИИ (ПРОДАТЬ ВСЁ, ВЫВОД) ===
-// ==================================================
-
 // ПРОДАТЬ ВЕСЬ ИНВЕНТАРЬ
 app.post('/api/user/sell-all', async (req, res) => {
     const { userId } = req.body;
@@ -331,11 +316,9 @@ app.post('/api/user/sell-all', async (req, res) => {
             return res.json({ success: true, addedBalance: 0, newBalance: user.balance });
         }
 
-        // Считаем общую стоимость
         const totalValue = inventory.reduce((sum, item) => sum + (parseInt(item.value) || 0), 0);
         const newBalance = (user.balance || 0) + totalValue;
 
-        // Обнуляем инвентарь и обновляем баланс
         await pool.query('UPDATE users SET inventory = $1, balance = $2 WHERE id = $3', ['[]', newBalance, userId]);
 
         res.json({ success: true, addedBalance: totalValue, newBalance });
@@ -349,34 +332,28 @@ app.post('/api/withdraw/request', async (req, res) => {
     const { userId, itemInventoryId, targetUsername } = req.body;
 
     try {
-        // 1. Получаем пользователя
         const userRes = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
         if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
         const user = userRes.rows[0];
         const inventory = user.inventory || [];
 
-        // 2. Ищем предмет в инвентаре
         const itemIndex = inventory.findIndex(i => i.inventoryId === itemInventoryId);
         if (itemIndex === -1) return res.status(400).json({ error: 'Item not found in inventory' });
 
         const itemToWithdraw = inventory[itemIndex];
 
-        // 3. Удаляем предмет из инвентаря
         const newInventory = inventory.filter(i => i.inventoryId !== itemInventoryId);
         await pool.query('UPDATE users SET inventory = $1 WHERE id = $2', [JSON.stringify(newInventory), userId]);
 
-        // 4. Создаем запись в таблице выводов
         const insertRes = await pool.query(
             'INSERT INTO withdrawals (user_id, username, item_data, target_username, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
             [userId, user.username || 'Hidden', JSON.stringify(itemToWithdraw), targetUsername, 'processing']
         );
         const withdrawId = insertRes.rows[0].id;
 
-        // 5. Отправляем сообщение в ГРУППУ с кнопками
         let imageUrl = itemToWithdraw.image;
         if (imageUrl && imageUrl.startsWith('/')) {
-            // Если путь относительный, добавляем домен
             imageUrl = `${APP_URL}${imageUrl}`;
         }
 
@@ -400,15 +377,12 @@ app.post('/api/withdraw/request', async (req, res) => {
 
         try {
             if (imageUrl) {
-                // Если есть картинка - шлем фото с подписью
                 await bot.sendPhoto(ADMIN_CHAT_ID, imageUrl, { caption: caption, ...options });
             } else {
-                // Иначе просто текст
                 await bot.sendMessage(ADMIN_CHAT_ID, caption, options);
             }
         } catch (botErr) {
             console.error("Ошибка отправки в Telegram:", botErr.message);
-            
         }
 
         res.json({ success: true });
@@ -446,7 +420,7 @@ app.post('/api/admin/user/balance', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- КЕЙСЫ (С загрузкой фото и ЗАЩИТОЙ ТИПОВ) ---
+// --- КЕЙСЫ (С загрузкой фото и ПРОВЕРКОЙ ТИПОВ) ---
 app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) => {
     const { name, price, prizeIds, tag, isPromo, promoCode, maxActivations } = req.body;
     const id = `case_${Date.now()}`;
@@ -458,11 +432,10 @@ app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) 
     try {
         const parsedPrizeIds = JSON.parse(prizeIds);
         
-        // --- ФИКС ДАННЫХ ---
+        // --- ПРЕОБРАЗОВАНИЕ ТИПОВ (ЧТОБЫ НЕ БЫЛО ОШИБОК) ---
         const priceInt = parseInt(price) || 0;
         const maxActivationsInt = parseInt(maxActivations) || 0;
-        const isPromoBool = isPromo === 'true';
-        // -------------------
+        const isPromoBool = isPromo === 'true'; // FormData передает булевые как строки
 
         const r = await pool.query(
             'INSERT INTO cases (id, name, image, price, prize_ids, tag, is_promo, promo_code, max_activations) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *', 
@@ -470,7 +443,7 @@ app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) 
         );
         res.json(r.rows[0]);
     } catch (err) { 
-        console.error(err);
+        console.error("Save Case Error:", err);
         res.status(500).json({ error: err.message }); 
     }
 });
@@ -485,11 +458,10 @@ app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) 
     try {
         const parsedPrizeIds = JSON.parse(prizeIds);
 
-        // --- ФИКС ДАННЫХ ---
+        // --- ПРЕОБРАЗОВАНИЕ ТИПОВ ---
         const priceInt = parseInt(price) || 0;
         const maxActivationsInt = parseInt(maxActivations) || 0;
         const isPromoBool = isPromo === 'true';
-        // -------------------
 
         const r = await pool.query(
             'UPDATE cases SET name=$1, price=$2, prize_ids=$3, tag=$4, image=$5, is_promo=$6, promo_code=$7, max_activations=$8 WHERE id=$9 RETURNING *', 
@@ -497,7 +469,7 @@ app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) 
         );
         res.json(r.rows[0]);
     } catch (err) { 
-        console.error(err);
+        console.error("Update Case Error:", err);
         res.status(500).json({ error: err.message }); 
     }
 });
@@ -573,22 +545,19 @@ bot.on('message', async (msg) => {
     }
 });
 
-// --- РЕМОНТНАЯ ССЫЛКА (ДЛЯ ОБНОВЛЕНИЯ БД ВРУЧНУЮ) ---
+// --- РЕМОНТНАЯ ССЫЛКА ДЛЯ ПРИНУДИТЕЛЬНОГО ОБНОВЛЕНИЯ БД ---
 app.get('/api/fix-database', async (req, res) => {
     try {
         const client = await pool.connect();
         try {
-            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'`);
-            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0`);
-            await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0`);
             await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false`);
             await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT`);
-            res.send("<h1>✅ База данных успешно обновлена!</h1><p>Колонки добавлены. Теперь попробуй сохранить кейс в админке.</p>");
+            res.send("<h1>✅ Database fixed!</h1><p>Columns 'is_promo' and 'promo_code' added.</p>");
         } finally {
             client.release();
         }
     } catch (err) {
-        res.send(`<h1>❌ Ошибка обновления БД</h1><pre>${err.message}</pre>`);
+        res.send(`<h1>❌ Fix Error</h1><pre>${err.message}</pre>`);
     }
 });
 
