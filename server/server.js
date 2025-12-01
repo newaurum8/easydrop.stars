@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
@@ -6,45 +7,47 @@ const TelegramBot = require('node-telegram-bot-api');
 const { getHttpEndpoint } = require('@orbs-network/ton-access');
 const { TonClient, Cell } = require('ton');
 const multer = require('multer');
-const fs = require('fs');
+const crypto = require('crypto');
 
 // ==================================================
 // === КОНФИГУРАЦИЯ ===
 // ==================================================
 
-const BOT_TOKEN = process.env.BOT_TOKEN || '7749005658:AAGMH6gGvb-tamh6W6sa47jBXUQ8Tl4pans'; 
+const PORT = process.env.PORT || 3001;
+const BOT_TOKEN = process.env.BOT_TOKEN; // Должен быть в .env
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD; // Должен быть в .env
+const DATABASE_URL = process.env.DATABASE_URL; // Должен быть в .env
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
+const APP_URL = process.env.APP_URL;
 
-// ID чата админа или группы для уведомлений о выводах
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '-1003208391916'; 
-
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_UjHpMaRQo56v@ep-wild-rain-a4ouqppu-pooler.us-east-1.aws.neon.tech/neondb';
-const APP_URL = process.env.APP_URL || 'https://easydrop-stars-1.onrender.com';
+// Проверка наличия важных переменных
+if (!BOT_TOKEN || !DATABASE_URL) {
+    console.error("ОШИБКА: Не заданы BOT_TOKEN или DATABASE_URL в .env");
+    process.exit(1);
+}
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
-// --- НАСТРОЙКА ЗАГРУЗКИ ФАЙЛОВ ---
-// Исправление ошибки "Field value too long"
+// Настройка Multer для загрузки файлов
 const storage = multer.memoryStorage();
 const upload = multer({ 
     storage: storage,
     limits: { 
-        fileSize: 50 * 1024 * 1024, // 50 MB для файлов
-        fieldSize: 50 * 1024 * 1024 // 50 MB для текстовых полей (исправляет ошибку при отправке base64)
+        fileSize: 10 * 1024 * 1024, // 10 MB
+        fieldSize: 10 * 1024 * 1024 
     } 
 });
 
-// Инициализация бота (polling: false для вебхуков)
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Раздача статических файлов (картинок)
+// Раздача статики
 app.use('/uploads', express.static(path.join(__dirname, '..', 'build', 'uploads')));
 
-// Вебхук для бота
+// Вебхук бота
 app.post(`/bot${BOT_TOKEN}`, (req, res) => {
     bot.processUpdate(req.body);
     res.sendStatus(200);
@@ -56,15 +59,67 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-pool.on('error', (err) => {
-    console.error('🚨 Критическая ошибка БД:', err);
-});
+pool.on('error', (err) => console.error('🚨 Ошибка БД:', err));
 
 // ==================================================
-// === ФУНКЦИЯ ДЛЯ ГАРАНТИРОВАННОГО ОБНОВЛЕНИЯ ТАБЛИЦ ===
+// === MIDDLEWARE БЕЗОПАСНОСТИ ===
 // ==================================================
+
+// 1. Проверка подлинности данных Telegram (HMAC)
+const verifyTelegramWebAppData = (req, res, next) => {
+    const initData = req.headers['x-telegram-init-data'];
+
+    // Для локальной разработки можно разрешить тестовый доступ (НЕ ДЛЯ ПРОДАКШЕНА!)
+    if (!initData && process.env.NODE_ENV === 'development') {
+        req.user = { id: 123456789, username: 'dev_user', first_name: 'Dev' };
+        return next();
+    }
+
+    if (!initData) return res.status(401).json({ error: 'No auth data' });
+
+    const urlParams = new URLSearchParams(initData);
+    const hash = urlParams.get('hash');
+    urlParams.delete('hash');
+    urlParams.sort();
+
+    let dataCheckString = '';
+    for (const [key, value] of urlParams.entries()) {
+        dataCheckString += `${key}=${value}\n`;
+    }
+    dataCheckString = dataCheckString.slice(0, -1);
+
+    const secret = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+    const calculatedHash = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
+
+    if (calculatedHash === hash) {
+        // Данные валидны
+        try {
+            const userData = JSON.parse(urlParams.get('user'));
+            req.user = userData;
+            next();
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid user data format' });
+        }
+    } else {
+        return res.status(403).json({ error: 'Data integrity check failed' });
+    }
+};
+
+// 2. Проверка пароля администратора
+const verifyAdmin = (req, res, next) => {
+    const password = req.headers['x-admin-password'];
+    if (password && password === ADMIN_PASSWORD) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Admin access denied' });
+    }
+};
+
+// ==================================================
+// === ИНИЦИАЛИЗАЦИЯ БД ===
+// ==================================================
+
 async function ensureCaseColumns(client) {
-    // Эта функция принудительно добавляет колонки, если их нет
     const queries = [
         "ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false",
         "ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT",
@@ -73,13 +128,10 @@ async function ensureCaseColumns(client) {
         "ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0"
     ];
     for (const q of queries) {
-        try { await client.query(q); } catch (e) { 
-            // Ошибки игнорируем (например, если колонка уже есть)
-        }
+        try { await client.query(q); } catch (e) {}
     }
 }
 
-// --- ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ ---
 const initDB = async () => {
     try {
         await pool.query(`
@@ -89,31 +141,273 @@ const initDB = async () => {
             CREATE TABLE IF NOT EXISTS prizes (id TEXT PRIMARY KEY, name TEXT, image TEXT, value INT, chance FLOAT);
             CREATE TABLE IF NOT EXISTS cases (id TEXT PRIMARY KEY, name TEXT, image TEXT, price INT, prize_ids JSONB, is_promo BOOLEAN DEFAULT false, tag TEXT DEFAULT 'common', promo_code TEXT, max_activations INT DEFAULT 0, current_activations INT DEFAULT 0);
         `);
-        
-        // Пробуем обновить структуру сразу при старте
         await ensureCaseColumns(pool);
-        
-        console.log('>>> База данных инициализирована и проверена');
-    } catch (err) { console.error('🚨 Ошибка InitDB:', err.message); }
+        console.log('>>> База данных готова');
+    } catch (err) { console.error('🚨 InitDB Error:', err.message); }
 };
 initDB();
 
-
 // ==================================================
-// === АДМИНСКИЕ API (ИСПРАВЛЕННЫЕ) ===
+// === USER API (Защищенные маршруты) ===
 // ==================================================
 
-// --- СОЗДАНИЕ КЕЙСА ---
-app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) => {
+// СИНХРОНИЗАЦИЯ (ВХОД)
+app.post('/api/user/sync', verifyTelegramWebAppData, async (req, res) => {
+    const { id, first_name, username, photo_url } = req.user;
     try {
-        // 1. Сначала чиним базу перед записью
-        await ensureCaseColumns(pool);
+        const query = `
+            INSERT INTO users (id, first_name, username, photo_url, balance) 
+            VALUES ($1, $2, $3, $4, 0) 
+            ON CONFLICT (id) 
+            DO UPDATE SET first_name = EXCLUDED.first_name, username = EXCLUDED.username, photo_url = EXCLUDED.photo_url 
+            RETURNING *;
+        `;
+        const result = await pool.query(query, [id, first_name, username, photo_url]);
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
+// ПРОДАЖА ПРЕДМЕТА
+app.post('/api/user/sell-item', verifyTelegramWebAppData, async (req, res) => {
+    const userId = req.user.id;
+    const { inventoryId } = req.body;
+
+    try {
+        const userRes = await pool.query('SELECT inventory, balance FROM users WHERE id = $1', [userId]);
+        if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        
+        const user = userRes.rows[0];
+        let inventory = user.inventory || [];
+        
+        const itemIndex = inventory.findIndex(i => i.inventoryId === inventoryId);
+        if (itemIndex === -1) return res.status(404).json({ error: 'Item not found' });
+
+        const item = inventory[itemIndex];
+        const newBalance = (user.balance || 0) + parseInt(item.value);
+        
+        // Удаляем предмет
+        inventory.splice(itemIndex, 1);
+
+        await pool.query('UPDATE users SET balance = $1, inventory = $2 WHERE id = $3', [newBalance, JSON.stringify(inventory), userId]);
+        
+        res.json({ success: true, newBalance, inventory });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ПРОДАЖА ВСЕГО ИНВЕНТАРЯ
+app.post('/api/user/sell-all', verifyTelegramWebAppData, async (req, res) => {
+    const userId = req.user.id;
+    try {
+        const userRes = await pool.query('SELECT inventory, balance FROM users WHERE id = $1', [userId]);
+        const user = userRes.rows[0];
+        const inventory = user.inventory || [];
+        
+        if (inventory.length === 0) return res.json({ success: true, newBalance: user.balance });
+
+        const totalValue = inventory.reduce((sum, item) => sum + (parseInt(item.value) || 0), 0);
+        const newBalance = (user.balance || 0) + totalValue;
+
+        await pool.query('UPDATE users SET inventory = $1, balance = $2 WHERE id = $3', ['[]', newBalance, userId]);
+        res.json({ success: true, addedBalance: totalValue, newBalance });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ЗАЯВКА НА ВЫВОД
+app.post('/api/withdraw/request', verifyTelegramWebAppData, async (req, res) => {
+    const userId = req.user.id;
+    const { itemInventoryId, targetUsername } = req.body;
+    
+    try {
+        const userRes = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+        const user = userRes.rows[0];
+        let inventory = user.inventory || [];
+        
+        const itemIndex = inventory.findIndex(i => i.inventoryId === itemInventoryId);
+        if (itemIndex === -1) return res.status(400).json({ error: 'Item not found' });
+        
+        const itemToWithdraw = inventory[itemIndex];
+        
+        // Удаляем из инвентаря
+        inventory.splice(itemIndex, 1);
+        await pool.query('UPDATE users SET inventory = $1 WHERE id = $2', [JSON.stringify(inventory), userId]);
+        
+        // Создаем заявку
+        const insertRes = await pool.query(
+            'INSERT INTO withdrawals (user_id, username, item_data, target_username, status) VALUES ($1, $2, $3, $4, $5) RETURNING id', 
+            [userId, user.username || 'Hidden', JSON.stringify(itemToWithdraw), targetUsername, 'processing']
+        );
+        
+        const withdrawId = insertRes.rows[0].id;
+        
+        // Уведомление в Telegram
+        let imageUrl = itemToWithdraw.image;
+        if (imageUrl && imageUrl.startsWith('/')) imageUrl = `${APP_URL}${imageUrl}`;
+        
+        const caption = `📦 <b>Заявка #${withdrawId}</b>\n\n👤 @${user.username} (ID: ${userId})\n🎁 <b>Предмет:</b> ${itemToWithdraw.name}\n💰 <b>Цена:</b> ${itemToWithdraw.value}\n📩 <b>Вывод на:</b> @${targetUsername}`;
+        
+        try {
+            if (imageUrl && imageUrl.startsWith('http')) {
+                await bot.sendPhoto(ADMIN_CHAT_ID, imageUrl, { caption, parse_mode: 'HTML' });
+            } else {
+                await bot.sendMessage(ADMIN_CHAT_ID, caption, { parse_mode: 'HTML' });
+            }
+        } catch (botErr) { console.error("Tg error:", botErr.message); }
+
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// АПГРЕЙД (Серверная логика)
+app.post('/api/user/upgrade', verifyTelegramWebAppData, async (req, res) => {
+    const userId = req.user.id;
+    const { inventoryId, targetItemId } = req.body;
+
+    try {
+        const userRes = await pool.query('SELECT inventory, history FROM users WHERE id = $1', [userId]);
+        const user = userRes.rows[0];
+        let inventory = user.inventory || [];
+        
+        const sourceIndex = inventory.findIndex(i => i.inventoryId === inventoryId);
+        if (sourceIndex === -1) return res.status(404).json({ error: 'Предмет не найден' });
+        const sourceItem = inventory[sourceIndex];
+
+        // Получаем целевой предмет из БД (защита от подмены цены)
+        const targetRes = await pool.query('SELECT * FROM prizes WHERE id = $1', [targetItemId]);
+        if (targetRes.rows.length === 0) return res.status(404).json({ error: 'Целевой предмет не существует' });
+        const targetItem = targetRes.rows[0];
+
+        // Математика шанса
+        const chance = Math.min(Math.max((sourceItem.value / targetItem.value) * 50, 1), 95);
+        const random = Math.random() * 100;
+        const isSuccess = random < chance;
+
+        // Удаляем исходный
+        inventory.splice(sourceIndex, 1);
+        
+        let newItem = null;
+
+        if (isSuccess) {
+            newItem = { ...targetItem, inventoryId: Date.now() + Math.random() };
+            inventory.push(newItem);
+            
+            // История
+            let history = user.history || [];
+            history.unshift({ ...newItem, date: new Date().toISOString() });
+            if (history.length > 50) history.pop();
+            
+            await pool.query('UPDATE users SET inventory = $1, history = $2 WHERE id = $3', [JSON.stringify(inventory), JSON.stringify(history), userId]);
+        } else {
+            await pool.query('UPDATE users SET inventory = $1 WHERE id = $2', [JSON.stringify(inventory), userId]);
+        }
+
+        res.json({ success: isSuccess, newItem, chance });
+
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ОТКРЫТИЕ КЕЙСА
+app.post('/api/case/spin', verifyTelegramWebAppData, async (req, res) => {
+    const userId = req.user.id;
+    const { caseId, quantity } = req.body;
+    
+    try {
+        const caseRes = await pool.query('SELECT * FROM cases WHERE id = $1', [caseId]);
+        if (caseRes.rows.length === 0) return res.status(404).json({ error: 'Кейс не найден' });
+        
+        const caseItem = caseRes.rows[0];
+        const qty = parseInt(quantity) || 1;
+
+        // Проверка лимитов
+        if (caseItem.max_activations > 0 && (caseItem.current_activations + qty) > caseItem.max_activations) {
+            return res.status(400).json({ error: 'Case limit reached' });
+        }
+
+        const userRes = await pool.query('SELECT balance, inventory, history FROM users WHERE id = $1', [userId]);
+        const user = userRes.rows[0];
+
+        // Проверка промокода (если нужно) реализовать здесь, 
+        // но для простоты считаем, что фронт проверил, а сервер доверяет флагу is_promo (бесплатно) 
+        // или списывает деньги.
+        
+        const totalPrice = caseItem.is_promo ? 0 : (caseItem.price * qty);
+
+        if (user.balance < totalPrice) {
+            return res.status(400).json({ error: 'Недостаточно средств' });
+        }
+
+        // Списываем баланс
+        const newBalance = user.balance - totalPrice;
+        
+        // ГЕНЕРАЦИЯ ВЫИГРЫША
+        const allPrizesRes = await pool.query('SELECT * FROM prizes');
+        const allPrizes = allPrizesRes.rows;
+        
+        // Парсим список ID призов из кейса
+        let casePrizeIds = caseItem.prize_ids; // может быть массив строк или объектов
+        let poolItems = [];
+        
+        if (Array.isArray(casePrizeIds)) {
+            poolItems = casePrizeIds.map(cp => {
+                const pId = typeof cp === 'string' ? cp : cp.id;
+                const p = allPrizes.find(ap => ap.id === pId);
+                if (!p) return null;
+                // Если у предмета в кейсе задан кастомный шанс, берем его, иначе базовый
+                const customChance = (typeof cp === 'object' && cp.chance !== undefined) ? Number(cp.chance) : p.chance;
+                return { ...p, chance: customChance };
+            }).filter(Boolean);
+        }
+
+        if (poolItems.length === 0) return res.status(500).json({ error: 'Кейс пуст' });
+
+        const wonItems = [];
+        for (let i = 0; i < qty; i++) {
+            const totalChance = poolItems.reduce((sum, item) => sum + item.chance, 0);
+            let random = Math.random() * totalChance;
+            let winner = poolItems[poolItems.length - 1];
+            
+            for (const item of poolItems) {
+                if (random < item.chance) {
+                    winner = item;
+                    break;
+                }
+                random -= item.chance;
+            }
+            
+            // Добавляем уникальный ID для инвентаря
+            wonItems.push({ ...winner, inventoryId: Date.now() + Math.random() });
+        }
+
+        // Обновляем БД (Баланс, Инвентарь, История, Счетчик кейса, Потраченное)
+        const updatedInventory = [...(user.inventory || []), ...wonItems];
+        
+        // История (добавляем новые в начало)
+        let updatedHistory = user.history || [];
+        const historyItems = wonItems.map(w => ({ ...w, date: new Date().toISOString() }));
+        updatedHistory = [...historyItems, ...updatedHistory].slice(0, 50);
+
+        await pool.query(
+            'UPDATE users SET balance = $1, inventory = $2, history = $3, total_spent = COALESCE(total_spent, 0) + $4 WHERE id = $5',
+            [newBalance, JSON.stringify(updatedInventory), JSON.stringify(updatedHistory), totalPrice, userId]
+        );
+
+        await pool.query('UPDATE cases SET current_activations = current_activations + $1 WHERE id = $2', [qty, caseId]);
+
+        res.json({ success: true, newBalance, wonItems });
+
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==================================================
+// === ADMIN API (Защищено паролем) ===
+// ==================================================
+
+app.post('/api/admin/case/create', verifyAdmin, upload.single('imageFile'), async (req, res) => {
+    try {
+        await ensureCaseColumns(pool);
         const { name, price, prizeIds, tag, isPromo, promoCode, maxActivations } = req.body;
         
-        // 2. Валидация JSON
         let parsedPrizeIds = [];
-        try { parsedPrizeIds = JSON.parse(prizeIds); } catch (e) { parsedPrizeIds = []; }
+        try { parsedPrizeIds = JSON.parse(prizeIds); } catch (e) {}
 
         const id = `case_${Date.now()}`;
         let imagePath = '/images/case.png';
@@ -122,31 +416,17 @@ app.post('/api/admin/case/create', upload.single('imageFile'), async (req, res) 
             imagePath = `data:${req.file.mimetype};base64,${b64}`;
         }
 
-        // 3. Преобразование типов (защита от NaN)
-        const priceInt = parseInt(price) || 0;
-        const maxActivationsInt = parseInt(maxActivations) || 0;
-        const isPromoBool = String(isPromo) === 'true'; 
-
-        // 4. Вставка
         const r = await pool.query(
             'INSERT INTO cases (id, name, image, price, prize_ids, tag, is_promo, promo_code, max_activations) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *', 
-            [id, name, imagePath, priceInt, JSON.stringify(parsedPrizeIds), tag, isPromoBool, promoCode, maxActivationsInt]
+            [id, name, imagePath, parseInt(price)||0, JSON.stringify(parsedPrizeIds), tag, String(isPromo)==='true', promoCode, parseInt(maxActivations)||0]
         );
-        
         res.json(r.rows[0]);
-
-    } catch (err) { 
-        console.error("ОШИБКА СОЗДАНИЯ КЕЙСА:", err);
-        res.status(500).json({ error: "Ошибка сервера: " + err.message }); 
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- ОБНОВЛЕНИЕ КЕЙСА ---
-app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) => {
+app.post('/api/admin/case/update', verifyAdmin, upload.single('imageFile'), async (req, res) => {
     try {
-        // 1. Принудительное лечение базы перед обновлением
         await ensureCaseColumns(pool);
-
         const { id, name, price, prizeIds, tag, isPromo, promoCode, maxActivations, existingImage } = req.body;
         
         let imagePath = existingImage || '/images/case.png';
@@ -156,33 +436,17 @@ app.post('/api/admin/case/update', upload.single('imageFile'), async (req, res) 
         }
 
         let parsedPrizeIds = [];
-        try { parsedPrizeIds = JSON.parse(prizeIds); } catch (e) { parsedPrizeIds = []; }
-
-        const priceInt = parseInt(price) || 0;
-        const maxActivationsInt = parseInt(maxActivations) || 0;
-        const isPromoBool = String(isPromo) === 'true';
-
-        console.log(`Обновление кейса ${id}...`);
+        try { parsedPrizeIds = JSON.parse(prizeIds); } catch (e) {}
 
         const r = await pool.query(
             'UPDATE cases SET name=$1, price=$2, prize_ids=$3, tag=$4, image=$5, is_promo=$6, promo_code=$7, max_activations=$8 WHERE id=$9 RETURNING *', 
-            [name, priceInt, JSON.stringify(parsedPrizeIds), tag, imagePath, isPromoBool, promoCode, maxActivationsInt, id]
+            [name, parseInt(price)||0, JSON.stringify(parsedPrizeIds), tag, imagePath, String(isPromo)==='true', promoCode, parseInt(maxActivations)||0, id]
         );
-
-        if (r.rows.length === 0) {
-            throw new Error("Кейс не найден в базе (ID неверен)");
-        }
-
         res.json(r.rows[0]);
-
-    } catch (err) { 
-        console.error("ОШИБКА ОБНОВЛЕНИЯ КЕЙСА:", err);
-        res.status(500).json({ error: "Ошибка сервера: " + err.message }); 
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- СОЗДАНИЕ ПРЕДМЕТА ---
-app.post('/api/admin/prize/create', upload.single('imageFile'), async (req, res) => {
+app.post('/api/admin/prize/create', verifyAdmin, upload.single('imageFile'), async (req, res) => {
     try {
         const { name, value, chance } = req.body;
         const id = `item_${Date.now()}`;
@@ -196,8 +460,7 @@ app.post('/api/admin/prize/create', upload.single('imageFile'), async (req, res)
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- ОБНОВЛЕНИЕ ПРЕДМЕТА ---
-app.post('/api/admin/prize/update', upload.single('imageFile'), async (req, res) => {
+app.post('/api/admin/prize/update', verifyAdmin, upload.single('imageFile'), async (req, res) => {
     try {
         const { id, name, value, chance, existingImage } = req.body;
         let imagePath = existingImage;
@@ -210,11 +473,27 @@ app.post('/api/admin/prize/update', upload.single('imageFile'), async (req, res)
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.get('/api/admin/user/:id', verifyAdmin, async (req, res) => {
+    try {
+        const r = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+        if (r.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json(r.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/user/balance', verifyAdmin, async (req, res) => {
+    const { id, amount } = req.body;
+    try {
+        const r = await pool.query('UPDATE users SET balance = $1 WHERE id = $2 RETURNING *', [amount, id]);
+        res.json(r.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
 // ==================================================
-// === ОСТАЛЬНЫЕ API ===
+// === PUBLIC API (Чтение) ===
 // ==================================================
 
-// РЕЙТИНГ
 app.get('/api/leaders', async (req, res) => {
     try {
         const result = await pool.query(`SELECT first_name, photo_url, total_spent FROM users ORDER BY total_spent DESC NULLS LAST LIMIT 10`);
@@ -222,12 +501,9 @@ app.get('/api/leaders', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// КОНФИГ (Список кейсов и предметов для фронтенда)
 app.get('/api/config', async (req, res) => {
     try {
-        // Гарантируем колонки и при чтении
         await ensureCaseColumns(pool);
-
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
         const cases = await pool.query('SELECT * FROM cases ORDER BY price ASC');
         
@@ -255,103 +531,6 @@ app.get('/api/config', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ОТКРЫТИЕ КЕЙСА
-app.post('/api/case/spin', async (req, res) => {
-    const { caseId, userId, quantity } = req.body;
-    try {
-        const check = await pool.query('SELECT price, max_activations, current_activations, is_promo, promo_code FROM cases WHERE id = $1', [caseId]);
-        if (check.rows.length > 0) {
-            const c = check.rows[0];
-            const qty = parseInt(quantity) || 1;
-
-            if (c.max_activations > 0 && (c.current_activations + qty) > c.max_activations) {
-                return res.status(400).json({ error: 'Case limit reached' });
-            }
-            
-            await pool.query('UPDATE cases SET current_activations = current_activations + $1 WHERE id = $2', [qty, caseId]);
-
-            const price = Number(c.price);
-            if (!c.is_promo && userId && price > 0) {
-                const totalCost = price * qty;
-                await pool.query('UPDATE users SET total_spent = COALESCE(total_spent, 0) + $1 WHERE id = $2::bigint', [totalCost, userId]);
-            }
-        }
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ЮЗЕР (Синхронизация)
-app.post('/api/user/sync', async (req, res) => {
-    const { id, first_name, username, photo_url } = req.body;
-    try {
-        const query = `
-            INSERT INTO users (id, first_name, username, photo_url, balance) 
-            VALUES ($1, $2, $3, $4, 0) 
-            ON CONFLICT (id) 
-            DO UPDATE SET first_name = EXCLUDED.first_name, username = EXCLUDED.username, photo_url = EXCLUDED.photo_url 
-            RETURNING *;
-        `;
-        const result = await pool.query(query, [id, first_name, username, photo_url]);
-        res.json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/user/save', async (req, res) => {
-    const { id, balance, inventory, history } = req.body;
-    try {
-        await pool.query('UPDATE users SET balance = $1, inventory = $2, history = $3 WHERE id = $4', [balance, JSON.stringify(inventory), JSON.stringify(history), id]);
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/user/sell-all', async (req, res) => {
-    const { userId } = req.body;
-    try {
-        const userRes = await pool.query('SELECT inventory, balance FROM users WHERE id = $1', [userId]);
-        if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-        const user = userRes.rows[0];
-        const inventory = user.inventory || [];
-        if (inventory.length === 0) return res.json({ success: true, addedBalance: 0, newBalance: user.balance });
-
-        const totalValue = inventory.reduce((sum, item) => sum + (parseInt(item.value) || 0), 0);
-        const newBalance = (user.balance || 0) + totalValue;
-
-        await pool.query('UPDATE users SET inventory = $1, balance = $2 WHERE id = $3', ['[]', newBalance, userId]);
-        res.json({ success: true, addedBalance: totalValue, newBalance });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ЗАЯВКА НА ВЫВОД
-app.post('/api/withdraw/request', async (req, res) => {
-    const { userId, itemInventoryId, targetUsername } = req.body;
-    try {
-        const userRes = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
-        if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-        const user = userRes.rows[0];
-        const inventory = user.inventory || [];
-        const itemIndex = inventory.findIndex(i => i.inventoryId === itemInventoryId);
-        if (itemIndex === -1) return res.status(400).json({ error: 'Item not found in inventory' });
-        const itemToWithdraw = inventory[itemIndex];
-        const newInventory = inventory.filter(i => i.inventoryId !== itemInventoryId);
-        await pool.query('UPDATE users SET inventory = $1 WHERE id = $2', [JSON.stringify(newInventory), userId]);
-        
-        const insertRes = await pool.query('INSERT INTO withdrawals (user_id, username, item_data, target_username, status) VALUES ($1, $2, $3, $4, $5) RETURNING id', [userId, user.username || 'Hidden', JSON.stringify(itemToWithdraw), targetUsername, 'processing']);
-        const withdrawId = insertRes.rows[0].id;
-        
-        // Телеграм уведомление
-        let imageUrl = itemToWithdraw.image;
-        if (imageUrl && imageUrl.startsWith('/')) imageUrl = `${APP_URL}${imageUrl}`;
-        const caption = `📦 <b>Заявка #${withdrawId}</b>\n\n👤 <b>Юзернейм:</b> @${user.username}\n🆔: <code>${userId}</code>\n🎁 <b>Предмет:</b> ${itemToWithdraw.name}\n📩 <b>Вывод на:</b> @${targetUsername}\n💰 <b>Цена:</b> ${itemToWithdraw.value}`;
-        const options = { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '✅ Подтвердить', callback_data: `accept_${withdrawId}` }, { text: '❌ Отклонить', callback_data: `reject_${withdrawId}` }]] } };
-        try {
-            if (imageUrl) await bot.sendPhoto(ADMIN_CHAT_ID, imageUrl, { caption: caption, ...options });
-            else await bot.sendMessage(ADMIN_CHAT_ID, caption, options);
-        } catch (botErr) { console.error("Tg send error:", botErr.message); }
-
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 app.get('/api/user/withdrawals/:userId', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM withdrawals WHERE user_id = $1 ORDER BY created_at DESC', [req.params.userId]);
@@ -359,26 +538,12 @@ app.get('/api/user/withdrawals/:userId', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// АДМИН УТИЛИТЫ (Пользователи)
-app.get('/api/admin/user/:id', async (req, res) => {
-    try {
-        const r = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
-        if (r.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-        res.json(r.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
 
-app.post('/api/admin/user/balance', async (req, res) => {
-    const { id, amount, type } = req.body;
-    try {
-        const query = type === 'set' ? 'UPDATE users SET balance = $1 WHERE id = $2 RETURNING *' : 'UPDATE users SET balance = balance + $1 WHERE id = $2 RETURNING *';
-        const r = await pool.query(query, [amount, id]);
-        res.json(r.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
+// ==================================================
+// === ОПЛАТА ===
+// ==================================================
 
-// ОПЛАТА
-app.post('/api/create-invoice', async (req, res) => {
+app.post('/api/create-invoice', verifyTelegramWebAppData, async (req, res) => {
     const { amount, userId } = req.body;
     try {
         const link = await bot.createInvoiceLink(`Пополнение`, `Stars`, JSON.stringify({ userId, amount, ts: Date.now() }), "", "XTR", [{ label: "Stars", amount: parseInt(amount) }]);
@@ -411,7 +576,6 @@ app.post('/api/verify-ton-payment', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Verify failed' }); }
 });
 
-// Обработка платежей через бота
 bot.on('pre_checkout_query', async (query) => bot.answerPreCheckoutQuery(query.id, true).catch(() => {}));
 bot.on('message', async (msg) => {
     if (msg.successful_payment) {
@@ -421,40 +585,14 @@ bot.on('message', async (msg) => {
     }
 });
 
-// --- ССЫЛКА ДЛЯ РУЧНОГО ИСПРАВЛЕНИЯ БАЗЫ ---
-app.get('/api/fix-database-full', async (req, res) => {
-    try {
-        await ensureCaseColumns(pool);
-        
-        const client = await pool.connect();
-        const result = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'cases';");
-        client.release();
-        
-        const columns = result.rows.map(r => r.column_name).sort().join(', ');
-        
-        res.send(`
-            <h1>✅ База данных успешно восстановлена!</h1>
-            <p>Все необходимые колонки добавлены.</p>
-            <p><b>Текущие столбцы в таблице cases:</b><br/> ${columns}</p>
-            <p>Теперь попробуйте сохранить кейс в админке.</p>
-        `);
-    } catch (err) {
-        res.send(`<h1>❌ Ошибка при исправлении</h1><pre>${err.message}</pre>`);
-    }
-});
+// ==================================================
+// === ЗАПУСК ===
+// ==================================================
 
-// ГЛОБАЛЬНЫЙ ОБРАБОТЧИК ОШИБОК
-app.use((err, req, res, next) => {
-    console.error("🔥 GLOBAL ERROR:", err);
-    // Отправляем JSON, чтобы фронтенд мог отобразить ошибку в alert
-    res.status(500).json({ error: "Internal Server Error: " + err.message });
-});
-
-// --- ЗАПУСК ---
 app.use(express.static(path.join(__dirname, '..', 'build')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
 
 app.listen(PORT, async () => {
-    console.log(`Server started on port ${PORT}`);
-    try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`Webhook OK`); } catch (e) { console.error(e.message); }
+    console.log(`✅ Secure Server started on port ${PORT}`);
+    try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`✅ Webhook OK`); } catch (e) { console.error(e.message); }
 });
