@@ -8,6 +8,7 @@ export const AppProvider = ({ children }) => {
     const [cases, setCases] = useState([]);
     const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 
+    // Начальное состояние - null. Пока оно null, приложение не знает, кто вы.
     const [user, setUser] = useState(null);
     const [balance, setBalance] = useState(0);
     const [inventory, setInventory] = useState([]);
@@ -15,16 +16,18 @@ export const AppProvider = ({ children }) => {
     const [withdrawals, setWithdrawals] = useState([]); 
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
-    // Вспомогательная функция для заголовков
+    // --- АВТОРИЗАЦИЯ ---
+    // Формируем заголовки для каждого запроса
     const getAuthHeaders = () => {
         const headers = { 'Content-Type': 'application/json' };
+        // Если приложение открыто в Telegram, добавляем initData для проверки на сервере
         if (window.Telegram?.WebApp?.initData) {
             headers['x-telegram-init-data'] = window.Telegram.WebApp.initData;
         }
         return headers;
     };
 
-    // 1. ЗАГРУЗКА КОНФИГА
+    // 1. ЗАГРУЗКА КОНФИГА (Список призов и кейсов)
     const refreshConfig = useCallback(() => {
         fetch('/api/config')
             .then(res => res.json())
@@ -38,7 +41,7 @@ export const AppProvider = ({ children }) => {
 
     useEffect(() => { refreshConfig(); }, [refreshConfig]);
 
-    // 2. ФУНКЦИЯ ЗАГРУЗКИ ВЫВОДОВ
+    // 2. ЗАГРУЗКА ИСТОРИИ ВЫВОДОВ
     const fetchWithdrawals = useCallback(async (userId) => {
         if (!userId) return;
         try {
@@ -50,30 +53,46 @@ export const AppProvider = ({ children }) => {
         } catch (e) { console.error(e); }
     }, []);
 
-    // 3. ИНИЦИАЛИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ
+    // 3. ГЛАВНАЯ ИНИЦИАЛИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ
     useEffect(() => {
         const initUser = async () => {
-            // Если открыто не в Telegram, используем заглушку (только если сервер в dev режиме разрешает)
-            // В продакшене сервер отклонит запрос без initData
-            
+            // Проверяем, доступны ли данные Телеграм
+            if (!window.Telegram?.WebApp?.initData) {
+                console.warn("⚠️ Нет данных Telegram. Если вы в браузере — авторизация не пройдет (если сервер в prod).");
+                // Можно раскомментировать, если хотите видеть alert в браузере:
+                // alert("Откройте приложение в Telegram для авторизации.");
+                return;
+            }
+
             try {
-                // Синхронизация при входе
+                // Отправляем запрос синхронизации
                 const res = await fetch('/api/user/sync', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({}) // Тело пустое, сервер берет данные из initData
+                    body: JSON.stringify({}) // Тело пустое, сервер берет данные из заголовка
                 });
 
                 if (res.ok) {
                     const userData = await res.json();
+                    console.log("✅ User loaded:", userData.username);
+                    
                     setUser(userData); 
                     setBalance(userData.balance ?? 0);
-                    // Сервер возвращает уже готовый массив инвентаря
+                    // Сервер теперь возвращает готовый массив объектов (а не JSON-строку)
                     setInventory(userData.inventory || []);
                     setHistory(userData.history || []);
+                    
                     fetchWithdrawals(userData.id);
+                } else {
+                    // Обработка ошибки авторизации
+                    const errorText = await res.text();
+                    console.error("Auth failed:", res.status, errorText);
+                    alert(`Ошибка входа (${res.status}): ${errorText}`);
                 }
-            } catch (err) { console.error("User sync error:", err); }
+            } catch (err) { 
+                console.error("Network sync error:", err);
+                alert("Ошибка соединения с сервером.");
+            }
         };
 
         if (isConfigLoaded) {
@@ -81,9 +100,9 @@ export const AppProvider = ({ children }) => {
         }
     }, [isConfigLoaded, fetchWithdrawals]);
 
-    // --- БЕЗОПАСНЫЕ ДЕЙСТВИЯ (ЧЕРЕЗ API) ---
+    // --- ДЕЙСТВИЯ (ВЫЗОВ СЕРВЕРА) ---
 
-    // Открытие кейса (Серверная логика)
+    // Открытие кейса
     const spinCase = useCallback(async (caseId, quantity) => {
         if (!user) return { success: false, error: 'User not loaded' };
         
@@ -96,15 +115,19 @@ export const AppProvider = ({ children }) => {
             const data = await res.json();
             
             if (data.success) {
-                // Обновляем баланс и добавляем предметы, которые вернул сервер
+                // Обновляем баланс
                 setBalance(data.newBalance);
                 
-                // Добавляем новые предметы в инвентарь локально (сервер вернул их с UUID)
+                // Добавляем новые предметы в начало инвентаря
+                // Сервер возвращает их с правильными UUID (inventoryId)
                 setInventory(prev => [...data.wonItems, ...prev]);
                 
-                // Добавляем в историю (фейковая дата для мгновенного отображения)
-                const newHistory = data.wonItems.map(item => ({...item, date: new Date().toISOString()}));
-                setHistory(prev => [...newHistory, ...prev].slice(0, 50));
+                // Добавляем в локальную историю
+                const newHistoryItems = data.wonItems.map(item => ({
+                    ...item, 
+                    date: new Date().toISOString()
+                }));
+                setHistory(prev => [...newHistoryItems, ...prev].slice(0, 50));
                 
                 return { success: true, wonItems: data.wonItems };
             } else {
@@ -112,7 +135,7 @@ export const AppProvider = ({ children }) => {
             }
         } catch (e) {
             console.error(e);
-            return { success: false, error: e.message };
+            return { success: false, error: "Ошибка сети" };
         }
     }, [user]);
 
@@ -129,11 +152,13 @@ export const AppProvider = ({ children }) => {
             
             if (data.success) {
                 setBalance(data.newBalance);
-                // Обновляем инвентарь (удаляем проданный предмет)
+                // Удаляем предмет из локального инвентаря по ID
                 setInventory(prev => prev.filter(item => item.inventoryId !== inventoryId));
                 return true;
+            } else {
+                console.error("Sell failed:", data.error);
             }
-        } catch (e) { console.error("Sell error:", e); }
+        } catch (e) { console.error("Sell network error:", e); }
         return false;
     }, [user]);
 
@@ -148,7 +173,7 @@ export const AppProvider = ({ children }) => {
             });
             const data = await res.json();
             if (data.success) {
-                setInventory([]);
+                setInventory([]); // Очищаем локально
                 setBalance(data.newBalance);
             }
         } catch (e) { console.error(e); }
@@ -171,9 +196,11 @@ export const AppProvider = ({ children }) => {
             const data = await res.json();
             
             if (data.success) {
-                 // Убираем старый предмет, добавляем новый
+                 // Успех: убираем старый, добавляем новый
                  setInventory(prev => {
+                     // Фильтруем старый
                      const filtered = prev.filter(i => i.inventoryId !== sourceItemId);
+                     // Добавляем новый в начало
                      return [data.newItem, ...filtered]; 
                  });
                  
@@ -182,7 +209,7 @@ export const AppProvider = ({ children }) => {
                  
                  return { success: true, newItem: data.newItem };
             } else {
-                 // Если неудача, просто убираем предмет (сервер уже сжег его)
+                 // Неудача: просто убираем старый предмет (он сгорел)
                  setInventory(prev => prev.filter(i => i.inventoryId !== sourceItemId));
                  return { success: false };
             }
@@ -192,7 +219,7 @@ export const AppProvider = ({ children }) => {
         }
     }, [user]);
 
-    // Вывод
+    // Запрос на вывод
     const requestWithdrawal = useCallback(async (itemInventoryId, targetUsername) => {
         if (!user) return;
         try {
@@ -202,53 +229,56 @@ export const AppProvider = ({ children }) => {
                 body: JSON.stringify({ itemInventoryId, targetUsername })
             });
             const data = await res.json();
+            
             if (data.success) {
+                // Удаляем из инвентаря
                 setInventory(prev => prev.filter(i => i.inventoryId !== itemInventoryId));
+                // Обновляем список выводов
                 fetchWithdrawals(user.id);
                 return true;
             } else {
-                alert("Ошибка: " + data.error);
+                alert("Ошибка: " + (data.error || "Неизвестная ошибка"));
             }
         } catch (e) { console.error(e); }
         return false;
     }, [user, fetchWithdrawals]);
 
-    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (UI Helpers) ---
+    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
     
-    // Используется только для визуализации рулетки (логика теперь на сервере)
+    // Используется ТОЛЬКО для визуализации прокрутки (фейковый выбор для анимации)
+    // Реальный выигрыш определяется сервером в spinCase
     const getWeightedRandomPrize = useCallback((prizes) => {
         const prizePool = prizes || ALL_PRIZES;
-        const totalChance = prizePool.reduce((sum, prize) => sum + prize.chance, 0);
-        let random = Math.random() * totalChance;
-        for (const prize of prizePool) {
-            if (random < prize.chance) return prize;
-            random -= prize.chance;
-        }
-        return prizePool[prizePool.length - 1];
+        if (!prizePool.length) return null;
+        // Простая заглушка, так как честный рандом теперь на бэкенде
+        const randomIndex = Math.floor(Math.random() * prizePool.length);
+        return prizePool[randomIndex];
     }, [ALL_PRIZES]);
 
-    // Используется только для отображения шанса в UI апгрейда
+    // Используется для отображения шанса в интерфейсе апгрейда
     const getUpgradeResult = (sourceItem, targetItem) => {
         if (!sourceItem || !targetItem) return { success: false, chance: 0 };
         const chance = Math.min(Math.max((sourceItem.value / targetItem.value) * 50, 1), 95);
         return { success: false, chance: chance }; 
     };
 
-    // Устаревшие методы (оставлены как заглушки или для локальных обновлений, если нужно)
-    const updateBalance = useCallback((amount) => { setBalance(prev => prev + amount); }, []);
-    const addToInventory = useCallback((items) => { setInventory(prev => [...items, ...prev]); }, []);
-    const removeFromInventory = useCallback((id) => { setInventory(prev => prev.filter(i => i.inventoryId !== id)); }, []);
-    const addToHistory = useCallback((items) => { setHistory(prev => [...items, ...prev]); }, []);
-
+    // Обертки для модалки
     const openTopUpModal = () => setIsTopUpModalOpen(true);
     const closeTopUpModal = () => setIsTopUpModalOpen(false);
+
+    // Устаревшие методы (для совместимости, если где-то еще вызываются напрямую)
+    // Но лучше использовать spinCase/sellItem
+    const updateBalance = (amount) => setBalance(prev => prev + amount);
+    const addToInventory = (items) => setInventory(prev => [...prev, ...items]);
+    const removeFromInventory = (id) => setInventory(prev => prev.filter(i => i.inventoryId !== id));
+    const addToHistory = (items) => setHistory(prev => [...items, ...prev]);
 
     const value = {
         user, balance, inventory, history, withdrawals,
         ALL_PRIZES, ALL_CASES: cases, isConfigLoaded,
         refreshConfig,
         
-        // Новые безопасные методы
+        // Основные методы API
         spinCase,
         sellItem, 
         sellAllItems, 
@@ -259,12 +289,10 @@ export const AppProvider = ({ children }) => {
         getWeightedRandomPrize,
         getUpgradeResult,
         
-        // State Modifiers (Legacy support)
-        updateBalance, 
-        addToInventory, 
-        removeFromInventory, 
-        addToHistory,
+        // Legacy state helpers
+        updateBalance, addToInventory, removeFromInventory, addToHistory,
         
+        // Modals
         isTopUpModalOpen, openTopUpModal, closeTopUpModal
     };
 
