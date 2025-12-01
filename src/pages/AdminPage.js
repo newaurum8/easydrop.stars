@@ -1,17 +1,55 @@
-import React, { useContext, useState, useMemo, useEffect } from 'react';
+import React, { useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import { AppContext } from '../context/AppContext';
 import { Link } from 'react-router-dom';
 import '../styles/admin.css';
 
-const SECRET_PASSWORD = "admin"; 
-
 const AdminPage = () => {
     const { ALL_CASES, ALL_PRIZES, refreshConfig } = useContext(AppContext);
-    const [isAuthorized, setIsAuthorized] = useState(false);
-    const [password, setPassword] = useState('');
+    
+    // Пытаемся восстановить пароль из памяти браузера
+    const [password, setPassword] = useState(localStorage.getItem('admin_pass') || '');
+    const [isAuthorized, setIsAuthorized] = useState(!!localStorage.getItem('admin_pass'));
     const [activeTab, setActiveTab] = useState('items');
 
-    // --- АВТОРИЗАЦИЯ ---
+    // === ФУНКЦИЯ-ОБЕРТКА ДЛЯ ЗАПРОСОВ ===
+    // Она автоматически добавляет пароль в заголовки
+    const adminFetch = useCallback(async (url, options = {}) => {
+        const headers = options.headers || {};
+        headers['x-admin-password'] = password; // <-- КЛЮЧЕВОЙ МОМЕНТ
+
+        // Если отправляем не FormData (файлы), то добавляем Content-Type
+        if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        const res = await fetch(url, { ...options, headers });
+
+        // Если сервер ответил "Доступ запрещен", выходим
+        if (res.status === 403) {
+            setIsAuthorized(false);
+            localStorage.removeItem('admin_pass');
+            alert("Ошибка доступа: Неверный пароль админа");
+            throw new Error("Forbidden");
+        }
+        
+        return res;
+    }, [password]);
+
+    const handleLogin = () => {
+        if (!password) return alert("Введите пароль");
+        localStorage.setItem('admin_pass', password);
+        setIsAuthorized(true);
+        // Можно сразу попробовать обновить конфиг, чтобы проверить пароль
+        refreshConfig(); 
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('admin_pass');
+        setPassword('');
+        setIsAuthorized(false);
+    };
+
+    // --- ЭКРАН ВХОДА ---
     if (!isAuthorized) {
         return (
             <div className="login-wrapper">
@@ -26,14 +64,14 @@ const AdminPage = () => {
                     <input 
                         type="password" 
                         className="modern-input"
-                        placeholder="Пароль доступа"
+                        placeholder="Пароль доступа (.env)"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         style={{marginBottom:'15px', textAlign:'center'}}
                     />
                     <button 
                         className="modern-button primary full-width" 
-                        onClick={() => password === SECRET_PASSWORD ? setIsAuthorized(true) : alert('Неверно')}
+                        onClick={handleLogin}
                     >
                         Войти в панель
                     </button>
@@ -57,6 +95,7 @@ const AdminPage = () => {
                 <aside className="admin-sidebar">
                     <div className="sidebar-header">
                         <h1>EasyDrop</h1>
+                        <span>SECURE</span>
                     </div>
                     <nav className="sidebar-nav">
                         <button className={`nav-btn ${activeTab === 'items' ? 'active' : ''}`} onClick={() => setActiveTab('items')}>
@@ -70,14 +109,15 @@ const AdminPage = () => {
                         </button>
                     </nav>
                     <div className="sidebar-footer">
-                        <Link to="/" className="nav-btn logout">Выйти</Link>
+                        <button onClick={handleLogout} className="nav-btn logout">Выйти</button>
+                        <Link to="/" className="nav-btn">На сайт</Link>
                     </div>
                 </aside>
 
                 <main className="admin-main">
-                    {activeTab === 'items' && <ItemManager prizes={ALL_PRIZES} onUpdate={refreshConfig} />}
-                    {activeTab === 'cases' && <CaseManager cases={ALL_CASES} allPrizes={ALL_PRIZES} onUpdate={refreshConfig} />}
-                    {activeTab === 'users' && <UserManager />}
+                    {activeTab === 'items' && <ItemManager prizes={ALL_PRIZES} onUpdate={refreshConfig} api={adminFetch} />}
+                    {activeTab === 'cases' && <CaseManager cases={ALL_CASES} allPrizes={ALL_PRIZES} onUpdate={refreshConfig} api={adminFetch} />}
+                    {activeTab === 'users' && <UserManager api={adminFetch} />}
                 </main>
             </div>
         </>
@@ -85,9 +125,9 @@ const AdminPage = () => {
 };
 
 // ==================================================
-// 1. МЕНЕДЖЕР ПРЕДМЕТОВ (СПИСОК + РЕДАКТОР)
+// 1. МЕНЕДЖЕР ПРЕДМЕТОВ
 // ==================================================
-const ItemManager = ({ prizes, onUpdate }) => {
+const ItemManager = ({ prizes, onUpdate, api }) => {
     const [selectedItemId, setSelectedItemId] = useState(null);
     const [isCreating, setIsCreating] = useState(false);
     
@@ -96,7 +136,8 @@ const ItemManager = ({ prizes, onUpdate }) => {
     const handleServerUpdate = async (formData) => {
         const url = isCreating ? '/api/admin/prize/create' : '/api/admin/prize/update';
         try {
-            const res = await fetch(url, { method: 'POST', body: formData });
+            // Используем api вместо fetch, он сам добавит пароль
+            const res = await api(url, { method: 'POST', body: formData });
             if(res.ok) { 
                 onUpdate(); 
                 setIsCreating(false); 
@@ -104,7 +145,7 @@ const ItemManager = ({ prizes, onUpdate }) => {
             } else { 
                 alert('Ошибка при сохранении'); 
             }
-        } catch(e) { console.error(e); alert('Ошибка сети'); }
+        } catch(e) { console.error(e); }
     };
 
     return (
@@ -174,7 +215,6 @@ const ItemEditor = ({ item, onSave, isNew }) => {
         const data = new FormData();
         if(!isNew) data.append('id', formData.id);
         data.append('name', formData.name);
-        // Защита от NaN
         data.append('value', Number(formData.value) || 0);
         data.append('chance', Number(formData.chance) || 0);
         data.append('existingImage', formData.image);
@@ -205,25 +245,13 @@ const ItemEditor = ({ item, onSave, isNew }) => {
                         <label>Название</label>
                         <input className="modern-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                     </div>
-                    
                     <div className="form-group">
                         <label>Цена (Stars)</label>
-                        <input 
-                            type="number" 
-                            className="modern-input" 
-                            value={formData.value} 
-                            onChange={e => setFormData({...formData, value: e.target.value})} 
-                        />
+                        <input type="number" className="modern-input" value={formData.value} onChange={e => setFormData({...formData, value: e.target.value})} />
                     </div>
-                    
                     <div className="form-group">
                         <label>Базовый шанс (%)</label>
-                        <input 
-                            type="number" 
-                            className="modern-input" 
-                            value={formData.chance} 
-                            onChange={e => setFormData({...formData, chance: e.target.value})} 
-                        />
+                        <input type="number" className="modern-input" value={formData.chance} onChange={e => setFormData({...formData, chance: e.target.value})} />
                     </div>
                 </div>
             </div>
@@ -232,9 +260,9 @@ const ItemEditor = ({ item, onSave, isNew }) => {
 };
 
 // ==================================================
-// 2. МЕНЕДЖЕР КЕЙСОВ (ОБНОВЛЕННЫЙ)
+// 2. МЕНЕДЖЕР КЕЙСОВ
 // ==================================================
-const CaseManager = ({ cases, allPrizes, onUpdate }) => {
+const CaseManager = ({ cases, allPrizes, onUpdate, api }) => {
     const [selectedCaseId, setSelectedCaseId] = useState(null);
     const [isCreating, setIsCreating] = useState(false);
     const selectedCase = useMemo(() => cases.find(c => c.id === selectedCaseId), [cases, selectedCaseId]);
@@ -242,16 +270,16 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
     const handleServerUpdate = async (formData) => {
         const url = isCreating ? '/api/admin/case/create' : '/api/admin/case/update';
         try {
-            const res = await fetch(url, { method: 'POST', body: formData });
+            const res = await api(url, { method: 'POST', body: formData });
             
-            // --- УЛУЧШЕННАЯ ОБРАБОТКА ОШИБОК ---
+            // В `api` (adminFetch) мы не ставили .json() автоматически, так как нужно обрабатывать ошибки.
+            // Но здесь мы знаем, что если не выбросило ошибку, значит 200 OK (или 500, который надо прочитать).
+            
             const responseText = await res.text();
 
             if (res.ok) { 
                 onUpdate(); 
                 setIsCreating(false); 
-                
-                // Если создавали новый, пробуем получить его ID из ответа
                 if(isCreating) {
                     try {
                         const d = JSON.parse(responseText); 
@@ -260,20 +288,15 @@ const CaseManager = ({ cases, allPrizes, onUpdate }) => {
                 } 
                 alert('Кейс сохранен успешно!'); 
             } else {
-                // Пробуем распарсить JSON, иначе показываем текст
                 let errorMsg = responseText;
                 try {
                     const json = JSON.parse(responseText);
                     if (json.error) errorMsg = json.error;
-                } catch (e) {
-                    errorMsg = responseText.substring(0, 200); // Ограничиваем длину
-                }
-                console.error("Server Error:", responseText);
-                alert(`ОШИБКА СЕРВЕРА:\n${errorMsg}`);
+                } catch (e) {}
+                alert(`ОШИБКА: ${errorMsg}`);
             }
         } catch(e) { 
             console.error(e); 
-            alert('Ошибка сети или сервера (см. консоль)'); 
         }
     };
 
@@ -326,7 +349,6 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(caseItem.image);
-    // Приводим ID предметов к правильному формату
     const [selectedPrizeIds, setSelectedPrizeIds] = useState(() => (caseItem.prizeIds || []).map(i => typeof i === 'string' ? { id: i, chance: 0 } : i));
 
     useEffect(() => { return () => { if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); }; }, [previewUrl]);
@@ -350,17 +372,12 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
         if(!isNew && formData.id) data.append('id', formData.id);
         
         data.append('name', formData.name);
-        
-        // ВАЖНО: Защита от NaN для числовых полей
         data.append('price', Number(formData.price) || 0);
         data.append('tag', formData.tag);
         data.append('isPromo', formData.isPromo);
         data.append('promoCode', formData.promoCode || '');
         data.append('maxActivations', Number(formData.maxActivations) || 0);
-        
-        // Сериализуем список предметов
         data.append('prizeIds', JSON.stringify(selectedPrizeIds));
-        
         data.append('existingImage', formData.image);
         if(selectedFile) data.append('imageFile', selectedFile);
         
@@ -421,7 +438,7 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
                                 <input type="checkbox" checked={formData.isPromo} onChange={e => setFormData({...formData, isPromo: e.target.checked})} />
                                 <span className="slider"></span>
                             </label>
-                            <span style={{fontSize:13}}>Это промо-кейс</span>
+                            <span style={{fontSize:13}}>Это промо-кейс (бесплатный по коду)</span>
                         </div>
                     </div>
 
@@ -484,7 +501,7 @@ const CaseEditor = ({ caseItem, onSave, allPrizes, isNew }) => {
 // ==================================================
 // 3. МЕНЕДЖЕР ПОЛЬЗОВАТЕЛЕЙ
 // ==================================================
-const UserManager = () => {
+const UserManager = ({ api }) => {
     const [searchId, setSearchId] = useState('');
     const [user, setUser] = useState(null);
     const [balance, setBalance] = useState('');
@@ -492,16 +509,30 @@ const UserManager = () => {
     const find = async () => {
         if(!searchId) return;
         try {
-            const res = await fetch(`/api/admin/user/${searchId}`);
-            if(res.ok) { const u = await res.json(); setUser(u); setBalance(u.balance); }
-            else { alert('Не найден'); setUser(null); }
-        } catch (e) { alert('Ошибка'); }
+            const res = await api(`/api/admin/user/${searchId}`);
+            if(res.ok) { 
+                const u = await res.json(); 
+                setUser(u); 
+                setBalance(u.balance); 
+            }
+            else { 
+                alert('Пользователь не найден'); 
+                setUser(null); 
+            }
+        } catch (e) { console.error(e); }
     };
 
     const save = async () => {
         if(!user) return;
-        await fetch('/api/admin/user/balance', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: user.id, amount: balance, type: 'set'}) });
-        alert('Обновлено'); find();
+        try {
+            await api('/api/admin/user/balance', { 
+                method: 'POST', 
+                headers: {'Content-Type':'application/json'}, // тут api() сам пароль добавит
+                body: JSON.stringify({id: user.id, amount: balance, type: 'set'}) 
+            });
+            alert('Баланс обновлен'); 
+            find();
+        } catch (e) { console.error(e); }
     };
 
     return (
@@ -522,7 +553,7 @@ const UserManager = () => {
                             </div>
                         </div>
                         <div className="balance-edit">
-                            <label>Баланс Stars:</label>
+                            <label>Баланс Stars (перезапись):</label>
                             <div className="balance-row">
                                 <input type="number" className="modern-input" value={balance} onChange={e => setBalance(e.target.value)} />
                                 <button className="modern-button success" onClick={save}>Сохранить</button>
