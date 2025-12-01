@@ -68,6 +68,7 @@ export const AppProvider = ({ children }) => {
                     const userData = await res.json();
                     setUser(userData); 
                     setBalance(userData.balance ?? 0);
+                    // Сервер возвращает уже готовый массив инвентаря
                     setInventory(userData.inventory || []);
                     setHistory(userData.history || []);
                     fetchWithdrawals(userData.id);
@@ -98,11 +99,10 @@ export const AppProvider = ({ children }) => {
                 // Обновляем баланс и добавляем предметы, которые вернул сервер
                 setBalance(data.newBalance);
                 
-                // Добавляем новые предметы в инвентарь локально (или можно перезапросить sync)
-                // Сервер возвращает массив wonItems с уникальными inventoryId
-                setInventory(prev => [...prev, ...data.wonItems]);
+                // Добавляем новые предметы в инвентарь локально (сервер вернул их с UUID)
+                setInventory(prev => [...data.wonItems, ...prev]);
                 
-                // Добавляем в историю
+                // Добавляем в историю (фейковая дата для мгновенного отображения)
                 const newHistory = data.wonItems.map(item => ({...item, date: new Date().toISOString()}));
                 setHistory(prev => [...newHistory, ...prev].slice(0, 50));
                 
@@ -129,7 +129,7 @@ export const AppProvider = ({ children }) => {
             
             if (data.success) {
                 setBalance(data.newBalance);
-                // Обновляем инвентарь (сервер может вернуть полный или мы фильтруем сами)
+                // Обновляем инвентарь (удаляем проданный предмет)
                 setInventory(prev => prev.filter(item => item.inventoryId !== inventoryId));
                 return true;
             }
@@ -171,17 +171,18 @@ export const AppProvider = ({ children }) => {
             const data = await res.json();
             
             if (data.success) {
-                 // Убираем старый предмет
+                 // Убираем старый предмет, добавляем новый
                  setInventory(prev => {
                      const filtered = prev.filter(i => i.inventoryId !== sourceItemId);
-                     return [...filtered, data.newItem]; // Добавляем новый
+                     return [data.newItem, ...filtered]; 
                  });
+                 
                  // Добавляем в историю
                  setHistory(prev => [{...data.newItem, date: new Date().toISOString()}, ...prev].slice(0, 50));
                  
                  return { success: true, newItem: data.newItem };
             } else {
-                 // Если неудача, просто убираем предмет (сервер уже это сделал)
+                 // Если неудача, просто убираем предмет (сервер уже сжег его)
                  setInventory(prev => prev.filter(i => i.inventoryId !== sourceItemId));
                  return { success: false };
             }
@@ -212,9 +213,9 @@ export const AppProvider = ({ children }) => {
         return false;
     }, [user, fetchWithdrawals]);
 
-    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ОСТАВЛЕНЫ ДЛЯ UI, НО ЛОГИКА ТЕПЕРЬ НА СЕРВЕРЕ) ---
+    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (UI Helpers) ---
     
-    // Используется только для визуализации рулетки, результат перезапишется сервером
+    // Используется только для визуализации рулетки (логика теперь на сервере)
     const getWeightedRandomPrize = useCallback((prizes) => {
         const prizePool = prizes || ALL_PRIZES;
         const totalChance = prizePool.reduce((sum, prize) => sum + prize.chance, 0);
@@ -226,17 +227,16 @@ export const AppProvider = ({ children }) => {
         return prizePool[prizePool.length - 1];
     }, [ALL_PRIZES]);
 
-    // Используется только для визуализации шанса в UI апгрейда
+    // Используется только для отображения шанса в UI апгрейда
     const getUpgradeResult = (sourceItem, targetItem) => {
         if (!sourceItem || !targetItem) return { success: false, chance: 0 };
         const chance = Math.min(Math.max((sourceItem.value / targetItem.value) * 50, 1), 95);
-        // Результат мы здесь не генерируем, только шанс для отображения
         return { success: false, chance: chance }; 
     };
 
-    // Оставлены для совместимости, но лучше использовать методы выше
+    // Устаревшие методы (оставлены как заглушки или для локальных обновлений, если нужно)
     const updateBalance = useCallback((amount) => { setBalance(prev => prev + amount); }, []);
-    const addToInventory = useCallback((items) => { setInventory(prev => [...prev, ...items]); }, []);
+    const addToInventory = useCallback((items) => { setInventory(prev => [...items, ...prev]); }, []);
     const removeFromInventory = useCallback((id) => { setInventory(prev => prev.filter(i => i.inventoryId !== id)); }, []);
     const addToHistory = useCallback((items) => { setHistory(prev => [...items, ...prev]); }, []);
 
@@ -255,11 +255,11 @@ export const AppProvider = ({ children }) => {
         performUpgrade, 
         requestWithdrawal,
         
-        // Legacy / UI Helpers
+        // UI Helpers
         getWeightedRandomPrize,
         getUpgradeResult,
         
-        // State Modifiers (использовать с осторожностью)
+        // State Modifiers (Legacy support)
         updateBalance, 
         addToInventory, 
         removeFromInventory, 
