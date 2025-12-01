@@ -2,10 +2,9 @@ import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 
-// === НОВЫЙ КОМПОНЕНТ МОДАЛЬНОГО ОКНА (CLEAN VERSION) ===
+// === КОМПОНЕНТ МОДАЛЬНОГО ОКНА ===
 const ResultsModal = ({ winners, onClose }) => {
-    // ПО УМОЛЧАНИЮ ВСЕ ПРЕДМЕТЫ ВЫБРАНЫ НА ПРОДАЖУ ('sell')
-    // Т.к. пользователь просил кнопку "Продать все" сразу
+    // По умолчанию все предметы выбраны на продажу (sell)
     const [itemsStatus, setItemsStatus] = useState(
         new Array(winners.length).fill('sell')
     );
@@ -20,20 +19,15 @@ const ResultsModal = ({ winners, onClose }) => {
     const toggleItemStatus = (index) => {
         setItemsStatus(prev => {
             const newStatus = [...prev];
-            // Переключаем: если было продать -> стало оставить, и наоборот
             newStatus[index] = newStatus[index] === 'sell' ? 'keep' : 'sell';
             return newStatus;
         });
     };
 
-    // Группируем предметы
     const itemsToSell = winners.filter((_, i) => itemsStatus[i] === 'sell');
     const itemsToKeep = winners.filter((_, i) => itemsStatus[i] === 'keep');
     
-    // Общая ценность дропа (для заголовка)
     const totalWonValue = winners.reduce((sum, item) => sum + item.value, 0);
-    
-    // Сумма, которую получит юзер (только за продаваемые)
     const sellAmount = itemsToSell.reduce((sum, item) => sum + item.value, 0);
 
     const totalCount = winners.length;
@@ -43,17 +37,14 @@ const ResultsModal = ({ winners, onClose }) => {
         onClose(itemsToSell, itemsToKeep);
     };
 
-    // Логика текста и стиля кнопки
-    let btnClass = 'btn-style-sell'; // По дефолту яркая кнопка продажи
+    let btnClass = 'btn-style-sell';
     let mainText = 'ПРОДАТЬ ВСЁ';
     let subText = null;
 
     if (sellCount === 0) {
-        // Если ничего не продаем (все оставили)
         btnClass = 'btn-style-keep';
         mainText = 'ЗАБРАТЬ ВСЁ';
     } else if (sellCount < totalCount) {
-        // Смешанный режим
         btnClass = 'btn-style-mix';
         mainText = `ПРОДАТЬ (${sellCount})`;
         subText = `Остальные ${itemsToKeep.length} в инвентарь`;
@@ -62,7 +53,6 @@ const ResultsModal = ({ winners, onClose }) => {
     return (
         <div className="win-modal-overlay">
             <div className="win-content-wrapper">
-                {/* Сводка выигрыша (только цифра, без текста Поздравляем) */}
                 <div className="win-summary-clean">
                     <div className="win-summary-label">Общая ценность</div>
                     <div className="win-summary-value">
@@ -73,20 +63,18 @@ const ResultsModal = ({ winners, onClose }) => {
 
                 <div className="win-grid">
                     {winners.map((item, index) => {
-                        const status = itemsStatus[index]; // 'sell' или 'keep'
+                        const status = itemsStatus[index];
                         const color = getRarityColor(item.value);
                         
                         return (
                             <div 
-                                key={index}
+                                key={`${item.inventoryId}-${index}`} // Используем inventoryId
                                 className={`win-card status-${status}`}
                                 style={{ '--rarity-color': color, animationDelay: `${index * 0.05}s` }}
                                 onClick={() => toggleItemStatus(index)}
                             >
                                 <img src={item.image} alt={item.name} className="win-card-img" />
-                                
                                 <div className="win-card-name">{item.name}</div>
-                                
                                 <div className="win-card-price">
                                     <img src="/images/stars.png" alt="" className="star-icon small" />
                                     <span>{item.value.toLocaleString()}</span>
@@ -97,15 +85,12 @@ const ResultsModal = ({ winners, onClose }) => {
                 </div>
             </div>
 
-            {/* Нижняя панель действий */}
             <div className="win-actions-bar">
                 <button className={`action-btn-main ${btnClass}`} onClick={handleConfirm}>
                     <div className="btn-left">
                         <span>{mainText}</span>
                         {subText && <span className="btn-sub">{subText}</span>}
                     </div>
-
-                    {/* Показываем сумму только если что-то продаем */}
                     {sellCount > 0 && (
                         <div className="btn-right">
                             <span>+{sellAmount.toLocaleString()}</span>
@@ -118,10 +103,12 @@ const ResultsModal = ({ winners, onClose }) => {
     );
 };
 
-// === КАРУСЕЛЬ (Осталась без изменений) ===
+// === КАРУСЕЛЬ ===
 const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
     const totalCarouselItems = 100;
     const stopIndex = 80;
+    
+    // Генерируем ленту. winningPrize - это уже определенный сервером предмет
     const items = useMemo(() => {
         if (!prizes || prizes.length === 0) return [];
         return Array.from({ length: totalCarouselItems }).map((_, i) =>
@@ -133,7 +120,7 @@ const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
         <div className={`item-carousel-wrapper size-${quantity}`}>
             <div className="item-carousel" ref={ref}>
                 {items.map((item, index) => (
-                    <div className="carousel-item" key={`${item.id}-${index}-${Date.now()}`}>
+                    <div className="carousel-item" key={`carousel-${index}-${Date.now()}`}>
                         <img src={item.image} alt={item.name} />
                     </div>
                 ))}
@@ -142,17 +129,24 @@ const Carousel = React.forwardRef(({ winningPrize, prizes, quantity }, ref) => {
     );
 });
 
+// === СТРАНИЦА КЕЙСА ===
 const CasePage = () => {
     const { caseId } = useParams();
-    const { user, balance, updateBalance, addToInventory, addToHistory, getWeightedRandomPrize, ALL_CASES, ALL_PRIZES } = useContext(AppContext);
+    const { 
+        user, balance, 
+        spinCase, sellItem, // Берем методы из обновленного контекста
+        ALL_CASES, ALL_PRIZES 
+    } = useContext(AppContext);
 
     const currentCase = useMemo(() => ALL_CASES.find(c => c.id === caseId), [caseId, ALL_CASES]);
     const [localActivations, setLocalActivations] = useState(0);
 
+    // Синхронизируем локальный счетчик открытий с данными кейса
     useEffect(() => {
         if (currentCase) setLocalActivations(currentCase.currentActivations || 0);
     }, [currentCase]);
 
+    // Собираем массив возможных призов для отображения в списке и карусели
     const currentCasePrizes = useMemo(() => {
         if (!currentCase || !ALL_PRIZES || !currentCase.prizeIds) return [];
         return currentCase.prizeIds.map(config => {
@@ -167,7 +161,7 @@ const CasePage = () => {
     const [quantity, setQuantity] = useState(1);
     const [isFastRoll, setIsFastRoll] = useState(false);
     const [isRolling, setIsRolling] = useState(false);
-    const [winningPrizes, setWinningPrizes] = useState([]);
+    const [winningPrizes, setWinningPrizes] = useState([]); // Сюда упадут результаты с сервера
     const [showModal, setShowModal] = useState(false);
     const [promoCode, setPromoCode] = useState('');
     const [isPromoValid, setIsPromoValid] = useState(false);
@@ -175,16 +169,24 @@ const CasePage = () => {
     const carouselRefs = useRef([]);
     carouselRefs.current = [...Array(quantity)].map((_, i) => carouselRefs.current[i] ?? React.createRef());
 
+    // Инициализация каруселей заглушками до прокрутки
     useEffect(() => {
-        if (currentCasePrizes?.length) setWinningPrizes(Array(quantity).fill(currentCasePrizes[0]));
-    }, [quantity, currentCasePrizes]);
+        if (currentCasePrizes?.length && !isRolling && winningPrizes.length === 0) {
+            setWinningPrizes(Array(quantity).fill(currentCasePrizes[0]));
+        }
+    }, [quantity, currentCasePrizes, isRolling, winningPrizes.length]);
 
+    // ЛОГИКА АНИМАЦИИ
     useEffect(() => {
         if (!isRolling) return;
-        const animationPromises = carouselRefs.current.map(ref => {
+        
+        const animationPromises = carouselRefs.current.map((ref, index) => {
             return new Promise(resolve => {
                 const carouselTrack = ref.current;
                 if (!carouselTrack) return resolve();
+                
+                // ВАЖНО: winningPrizes[index] уже содержит правильный предмет с сервера
+                
                 const items = carouselTrack.querySelectorAll('.carousel-item');
                 if (items.length === 0) return resolve();
 
@@ -194,7 +196,7 @@ const CasePage = () => {
 
                 carouselTrack.classList.remove('is-rolling', 'fast');
                 carouselTrack.style.transform = 'translateX(0)';
-                void carouselTrack.offsetHeight; 
+                void carouselTrack.offsetHeight; // Trigger reflow
 
                 const itemStyle = window.getComputedStyle(items[0]);
                 const itemWidth = items[0].offsetWidth + parseInt(itemStyle.marginLeft) + parseInt(itemStyle.marginRight);
@@ -215,10 +217,10 @@ const CasePage = () => {
         });
 
         Promise.all(animationPromises).then(() => {
-            addToHistory(winningPrizes);
+            // Анимация закончилась, показываем модалку
             setTimeout(() => setShowModal(true), 500);
         });
-    }, [isRolling, winningPrizes, isFastRoll, addToHistory]);
+    }, [isRolling, winningPrizes, isFastRoll]);
 
     const handlePromoCodeChange = (e) => {
         const code = e.target.value;
@@ -230,9 +232,11 @@ const CasePage = () => {
         }
     };
 
+    // --- ГЛАВНАЯ ФУНКЦИЯ ОТКРЫТИЯ (SERVER SIDE) ---
     const handleRoll = async () => {
-        if (!currentCase || !currentCasePrizes || currentCasePrizes.length === 0) return;
+        if (!currentCase || !currentCasePrizes || isRolling) return;
         
+        // Предварительная проверка (полная проверка будет на сервере)
         if (currentCase.maxActivations > 0 && localActivations >= currentCase.maxActivations) {
             return alert('Лимит кейса исчерпан');
         }
@@ -241,40 +245,37 @@ const CasePage = () => {
             if (!isPromoValid) return alert("Неверный промокод");
         } else {
             const cost = currentCase.price * quantity;
-            if (balance < cost || isRolling) return;
-            updateBalance(-cost);
+            if (balance < cost) return alert("Недостаточно средств");
         }
 
-        try {
-            const res = await fetch('/api/case/spin', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    caseId: currentCase.id,
-                    userId: user ? user.id : null, 
-                    quantity: quantity
-                })
-            });
-            const data = await res.json();
-            
-            if (data.error === 'Case limit reached') {
-                if (!currentCase.isPromo) updateBalance(currentCase.price * quantity);
-                return alert('К сожалению, лимит активаций этого кейса исчерпан.');
-            } else {
-                setLocalActivations(prev => prev + quantity); 
-            }
-        } catch (e) { console.error(e); return; }
+        // Вызываем безопасный метод из контекста
+        // Он вернет { success: true, wonItems: [...] } или ошибку
+        const result = await spinCase(currentCase.id, quantity);
 
+        if (!result.success) {
+            return alert(result.error || "Ошибка при открытии кейса");
+        }
+
+        // Обновляем локальный счетчик открытий для UI
+        setLocalActivations(prev => prev + quantity);
+
+        // Устанавливаем победителей, полученных с сервера
+        setWinningPrizes(result.wonItems);
         setShowModal(false);
-        const winners = Array.from({ length: quantity }).map(() => getWeightedRandomPrize(currentCasePrizes));
-        setWinningPrizes(winners);
-        setIsRolling(true);
+        setIsRolling(true); // Запускаем анимацию
     };
 
-    const handleCloseResults = (itemsToSell, itemsToKeep) => {
-        const earnings = itemsToSell.reduce((sum, item) => sum + item.value, 0);
-        if (earnings > 0) updateBalance(earnings);
-        if (itemsToKeep.length > 0) addToInventory(itemsToKeep);
+    // Обработка закрытия модалки
+    const handleCloseResults = async (itemsToSell, itemsToKeep) => {
+        // itemsToKeep - уже в инвентаре (сервер добавил их при спине), ничего делать не надо.
+        
+        // itemsToSell - нужно продать. Сервер уже добавил их, теперь удаляем и начисляем баланс.
+        // Выполняем продажу последовательно (или можно добавить endpoint sell-bulk)
+        for (const item of itemsToSell) {
+            await sellItem(item.inventoryId);
+        }
+
+        // Баланс обновится автоматически внутри sellItem через контекст
         setShowModal(false);
         setIsRolling(false);
     };
@@ -297,8 +298,15 @@ const CasePage = () => {
 
             <div id="multi-roll-container">
                 <div className="carousel-indicator"></div>
-                {winningPrizes.map((prize, i) => (
-                    <Carousel key={`${quantity}-${i}`} ref={carouselRefs.current[i]} winningPrize={prize} prizes={currentCasePrizes} quantity={quantity} />
+                {/* Рендерим N каруселей */}
+                {Array.from({length: quantity}).map((_, i) => (
+                    <Carousel 
+                        key={`${quantity}-${i}`} 
+                        ref={carouselRefs.current[i]} 
+                        winningPrize={winningPrizes[i] || currentCasePrizes[0]} 
+                        prizes={currentCasePrizes} 
+                        quantity={quantity} 
+                    />
                 ))}
                 <div className="carousel-indicator bottom"></div>
             </div>
