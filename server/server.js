@@ -40,7 +40,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Раздача статических файлов
+// Раздача статических файлов (сборка React)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'build', 'uploads')));
 
 // Вебхук для бота
@@ -67,7 +67,7 @@ const verifyTelegramWebAppData = (req, res, next) => {
 
     // DEV-режим: разрешаем тестового юзера ТОЛЬКО если явно задан NODE_ENV=development
     if (!initData && process.env.NODE_ENV === 'development') {
-        // console.warn("⚠️ DEV MODE: Using mock user"); // Можно раскомментировать для отладки
+        // console.warn("⚠️ DEV MODE: Using mock user"); 
         req.user = { id: 123456789, username: 'dev_user', first_name: 'Dev' };
         return next();
     }
@@ -115,7 +115,6 @@ const verifyAdmin = (req, res, next) => {
 // === ИНИЦИАЛИЗАЦИЯ И МИГРАЦИИ ===
 // ==================================================
 
-// Функция для безопасного обновления структуры таблицы cases
 async function ensureCaseColumns(client) {
     const queries = [
         "ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false",
@@ -133,24 +132,25 @@ async function ensureCaseColumns(client) {
 // === ПОЛЬЗОВАТЕЛЬСКИЕ API (БЕЗОПАСНЫЕ) ===
 // ==================================================
 
-// 1. СИНХРОНИЗАЦИЯ (ВХОД) - С ПОДРОБНЫМ ВЫВОДОМ ОШИБОК
+// 1. СИНХРОНИЗАЦИЯ (ВХОД)
 app.post('/api/user/sync', verifyTelegramWebAppData, async (req, res) => {
     const { id, first_name, username, photo_url } = req.user;
     
     const client = await pool.connect();
     try {
-        // Upsert пользователя (обновляем данные, если изменились)
+        // Upsert пользователя
         await client.query(
             `INSERT INTO users (id, first_name, username, photo_url) VALUES ($1, $2, $3, $4)
              ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, username = EXCLUDED.username, photo_url = EXCLUDED.photo_url`,
             [id, first_name, username, photo_url]
         );
 
-        // Получаем актуальные данные пользователя
+        // Получаем данные
         const userRes = await client.query('SELECT * FROM users WHERE id = $1', [id]);
         const user = userRes.rows[0];
 
-        // Получаем инвентарь из НОВОЙ таблицы inventory_items
+        // Получаем инвентарь (JOIN с prizes)
+        // ВАЖНО: Если тут падает, значит нет таблицы inventory_items
         const invRes = await client.query(
             `SELECT i.id as "inventoryId", p.id, p.name, p.image, p.value, p.chance, i.created_at 
              FROM inventory_items i 
@@ -177,7 +177,6 @@ app.post('/api/user/sync', verifyTelegramWebAppData, async (req, res) => {
         });
     } catch (e) {
         console.error("Sync Error:", e);
-        // ВОЗВРАЩАЕМ ПОЛНЫЙ ТЕКСТ ОШИБКИ ДЛЯ ОТЛАДКИ
         res.status(500).json({ error: 'Database sync error: ' + e.message });
     } finally {
         client.release();
@@ -190,41 +189,40 @@ app.post('/api/case/spin', verifyTelegramWebAppData, async (req, res) => {
     const { caseId, quantity } = req.body;
     const qty = parseInt(quantity);
 
-    // Валидация входных данных
+    // Валидация
     if (!qty || qty < 1 || qty > 10) return res.status(400).json({ error: 'Invalid quantity (1-10)' });
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN'); // --- НАЧАЛО ТРАНЗАКЦИИ ---
 
-        // 1. Блокируем строку пользователя для списания (защита от race condition)
+        // 1. Блокируем строку пользователя (защита от race condition)
         const userRes = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [userId]);
         if (userRes.rows.length === 0) throw new Error('User not found');
         const userBalance = parseInt(userRes.rows[0].balance);
 
-        // 2. Получаем данные кейса
+        // 2. Получаем кейс
         const caseRes = await client.query('SELECT * FROM cases WHERE id = $1', [caseId]);
         if (caseRes.rows.length === 0) throw new Error('Case not found');
         const caseItem = caseRes.rows[0];
 
-        // 3. Проверяем лимиты кейса
+        // 3. Проверка лимитов
         if (caseItem.max_activations > 0 && (caseItem.current_activations + qty) > caseItem.max_activations) {
             throw new Error('Case limit reached');
         }
 
-        // 4. Считаем цену
+        // 4. Расчет стоимости
         const totalCost = caseItem.is_promo ? 0 : (parseInt(caseItem.price) * qty);
         if (userBalance < totalCost) {
             await client.query('ROLLBACK');
             return res.status(400).json({ error: 'Недостаточно средств' });
         }
 
-        // 5. Генерируем дроп (Серверная рулетка)
+        // 5. Генерация лута (Server-side)
         const allPrizesRes = await client.query('SELECT * FROM prizes');
         const allPrizes = allPrizesRes.rows;
         
         let poolItems = [];
-        // Парсинг prize_ids (может быть JSON массивом ID или объектов)
         if (Array.isArray(caseItem.prize_ids)) {
             poolItems = caseItem.prize_ids.map(cp => {
                 const pId = typeof cp === 'string' ? cp : cp.id;
@@ -252,7 +250,7 @@ app.post('/api/case/spin', verifyTelegramWebAppData, async (req, res) => {
             wonItems.push(winner);
         }
 
-        // 6. Записываем изменения в БД
+        // 6. Запись в БД
         
         // Списание баланса
         await client.query(
@@ -260,7 +258,7 @@ app.post('/api/case/spin', verifyTelegramWebAppData, async (req, res) => {
             [totalCost, userId]
         );
         
-        // Обновление счетчика кейса
+        // Обновление кейса
         await client.query('UPDATE cases SET current_activations = current_activations + $1 WHERE id = $2', [qty, caseId]);
 
         // Добавление предметов в инвентарь и логов
@@ -278,7 +276,6 @@ app.post('/api/case/spin', verifyTelegramWebAppData, async (req, res) => {
         await client.query('COMMIT'); // --- ПРИМЕНЯЕМ ИЗМЕНЕНИЯ ---
 
         // Получаем обновленный список выигранных предметов с их новыми UUID
-        // (Берем последние добавленные пользователем, равные количеству qty)
         const newInvRes = await client.query(
             `SELECT i.id as "inventoryId", p.* FROM inventory_items i 
              JOIN prizes p ON i.item_id = p.id 
@@ -294,7 +291,7 @@ app.post('/api/case/spin', verifyTelegramWebAppData, async (req, res) => {
 
     } catch (e) {
         await client.query('ROLLBACK');
-        console.error(e);
+        console.error("Spin error:", e);
         res.status(500).json({ error: e.message || 'Server Error' });
     } finally {
         client.release();
@@ -304,13 +301,13 @@ app.post('/api/case/spin', verifyTelegramWebAppData, async (req, res) => {
 // 3. ПРОДАЖА ПРЕДМЕТА
 app.post('/api/user/sell-item', verifyTelegramWebAppData, async (req, res) => {
     const userId = req.user.id;
-    const { inventoryId } = req.body; // UUID предмета
+    const { inventoryId } = req.body; // UUID
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        // Ищем предмет и блокируем строку
+        // Ищем предмет и блокируем
         const itemRes = await client.query(
             `SELECT i.id, p.value FROM inventory_items i 
              JOIN prizes p ON i.item_id = p.id 
@@ -352,7 +349,6 @@ app.post('/api/user/sell-all', verifyTelegramWebAppData, async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // Считаем общую стоимость всех предметов пользователя
         const sumRes = await client.query(
             `SELECT SUM(p.value) as total FROM inventory_items i 
              JOIN prizes p ON i.item_id = p.id 
@@ -362,10 +358,8 @@ app.post('/api/user/sell-all', verifyTelegramWebAppData, async (req, res) => {
         const totalValue = parseInt(sumRes.rows[0].total) || 0;
 
         if (totalValue > 0) {
-            // Удаляем все предметы
             await client.query('DELETE FROM inventory_items WHERE user_id = $1', [userId]);
             
-            // Начисляем баланс
             const userUpd = await client.query(
                 'UPDATE users SET balance = balance + $1 WHERE id = $2 RETURNING balance',
                 [totalValue, userId]
@@ -375,7 +369,7 @@ app.post('/api/user/sell-all', verifyTelegramWebAppData, async (req, res) => {
             res.json({ success: true, addedBalance: totalValue, newBalance: userUpd.rows[0].balance });
         } else {
             await client.query('ROLLBACK');
-            res.json({ success: true, addedBalance: 0 }); // Нечего продавать
+            res.json({ success: true, addedBalance: 0 });
         }
     } catch (e) {
         await client.query('ROLLBACK');
@@ -394,7 +388,6 @@ app.post('/api/user/upgrade', verifyTelegramWebAppData, async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // 1. Получаем исходный предмет (блокируем)
         const sourceRes = await client.query(
             `SELECT i.id, p.value FROM inventory_items i 
              JOIN prizes p ON i.item_id = p.id 
@@ -405,28 +398,23 @@ app.post('/api/user/upgrade', verifyTelegramWebAppData, async (req, res) => {
         if (sourceRes.rows.length === 0) throw new Error('Source item not found');
         const sourceItem = sourceRes.rows[0];
 
-        // 2. Получаем целевой предмет из справочника
         const targetRes = await client.query('SELECT * FROM prizes WHERE id = $1', [targetItemId]);
         if (targetRes.rows.length === 0) throw new Error('Target item invalid');
         const targetItem = targetRes.rows[0];
 
-        // 3. Удаляем исходный предмет (он сгорает при любой попытке)
         await client.query('DELETE FROM inventory_items WHERE id = $1', [inventoryId]);
 
-        // 4. Рассчитываем шанс на сервере
         const chance = Math.min(Math.max((sourceItem.value / targetItem.value) * 50, 1), 95);
         const random = Math.random() * 100;
         const isSuccess = random < chance;
         
         let newItem = null;
         if (isSuccess) {
-            // Если успех - добавляем новый предмет
             const ins = await client.query(
                 'INSERT INTO inventory_items (user_id, item_id) VALUES ($1, $2) RETURNING id, created_at',
                 [userId, targetItem.id]
             );
             
-            // Логируем успех
             await client.query(
                 'INSERT INTO history_logs (user_id, item_id, action_type) VALUES ($1, $2, $3)',
                 [userId, targetItem.id, 'upgrade_success']
@@ -434,10 +422,9 @@ app.post('/api/user/upgrade', verifyTelegramWebAppData, async (req, res) => {
             
             newItem = { 
                 ...targetItem, 
-                inventoryId: ins.rows[0].id // UUID из базы
+                inventoryId: ins.rows[0].id 
             };
         } else {
-            // Логируем неудачу
             await client.query(
                 'INSERT INTO history_logs (user_id, item_id, action_type) VALUES ($1, $2, $3)',
                 [userId, targetItem.id, 'upgrade_fail']
@@ -464,7 +451,6 @@ app.post('/api/withdraw/request', verifyTelegramWebAppData, async (req, res) => 
     try {
         await client.query('BEGIN');
 
-        // Проверяем наличие предмета
         const itemRes = await client.query(
             `SELECT i.id, i.item_id, p.name, p.value, p.image 
              FROM inventory_items i 
@@ -476,10 +462,8 @@ app.post('/api/withdraw/request', verifyTelegramWebAppData, async (req, res) => 
         if (itemRes.rows.length === 0) throw new Error('Item not found in inventory');
         const item = itemRes.rows[0];
 
-        // Удаляем из инвентаря
         await client.query('DELETE FROM inventory_items WHERE id = $1', [itemInventoryId]);
 
-        // Создаем заявку в таблице withdrawals
         const withRes = await client.query(
             `INSERT INTO withdrawals (user_id, username, item_id, item_uuid, target_username) 
              VALUES ($1, $2, $3, $4, $5) RETURNING id`,
@@ -488,7 +472,6 @@ app.post('/api/withdraw/request', verifyTelegramWebAppData, async (req, res) => 
 
         await client.query('COMMIT');
 
-        // Уведомление в Telegram
         const caption = `📦 <b>Заявка #${withRes.rows[0].id}</b>\n🎁 ${item.name}\n💰 ${item.value}\n👤 @${req.user.username}\n👉 @${targetUsername}`;
         try {
             if (item.image && item.image.startsWith('http')) {
@@ -639,13 +622,11 @@ app.get('/api/config', async (req, res) => {
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
         const cases = await pool.query('SELECT * FROM cases ORDER BY price ASC');
         
-        // Фильтр активных кейсов (по лимитам)
         const activeCases = cases.rows.filter(c => {
             if (c.max_activations > 0 && c.current_activations >= c.max_activations) return false; 
             return true;
         });
 
-        // Маппинг данных
         const mappedCases = activeCases.map(c => {
             let items = c.prize_ids;
             if (Array.isArray(items) && items.length > 0 && typeof items[0] === 'string') {
