@@ -58,6 +58,112 @@ const pool = new Pool({
 pool.on('error', (err) => console.error('🚨 Ошибка подключения к БД:', err));
 
 // ==================================================
+// === ИНИЦИАЛИЗАЦИЯ ТАБЛИЦ (ИСПРАВЛЕНИЕ) ===
+// ==================================================
+
+async function initDatabase() {
+    const client = await pool.connect();
+    try {
+        console.log("🔄 Проверка и создание таблиц БД...");
+
+        // 1. Таблица пользователей
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id BIGINT PRIMARY KEY,
+                first_name TEXT,
+                username TEXT,
+                photo_url TEXT,
+                balance INT DEFAULT 0,
+                total_spent INT DEFAULT 0,
+                total_top_up INT DEFAULT 0
+            );
+        `);
+
+        // 2. Таблица призов
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS prizes (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                image TEXT,
+                value INT DEFAULT 0,
+                chance FLOAT DEFAULT 0
+            );
+        `);
+
+        // 3. Таблица кейсов
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS cases (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                image TEXT,
+                price INT DEFAULT 0,
+                prize_ids JSONB,
+                tag TEXT DEFAULT 'common',
+                is_promo BOOLEAN DEFAULT false,
+                promo_code TEXT,
+                max_activations INT DEFAULT 0,
+                current_activations INT DEFAULT 0
+            );
+        `);
+
+        // 4. Инвентарь (ЗДЕСЬ БЫЛА ОШИБКА)
+        // Используем gen_random_uuid() для генерации ID
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS inventory_items (
+                id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                user_id BIGINT REFERENCES users(id),
+                item_id TEXT REFERENCES prizes(id),
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
+        // 5. Логи истории
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS history_logs (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT,
+                item_id TEXT,
+                action_type TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
+        // 6. Выводы средств
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS withdrawals (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT,
+                username TEXT,
+                item_id TEXT,
+                item_uuid UUID,
+                target_username TEXT,
+                status TEXT DEFAULT 'processing',
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
+        // 7. Транзакции (пополнение)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS transactions (
+                id SERIAL PRIMARY KEY,
+                tx_hash TEXT,
+                user_id BIGINT,
+                amount FLOAT,
+                currency TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        
+        console.log("✅ Таблицы базы данных успешно инициализированы.");
+
+    } catch (e) {
+        console.error("🚨 Ошибка инициализации БД:", e);
+    } finally {
+        client.release();
+    }
+}
+
+// ==================================================
 // === MIDDLEWARE БЕЗОПАСНОСТИ ===
 // ==================================================
 
@@ -65,9 +171,8 @@ pool.on('error', (err) => console.error('🚨 Ошибка подключени�
 const verifyTelegramWebAppData = (req, res, next) => {
     const initData = req.headers['x-telegram-init-data'];
 
-    // DEV-режим: разрешаем тестового юзера ТОЛЬКО если явно задан NODE_ENV=development
+    // DEV-режим
     if (!initData && process.env.NODE_ENV === 'development') {
-        // console.warn("⚠️ DEV MODE: Using mock user"); 
         req.user = { id: 123456789, username: 'dev_user', first_name: 'Dev' };
         return next();
     }
@@ -112,23 +217,6 @@ const verifyAdmin = (req, res, next) => {
 };
 
 // ==================================================
-// === ИНИЦИАЛИЗАЦИЯ И МИГРАЦИИ ===
-// ==================================================
-
-async function ensureCaseColumns(client) {
-    const queries = [
-        "ALTER TABLE cases ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT false",
-        "ALTER TABLE cases ADD COLUMN IF NOT EXISTS promo_code TEXT",
-        "ALTER TABLE cases ADD COLUMN IF NOT EXISTS tag TEXT DEFAULT 'common'",
-        "ALTER TABLE cases ADD COLUMN IF NOT EXISTS max_activations INT DEFAULT 0",
-        "ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_activations INT DEFAULT 0"
-    ];
-    for (const q of queries) {
-        try { await client.query(q); } catch (e) { /* игнорируем ошибки дублирования */ }
-    }
-}
-
-// ==================================================
 // === ПОЛЬЗОВАТЕЛЬСКИЕ API (БЕЗОПАСНЫЕ) ===
 // ==================================================
 
@@ -150,7 +238,6 @@ app.post('/api/user/sync', verifyTelegramWebAppData, async (req, res) => {
         const user = userRes.rows[0];
 
         // Получаем инвентарь (JOIN с prizes)
-        // ВАЖНО: Если тут падает, значит нет таблицы inventory_items
         const invRes = await client.query(
             `SELECT i.id as "inventoryId", p.id, p.name, p.image, p.value, p.chance, i.created_at 
              FROM inventory_items i 
@@ -519,7 +606,6 @@ app.get('/api/user/withdrawals/:userId', async (req, res) => {
 
 app.post('/api/admin/case/create', verifyAdmin, upload.single('imageFile'), async (req, res) => {
     try {
-        await ensureCaseColumns(pool);
         const { name, price, prizeIds, tag, isPromo, promoCode, maxActivations } = req.body;
         
         let parsedPrizeIds = [];
@@ -542,7 +628,6 @@ app.post('/api/admin/case/create', verifyAdmin, upload.single('imageFile'), asyn
 
 app.post('/api/admin/case/update', verifyAdmin, upload.single('imageFile'), async (req, res) => {
     try {
-        await ensureCaseColumns(pool);
         const { id, name, price, prizeIds, tag, isPromo, promoCode, maxActivations, existingImage } = req.body;
         
         let imagePath = existingImage || '/images/case.png';
@@ -618,7 +703,6 @@ app.get('/api/leaders', async (req, res) => {
 
 app.get('/api/config', async (req, res) => {
     try {
-        await ensureCaseColumns(pool);
         const prizes = await pool.query('SELECT * FROM prizes ORDER BY value ASC');
         const cases = await pool.query('SELECT * FROM cases ORDER BY price ASC');
         
@@ -713,10 +797,13 @@ bot.on('message', async (msg) => {
 // === ЗАПУСК ===
 // ==================================================
 
-app.use(express.static(path.join(__dirname, '..', 'build')));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
+// Запуск инициализации БД перед стартом сервера
+initDatabase().then(() => {
+    app.use(express.static(path.join(__dirname, '..', 'build')));
+    app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'build', 'index.html')));
 
-app.listen(PORT, async () => {
-    console.log(`✅ Secure Server started on port ${PORT}`);
-    try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`✅ Webhook OK`); } catch (e) { console.error(e.message); }
+    app.listen(PORT, async () => {
+        console.log(`✅ Secure Server started on port ${PORT}`);
+        try { await bot.setWebHook(`${APP_URL}/bot${BOT_TOKEN}`); console.log(`✅ Webhook OK`); } catch (e) { console.error(e.message); }
+    });
 });
