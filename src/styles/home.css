@@ -27,13 +27,13 @@
 
     font-size: 14px;
     font-weight: 800;
-    color: #e0e0e0;
+    color: var(--text-primary); /* Переменная */
     text-transform: uppercase;
     letter-spacing: 2px;
     
     height: 100%;
     padding-left: 4px;
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid var(--border-color); /* Переменная */
     padding-right: 12px;
     user-select: none;
 }
@@ -107,7 +107,7 @@
     min-width: 70px;
     width: 70px;
     height: 70px;
-    background: linear-gradient(145deg, #2c3641, #232b34);
+    background: var(--gradient-card); /* Переменная */
     border-radius: 14px;
     display: flex;
     justify-content: center;
@@ -115,11 +115,12 @@
     flex-shrink: 0;
     overflow: hidden;
     
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--card-shadow); /* Переменная */
     transition: transform 0.2s ease;
 
     /* Отступ справа задаем здесь */
     margin-right: 12px;
+    border: 1px solid var(--border-color); /* Переменная */
 }
 
 .live-card.new-item {
@@ -151,14 +152,8 @@
 }
 
 /* Фоновое свечение внутри */
-.live-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: radial-gradient(circle at center, var(--rarity-color), transparent 70%);
-    opacity: 0.15;
-    z-index: 0;
-}
+/* (Убрал, так как в светлой теме оно может выглядеть грязно, либо можно адаптировать) */
+/* .live-card::before { ... } */
 
 
 /* =========================================
@@ -203,8 +198,8 @@
 
 /* --- СТИЛЬ КАРТОЧКИ КЕЙСА --- */
 .case-card {
-    /* Градиентный темный фон */
-    background: linear-gradient(145deg, #252e38, #1e252b);
+    /* Градиентный фон из переменных */
+    background: var(--gradient-card); /* Переменная */
     border-radius: 18px;
     padding: 12px;
     position: relative;
@@ -216,9 +211,9 @@
     overflow: hidden;
     
     /* Тонкая рамка + внутреннее свечение цветом редкости */
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color); /* Переменная */
     box-shadow: 
-        0 4px 15px rgba(0,0,0,0.3),
+        var(--card-shadow), /* Переменная */
         inset 0 0 0 1px rgba(255, 255, 255, 0.05),
         inset 0 0 15px -5px var(--glow-color, #78909c);
     
@@ -233,7 +228,7 @@
         inset 0 0 20px 0px var(--glow-color, #78909c);
 }
 
-/* Эффект блика (Shine) */
+/* Эффект блика (Shine) - можно оставить только для темной темы или адаптировать */
 .case-card::after {
     content: '';
     position: absolute;
@@ -314,7 +309,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: #e0e0e0;
+    color: var(--text-primary); /* Переменная */
 }
 
 .case-price {
