@@ -1,9 +1,11 @@
-/* layout.css */
+/* src/styles/layout.css */
+
 /* Header */
 .profile-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 20px;
 }
 
 .profile-info {
@@ -16,7 +18,8 @@
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    border: 2px solid #3a4552;
+    border: 2px solid var(--border-color); /* Переменная */
+    object-fit: cover;
 }
 
 .user-details {
@@ -27,11 +30,12 @@
 .username {
     font-size: 16px;
     font-weight: 500;
+    color: var(--text-primary); /* Переменная */
 }
 
 .stars-info {
     font-size: 12px;
-    color: #8a99a8;
+    color: var(--text-secondary); /* Переменная */
 }
 
 .profile-actions {
@@ -44,17 +48,19 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    background-color: #2c3641;
+    background-color: var(--bg-secondary); /* Переменная */
     padding: 6px 10px;
     border-radius: 16px;
     font-weight: 500;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color); /* Рамка для светлой темы */
 }
 
 .add-button {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background-color: #0088cc;
+    background-color: var(--accent-blue);
     color: white;
     border: none;
     font-size: 24px;
@@ -73,13 +79,15 @@
     right: 0;
     max-width: 500px;
     margin: 0 auto;
-    background-color: #212a31;
+    background-color: var(--nav-bg); /* Переменная */
     display: flex;
     justify-content: space-around;
     padding: 8px 0;
     z-index: 100;
     height: 65px;
     box-sizing: border-box;
+    border-top: 1px solid var(--border-color); /* Разделитель */
+    transition: background-color 0.3s ease;
 }
 
 .nav-item {
@@ -88,7 +96,7 @@
     align-items: center;
     justify-content: center;
     gap: 0px;
-    color: #8a99a8;
+    color: var(--text-secondary); /* Переменная */
     cursor: pointer;
     transition: color 0.2s ease;
     text-decoration: none;
@@ -100,10 +108,12 @@
     height: 52px;
     opacity: 0.6;
     transition: opacity 0.2s ease;
+    /* Если иконки белые PNG, в светлой теме их может быть плохо видно. 
+       Можно добавить filter: invert(1) для data-theme="light", но это опционально */
 }
 
 .nav-item.active {
-    color: #00aaff;
+    color: var(--accent-blue);
 }
 
 .nav-item.active .nav-icon {
