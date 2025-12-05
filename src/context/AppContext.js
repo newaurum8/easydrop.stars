@@ -16,6 +16,24 @@ export const AppProvider = ({ children }) => {
     const [withdrawals, setWithdrawals] = useState([]); 
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
+    // === НОВАЯ ЛОГИКА ТЕМЫ ===
+    // Читаем из localStorage или ставим 'dark' по умолчанию
+    const [theme, setTheme] = useState(localStorage.getItem('app_theme') || 'dark');
+
+    const toggleTheme = useCallback(() => {
+        setTheme(prev => {
+            const newTheme = prev === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('app_theme', newTheme);
+            return newTheme;
+        });
+    }, []);
+
+    // Применяем атрибут data-theme к html при изменении стейта
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+    }, [theme]);
+    // ========================
+
     // --- АВТОРИЗАЦИЯ ---
     // Формируем заголовки для каждого запроса
     const getAuthHeaders = () => {
@@ -59,8 +77,6 @@ export const AppProvider = ({ children }) => {
             // Проверяем, доступны ли данные Телеграм
             if (!window.Telegram?.WebApp?.initData) {
                 console.warn("⚠️ Нет данных Telegram. Если вы в браузере — авторизация не пройдет (если сервер в prod).");
-                // Можно раскомментировать, если хотите видеть alert в браузере:
-                // alert("Откройте приложение в Telegram для авторизации.");
                 return;
             }
 
@@ -119,7 +135,6 @@ export const AppProvider = ({ children }) => {
                 setBalance(data.newBalance);
                 
                 // Добавляем новые предметы в начало инвентаря
-                // Сервер возвращает их с правильными UUID (inventoryId)
                 setInventory(prev => [...data.wonItems, ...prev]);
                 
                 // Добавляем в локальную историю
@@ -246,11 +261,9 @@ export const AppProvider = ({ children }) => {
     // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
     
     // Используется ТОЛЬКО для визуализации прокрутки (фейковый выбор для анимации)
-    // Реальный выигрыш определяется сервером в spinCase
     const getWeightedRandomPrize = useCallback((prizes) => {
         const prizePool = prizes || ALL_PRIZES;
         if (!prizePool.length) return null;
-        // Простая заглушка, так как честный рандом теперь на бэкенде
         const randomIndex = Math.floor(Math.random() * prizePool.length);
         return prizePool[randomIndex];
     }, [ALL_PRIZES]);
@@ -266,8 +279,7 @@ export const AppProvider = ({ children }) => {
     const openTopUpModal = () => setIsTopUpModalOpen(true);
     const closeTopUpModal = () => setIsTopUpModalOpen(false);
 
-    // Устаревшие методы (для совместимости, если где-то еще вызываются напрямую)
-    // Но лучше использовать spinCase/sellItem
+    // Устаревшие методы (для совместимости)
     const updateBalance = (amount) => setBalance(prev => prev + amount);
     const addToInventory = (items) => setInventory(prev => [...prev, ...items]);
     const removeFromInventory = (id) => setInventory(prev => prev.filter(i => i.inventoryId !== id));
@@ -293,7 +305,10 @@ export const AppProvider = ({ children }) => {
         updateBalance, addToInventory, removeFromInventory, addToHistory,
         
         // Modals
-        isTopUpModalOpen, openTopUpModal, closeTopUpModal
+        isTopUpModalOpen, openTopUpModal, closeTopUpModal,
+
+        // Theme
+        theme, toggleTheme
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
