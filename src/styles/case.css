@@ -1,10 +1,11 @@
-/* case.css */
+/* src/styles/case.css */
+
 .case-page-body .app-container {
     padding-top: 16px;
 }
 
 .back-button {
-    color: #00aaff;
+    color: var(--accent-blue); /* Переменная */
     text-decoration: none;
     font-weight: 500;
     margin-bottom: 20px;
@@ -26,13 +27,14 @@
 .item-carousel.is-rolling.fast {
     transition-duration: 0.8s;
 }
+
 .carousel-item {
-    background-color: #2c3641;
+    background-color: var(--bg-secondary); /* Переменная */
     border-radius: 12px;
     display: flex; justify-content: center; align-items: center;
     flex-shrink: 0;
     position: relative;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+    border: 1px solid var(--border-color); /* Переменная */
 }
 .carousel-item img {
     max-width: 70%; max-height: 70%;
@@ -41,14 +43,17 @@
 .carousel-item.winning-item {
     z-index: 10;
     box-shadow: 0 0 0 2px #ffc107, 0 0 30px rgba(255, 193, 7, 0.4);
-    background: radial-gradient(circle, #3a506b 0%, #2c3641 100%);
+    background: radial-gradient(circle, var(--bg-secondary) 0%, var(--bg-darker) 100%);
     transform: scale(1.05);
 }
 
 #multi-roll-container {
     display: flex; flex-direction: column; justify-content: center; gap: 12px;
     min-height: 150px; margin-bottom: 24px; position: relative;
-    padding: 20px 0; background: rgba(0,0,0,0.2); border-radius: 16px;
+    padding: 20px 0; 
+    background: rgba(0,0,0,0.05); /* Полупрозрачный фон универсален */
+    border-radius: 16px;
+    border: 1px solid var(--border-color); /* Переменная */
 }
 
 .item-carousel-wrapper {
@@ -93,50 +98,75 @@
 
 .roll-button {
     position: relative; width: 100%;
-    background-color: #0088cc; color: white; border: none;
+    background-color: var(--accent-blue); /* Переменная */
+    color: white; border: none;
     border-radius: 12px; padding: 16px;
     font-size: 16px; font-weight: 700; cursor: pointer;
     overflow: hidden; display: flex; justify-content: center; align-items: center; gap: 8px;
 }
 .roll-button-progress {
-    position: absolute; left: 0; top: 0; bottom: 0; background-color: #00aaff; width: 0%; z-index: 1; pointer-events: none;
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background-color: rgba(255,255,255,0.2);
+    width: 0%; z-index: 1; pointer-events: none;
 }
 .roll-button-text, .roll-button-star { position: relative; z-index: 2; }
 .roll-button.disabled { background-color: #555; cursor: not-allowed; }
 
 .roll-options { display: flex; justify-content: space-between; align-items: center; }
 
-.quantity-selector { display: flex; background-color: #2c3641; border-radius: 8px; overflow: hidden; }
+.quantity-selector {
+    display: flex;
+    background-color: var(--bg-secondary); /* Переменная */
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--border-color); /* Переменная */
+}
 .quantity-btn {
-    background: none; border: none; color: #8a99a8; padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer; border-right: 1px solid #3a4552;
+    background: none; border: none;
+    color: var(--text-secondary); /* Переменная */
+    padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer;
+    border-right: 1px solid var(--border-color); /* Переменная */
 }
 .quantity-selector .quantity-btn:last-child { border-right: none; }
-.quantity-btn.active { background-color: #00aaff; color: white; }
+.quantity-btn.active { background-color: var(--accent-blue); color: white; }
 
-.fast-roll-toggle { display: flex; align-items: center; gap: 8px; }
+.fast-roll-toggle {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text-secondary); /* Переменная */
+}
 
 /* === ПРОМОКОД === */
 .promo-container { display: flex; flex-direction: column; gap: 10px; }
 .promo-input {
-    width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #3a4552;
-    background-color: #2c3641; color: white; font-size: 16px; box-sizing: border-box;
+    width: 100%; padding: 12px; border-radius: 8px;
+    border: 1px solid var(--border-color); /* Переменная */
+    background-color: var(--bg-input); /* Переменная */
+    color: var(--text-primary); /* Переменная */
+    font-size: 16px; box-sizing: border-box;
     outline: none; transition: border-color 0.2s;
 }
-.promo-input:focus { border-color: #00aaff; }
+.promo-input:focus { border-color: var(--accent-blue); }
 
 /* === СПИСОК ПРИЗОВ === */
 .prize-list { margin-top: 24px; }
-.prize-list-header { font-size: 16px; margin-top: 20px; margin-bottom: 12px; color: #8a99a8; }
+.prize-list-header {
+    font-size: 16px; margin-top: 20px; margin-bottom: 12px;
+    color: var(--text-secondary); /* Переменная */
+}
 .prize-item {
-    display: flex; align-items: center; background-color: #2c3641; border-radius: 12px; padding: 10px; margin-bottom: 8px;
+    display: flex; align-items: center;
+    background-color: var(--bg-secondary); /* Переменная */
+    border-radius: 12px; padding: 10px; margin-bottom: 8px;
+    border: 1px solid var(--border-color); /* Переменная */
 }
 .prize-item-image-wrapper {
-    width: 48px; height: 48px; background-color: #3a4552; border-radius: 8px; display: flex;
+    width: 48px; height: 48px;
+    background-color: var(--bg-input); /* Переменная */
+    border-radius: 8px; display: flex;
     justify-content: center; align-items: center; flex-shrink: 0; margin-right: 12px;
 }
 .prize-item-image-wrapper img { max-width: 80%; max-height: 80%; }
 .prize-item-info { display: flex; flex-direction: column; gap: 4px; }
-.prize-name { font-weight: 500; }
+.prize-name { font-weight: 500; color: var(--text-primary); /* Переменная */ }
 .prize-value { display: flex; align-items: center; gap: 4px; color: #ffc107; font-weight: 500; }
 
 
@@ -144,7 +174,8 @@
 
 .win-modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(13, 17, 23, 0.98); /* Почти черный, плотный фон */
+    /* Оставляем темным даже в светлой теме для фокуса на выигрыше */
+    background-color: rgba(0, 0, 0, 0.9);
     backdrop-filter: blur(12px);
     display: flex; flex-direction: column; 
     z-index: 5000;
@@ -162,16 +193,17 @@
     padding-bottom: 100px;
 }
 
-/* Сводка выигрыша (только цифры) */
+/* Сводка выигрыша */
 .win-summary-clean {
     text-align: center; margin-bottom: 30px;
     animation: slideDown 0.4s ease-out;
 }
 .win-summary-label {
-    font-size: 11px; color: #5f6e7c; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; font-weight: 700;
+    font-size: 11px; color: #8a99a8; /* В модалке лучше оставить фиксированный серый */
+    text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; font-weight: 700;
 }
 .win-summary-value {
-    font-size: 40px; font-weight: 900; color: #fff;
+    font-size: 40px; font-weight: 900; color: #fff; /* Белый всегда на темном оверлее */
     display: flex; align-items: center; justify-content: center; gap: 8px;
     text-shadow: 0 0 40px rgba(255, 255, 255, 0.15);
 }
@@ -188,25 +220,24 @@
     .win-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
-/* КАРТОЧКА ПРЕДМЕТА */
+/* КАРТОЧКА ПРЕДМЕТА В МОДАЛКЕ */
 .win-card {
     position: relative;
-    background: #1c2128;
+    /* Используем переменные, но можно зафиксировать темные, если дизайн модалки всегда темный */
+    background: var(--bg-darker); /* Переменная */
     border-radius: 16px;
     padding: 14px;
     display: flex; flex-direction: column; align-items: center;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-    border: 2px solid transparent;
+    border: 1px solid var(--border-color); /* Переменная */
     animation: popInCard 0.4s backwards;
     user-select: none;
 }
 
-/* --- СОСТОЯНИЕ: ПРОДАТЬ (СЕРОЕ) --- */
-/* Это состояние теперь дефолтное, визуально "приглушенное" */
+/* --- СОСТОЯНИЕ: ПРОДАТЬ --- */
 .win-card.status-sell {
-    background: #161b22;
-    border-color: #21262d;
+    background: var(--bg-input); /* Переменная */
     opacity: 0.6;
     transform: scale(0.96);
 }
@@ -216,16 +247,12 @@
 }
 .win-card.status-sell .win-card-name, 
 .win-card.status-sell .win-card-price {
-    color: #8b949e; /* Серый текст */
-}
-.win-card.status-sell .win-card-price span {
-    color: #8b949e;
+    color: var(--text-secondary); /* Переменная */
 }
 
-/* --- СОСТОЯНИЕ: ОСТАВИТЬ (ЦВЕТНОЕ) --- */
-/* Активное состояние при выборе */
+/* --- СОСТОЯНИЕ: ОСТАВИТЬ --- */
 .win-card.status-keep {
-    background: #232b34;
+    background: var(--bg-secondary); /* Переменная */
     border-color: var(--rarity-color);
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     opacity: 1;
@@ -247,27 +274,27 @@
     transition: all 0.3s;
 }
 .win-card-name {
-    font-size: 12px; color: #e0e0e0; text-align: center; font-weight: 600;
+    font-size: 12px; color: var(--text-primary); /* Переменная */
+    text-align: center; font-weight: 600;
     line-height: 1.3; margin-bottom: 6px; width: 100%;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    transition: color 0.2s;
 }
 .win-card-price {
     background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 8px;
     display: flex; align-items: center; gap: 4px;
-    transition: color 0.2s;
 }
-.win-card-price span { font-size: 12px; font-weight: 700; color: #ffc107; transition: color 0.2s; }
+.win-card-price span { font-size: 12px; font-weight: 700; color: #ffc107; }
 
 
 /* НИЖНЯЯ ПАНЕЛЬ */
 .win-actions-bar {
     position: fixed; bottom: 0; left: 0; width: 100%;
     padding: 24px 20px 34px 20px; box-sizing: border-box;
-    background: linear-gradient(to top, #0d1117 90%, transparent 100%);
+    background: var(--bg-darker); /* Переменная */
     display: flex; justify-content: center;
     z-index: 5010;
     animation: slideUp 0.3s ease-out;
+    border-top: 1px solid var(--border-color); /* Переменная */
 }
 
 .action-btn-main {
@@ -282,25 +309,25 @@
 }
 .action-btn-main:active { transform: scale(0.97); }
 
-/* Кнопка: ПРОДАТЬ ВСЁ (Оранжевая/Красная) - Основная, яркая */
+/* Кнопка: ПРОДАТЬ ВСЁ */
 .btn-style-sell {
     background: linear-gradient(90deg, #ff6d00, #ff9100);
     color: white;
     box-shadow: 0 8px 25px rgba(255, 109, 0, 0.3);
 }
 
-/* Кнопка: ЗАБРАТЬ ВСЁ (Синяя) */
+/* Кнопка: ЗАБРАТЬ ВСЁ */
 .btn-style-keep {
     background: linear-gradient(90deg, #00aaff, #0088cc);
     color: white;
     box-shadow: 0 8px 25px rgba(0, 170, 255, 0.3);
 }
 
-/* Кнопка: СМЕШАННАЯ (Темная) */
+/* Кнопка: СМЕШАННАЯ */
 .btn-style-mix {
-    background: #2c3641;
-    color: white;
-    border: 1px solid #3a4552;
+    background: var(--bg-secondary); /* Переменная */
+    color: var(--text-primary); /* Переменная */
+    border: 1px solid var(--border-color); /* Переменная */
 }
 
 .btn-left { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
