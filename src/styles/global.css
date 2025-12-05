@@ -1,28 +1,54 @@
 /* src/styles/global.css */
 
-/* === ОПРЕДЕЛЕНИЕ ТЕМ (ПЕРЕМЕННЫЕ) === */
 :root {
-    /* Значения по умолчанию (Темная тема) */
+    /* === ТЕМНАЯ ТЕМА (DEFAULT) === */
     --bg-main: #212a31;
     --bg-secondary: #2c3641;
+    --bg-darker: #1c2128;
     --bg-input: #0d1117;
+    
     --text-primary: #e0e0e0;
     --text-secondary: #8a99a8;
+    
     --border-color: #3a4552;
     --accent-blue: #00aaff;
-    --shadow-color: rgba(0,0,0,0.3);
+    
+    --card-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    --card-gradient: linear-gradient(145deg, #2c3641, #232b34);
+    
+    --nav-bg: #212a31;
+    --glow-color: #78909c;
+    --rarity-color: #78909c;
+
+    /* Специфично для лидеров (Темная) */
+    --podium-gradient: linear-gradient(180deg, rgba(44, 54, 65, 0.9) 0%, rgba(44, 54, 65, 0.3) 100%);
+    --podium-1-gradient: linear-gradient(180deg, rgba(255, 193, 7, 0.15) 0%, rgba(44, 54, 65, 0.4) 100%);
+    --podium-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
-/* Светлая тема */
 [data-theme="light"] {
+    /* === СВЕТЛАЯ ТЕМА === */
     --bg-main: #f0f2f5;
     --bg-secondary: #ffffff;
-    --bg-input: #ffffff;
-    --text-primary: #1c1e21;
-    --text-secondary: #65676b;
-    --border-color: #ced0d4;
+    --bg-darker: #ffffff;
+    --bg-input: #f5f6f7;
+    
+    --text-primary: #1d1f24;
+    --text-secondary: #64748b;
+    
+    --border-color: #dce2e8; /* Чуть темнее для четкости */
     --accent-blue: #0088cc;
-    --shadow-color: rgba(0,0,0,0.1);
+    
+    /* Усиливаем тень для светлой темы, чтобы карточки "отрывались" от фона */
+    --card-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+    --card-gradient: linear-gradient(145deg, #ffffff, #f9fafb);
+    
+    --nav-bg: #ffffff;
+
+    /* Специфично для лидеров (Светлая) */
+    --podium-gradient: linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%);
+    --podium-1-gradient: linear-gradient(180deg, rgba(255, 193, 7, 0.1) 0%, #e2e8f0 100%);
+    --podium-shadow: 0 4px 10px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8);
 }
 
 body {
@@ -47,112 +73,29 @@ body {
     transition: background-color 0.3s ease;
 }
 
-img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-}
+img { max-width: 100%; height: auto; display: block; }
 
 /* Иконки */
-.star-icon {
-    width: 20px;
-    height: 20px;
-}
+.star-icon { width: 20px; height: 20px; }
+.star-icon.small { width: 16px; height: 16px; }
 
-.star-icon.small {
-    width: 16px;
-    height: 16px;
-}
-
-/* Обновление цветов для компонентов Header (переопределение) */
-.star-balance {
-    background-color: var(--bg-secondary) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border-color);
-}
-
-.username {
-    color: var(--text-primary);
-}
-
-.stars-info {
-    color: var(--text-secondary);
-}
-
-/* Общие кнопки и элементы */
+/* Кнопки */
 .upgrade-button {
-    width: 100%;
-    padding: 16px;
+    width: 100%; padding: 16px;
     background-color: var(--accent-blue);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 500;
-    cursor: pointer;
-    text-align: center;
+    color: white; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 500; cursor: pointer; text-align: center;
 }
+.upgrade-button:disabled { background-color: #555; cursor: not-allowed; opacity: 0.7; }
 
-.upgrade-button:disabled {
-    background-color: #555;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
+/* Свитчи */
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .4s; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; }
+input:checked + .slider { background-color: var(--accent-blue); }
+input:checked + .slider:before { transform: translateX(20px); }
+.slider.round { border-radius: 24px; }
+.slider.round:before { border-radius: 50%; }
 
-/* Свитчи и слайдеры (используются в кейсах и админке) */
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 44px;
-    height: 24px;
-}
-
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--border-color);
-    transition: .4s;
-}
-
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .4s;
-}
-
-input:checked + .slider {
-    background-color: var(--accent-blue);
-}
-
-input:checked + .slider:before {
-    transform: translateX(20px);
-}
-
-.slider.round {
-    border-radius: 24px;
-}
-
-.slider.round:before {
-    border-radius: 50%;
-}
-
-/* TonConnect UI fix */
-.tc-root, div[id^="tc-"], div[class^="tc-"], .go3974562317 {
-    z-index: 10000 !important;
-    position: relative;
-}
+.tc-root, div[id^="tc-"], div[class^="tc-"], .go3974562317 { z-index: 10000 !important; position: relative; }
