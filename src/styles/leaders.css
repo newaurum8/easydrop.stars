@@ -1,221 +1,221 @@
-/* src/styles/inventory.css */
+/* src/styles/leaders.css */
 
-/* --- АНИМАЦИИ --- */
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes fadeInOverlay { to { opacity: 1; } }
-@keyframes popInModal { from { transform: scale(0.9); } to { transform: scale(1); } }
-@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-
-.profile-page-wrapper {
-    padding: 12px 16px 100px 16px;
-    font-family: 'Inter', sans-serif;
+.leaders-content {
+    padding: 10px 16px 100px 16px;
+    max-width: 100%;
     min-height: 80vh;
-    display: flex; flex-direction: column;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-/* --- 1. СТАТИСТИКА (BENTO) --- */
-.profile-header-section { margin-bottom: 24px; }
-.bento-stats.full-width { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* ЗАГРУЗКА */
+.leaders-loading {
+    margin-top: 100px;
+    display: flex;
+    justify-content: center;
+}
+.spinner {
+    width: 40px; height: 40px;
+    border: 4px solid var(--border-color); /* Переменная */
+    border-left-color: var(--accent-blue); /* Переменная */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-leaders { color: var(--text-secondary); margin-top: 50px; }
 
-.bento-box {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 20px;
-    padding: 20px 16px;
-    display: flex; flex-direction: column;
-    justify-content: center; align-items: flex-start;
-    box-shadow: var(--card-shadow);
-}
+/* =========================================
+   ПОДИУМ (TOP 3)
+   ========================================= */
 
-.bento-label {
-    font-size: 11px; text-transform: uppercase; font-weight: 700;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px; margin-bottom: 8px;
-}
-
-.bento-value {
-    font-size: 24px; font-weight: 800;
-    color: var(--text-primary);
-    display: flex; align-items: center; gap: 6px;
-}
-.bento-value img { width: 22px; height: 22px; }
-
-/* --- 2. ТАБЫ --- */
-.segmented-control {
-    background: var(--bg-input);
-    border-radius: 14px; padding: 4px; display: flex; margin-bottom: 20px;
-    border: 1px solid var(--border-color);
-}
-.segment {
-    flex: 1; text-align: center; padding: 10px;
-    font-size: 14px; font-weight: 600;
-    color: var(--text-secondary);
-    cursor: pointer; border-radius: 12px; transition: all 0.2s;
-}
-.segment.active {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+.podium-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end; /* Выравнивание по низу, чтобы 1 место было выше */
+    gap: 16px;
+    margin-top: 20px;
+    margin-bottom: 30px;
+    width: 100%;
+    max-width: 400px;
 }
 
-/* --- 3. ПУСТОЕ СОСТОЯНИЕ --- */
-.empty-placeholder-center {
-    width: 100%; flex: 1; display: flex; justify-content: center; align-items: center; padding: 40px 0; min-height: 300px;
-}
-.empty-content { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
-.empty-content::before {
-    content: ''; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
-    width: 140px; height: 140px;
-    background: radial-gradient(circle, rgba(0, 170, 255, 0.1) 0%, transparent 70%);
-    border-radius: 50%; z-index: 0; pointer-events: none;
-}
-.floating-empty {
-    display: block; width: 120px; height: auto; margin: 0 auto 16px auto;
-    position: relative; z-index: 1; animation: float 4s ease-in-out infinite;
-    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.2));
-}
-.empty-title { font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0 0 8px 0; z-index: 1; }
-.empty-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.5; max-width: 220px; z-index: 1; }
-
-/* --- 4. СЕТКА ПРЕДМЕТОВ --- */
-.minimal-sell-all {
-    width: 100%; background: rgba(255, 64, 129, 0.1); color: #ff4081;
-    border: 1px solid rgba(255, 64, 129, 0.2);
-    border-radius: 14px; padding: 12px; font-weight: 600; font-size: 13px;
-    cursor: pointer; margin-bottom: 16px;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-}
-.minimal-sell-all img { width: 14px; height: 14px; }
-
-.clean-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-@media (min-width: 500px) { .clean-grid { grid-template-columns: repeat(4, 1fr); } }
-
-.clean-card {
+.podium-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     position: relative;
-    background: var(--bg-secondary);
-    border-radius: 16px;
-    aspect-ratio: 1 / 1.15;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    cursor: pointer; overflow: hidden;
-    border: 1px solid var(--border-color);
-    box-shadow: var(--card-shadow);
-    transition: transform 0.1s;
+    flex: 1; /* Чтобы занимали равную ширину */
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    opacity: 0;
+    transform: translateY(30px);
+    animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
-.clean-card:active { transform: scale(0.96); }
+.podium-item.rank-1 { animation-delay: 0.2s; z-index: 2; }
+.podium-item.rank-2 { animation-delay: 0.1s; z-index: 1; }
+.podium-item.rank-3 { animation-delay: 0.3s; z-index: 1; }
 
-.clean-card-img { width: 70%; height: 70%; object-fit: contain; z-index: 1; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2)); }
-.clean-card-price {
-    position: absolute; bottom: 8px; left: 0; right: 0; text-align: center;
-    font-size: 11px; font-weight: 700; color: var(--text-primary); z-index: 1; opacity: 0.9;
-}
-.rarity-dot { position: absolute; top: 8px; right: 8px; width: 6px; height: 6px; border-radius: 50%; z-index: 1; box-shadow: 0 0 5px currentColor; }
-.clean-card-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+@keyframes popIn { to { opacity: 1; transform: translateY(0); } }
 
-/* ИСТОРИЯ */
-.history-row {
-    background: var(--bg-secondary);
-    padding: 12px; border-radius: 16px;
-    display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
-    border: 1px solid var(--border-color);
-}
-.h-img { width: 40px; height: 40px; object-fit: contain; background: var(--bg-input); border-radius: 10px; padding: 4px; }
-.h-info { flex: 1; min-width: 0; }
-.h-name { font-size: 14px; color: var(--text-primary); font-weight: 500; }
-.h-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-.h-status { font-size: 14px; }
-
-/* --- 5. МОДАЛКА ВЫВОДА --- */
-.custom-modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
-    z-index: 3000; display: flex; justify-content: center; align-items: center;
-    opacity: 0; animation: fadeInOverlay 0.3s forwards;
+/* АВАТАР НА ПОДИУМЕ */
+.podium-avatar-container {
+    position: relative;
+    margin-bottom: 12px;
 }
 
-.modern-modal {
-    background: var(--bg-darker);
-    width: 90%; max-width: 340px;
-    border-radius: 24px; padding: 32px 24px; text-align: center;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    border: 1px solid var(--border-color);
-    transform: scale(0.9);
-    animation: popInModal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+.podium-avatar {
+    width: 60px; height: 60px; /* Фиксированный размер! */
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--border-color); /* Переменная */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    background-color: var(--bg-input);
 }
 
-.modal-item-preview {
-    width: 80px; height: 80px; margin: 0 auto 20px auto; position: relative;
+.podium-item.rank-1 .podium-avatar {
+    width: 80px; height: 80px; /* 1 место крупнее */
+    border-color: #ffc107;
+    box-shadow: 0 0 25px rgba(255, 193, 7, 0.4);
+}
+.podium-item.rank-2 .podium-avatar { border-color: #c0c0c0; }
+.podium-item.rank-3 .podium-avatar { border-color: #cd7f32; }
+
+/* КОРОНА */
+.crown-3d {
+    position: absolute;
+    top: -24px; left: 50%;
+    transform: translateX(-50%) rotate(-5deg);
+    font-size: 28px;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+    animation: floatCrown 3s ease-in-out infinite;
+}
+@keyframes floatCrown {
+    0%, 100% { transform: translateX(-50%) rotate(-5deg) translateY(0); }
+    50% { transform: translateX(-50%) rotate(-5deg) translateY(-5px); }
+}
+
+/* КРУЖОК С МЕСТОМ */
+.podium-rank-badge {
+    position: absolute;
+    bottom: -6px; left: 50%;
+    transform: translateX(-50%);
+    width: 20px; height: 20px;
+    background: var(--bg-secondary); /* Переменная */
+    color: var(--text-primary); /* Переменная */
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 800;
     display: flex; justify-content: center; align-items: center;
+    border: 2px solid var(--border-color); /* Переменная */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.modal-item-preview::before {
-    content: ''; position: absolute; inset: 0;
-    background: radial-gradient(circle, rgba(0,170,255,0.2), transparent 70%); border-radius: 50%;
+.podium-item.rank-1 .podium-rank-badge { background: #ffc107; color: #000; border-color: #fff; width: 24px; height: 24px; font-size: 13px; }
+.podium-item.rank-2 .podium-rank-badge { background: #c0c0c0; color: #000; border-color: #fff; }
+.podium-item.rank-3 .podium-rank-badge { background: #cd7f32; color: #000; border-color: #fff; }
+
+/* ИНФО (ИМЯ И ОЧКИ) */
+.podium-info {
+    text-align: center;
+    margin-bottom: 8px;
+    width: 100%;
 }
-.modal-item-img { width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 1; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.3)); }
-
-.modal-title { font-size: 20px; font-weight: 800; color: var(--text-primary); margin: 0 0 8px 0; }
-.modal-desc { font-size: 14px; color: var(--text-secondary); margin: 0 0 24px 0; line-height: 1.4; }
-
-.input-wrapper {
-    position: relative; background: var(--bg-input);
-    border-radius: 12px; padding: 14px 16px;
-    display: flex; align-items: center;
-    border: 1px solid var(--border-color);
-    transition: border-color 0.2s; margin-bottom: 24px;
+.podium-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary); /* Переменная */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+    margin: 0 auto 4px auto;
 }
-.input-wrapper:focus-within { border-color: #00aaff; box-shadow: 0 0 0 3px rgba(0, 170, 255, 0.15); }
-
-.input-icon { color: #00aaff; font-weight: 700; margin-right: 8px; font-size: 16px; }
-.modal-input {
-    background: transparent; border: none; outline: none;
-    color: var(--text-primary); font-size: 16px; font-weight: 500; width: 100%;
-    font-family: inherit;
+.podium-score {
+    display: flex; justify-content: center; align-items: center; gap: 4px;
+    font-size: 12px; color: #ffc107; font-weight: 700;
 }
-.modal-input::placeholder { color: var(--text-secondary); font-weight: 400; }
 
-.modal-actions { display: flex; gap: 10px; }
-.btn-cancel, .btn-confirm {
-    flex: 1; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; transition: transform 0.1s;
+/* ВИЗУАЛЬНЫЕ ПЬЕДЕСТАЛЫ (СТОЛБИКИ) */
+.podium-base {
+    width: 100%;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    
+    /* Используем градиенты из global.css для адаптации тем */
+    background: var(--podium-gradient, linear-gradient(180deg, rgba(44, 54, 65, 0.9) 0%, rgba(44, 54, 65, 0.3) 100%));
+    
+    backdrop-filter: blur(4px);
+    box-shadow: var(--podium-shadow, inset 0 1px 0 rgba(255,255,255,0.1));
+    border: 1px solid var(--border-color); /* Переменная */
+    border-bottom: none;
 }
-.btn-cancel:active, .btn-confirm:active { transform: scale(0.96); }
-
-.btn-cancel { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border-color); }
-.btn-confirm { background: #00aaff; color: white; box-shadow: 0 4px 15px rgba(0, 170, 255, 0.25); }
-
-/* --- 6. ШТОРКА (DRAWER) --- */
-.drawer-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
-    z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+.podium-item.rank-1 .podium-base {
+    height: 90px;
+    background: var(--podium-1-gradient, linear-gradient(180deg, rgba(255, 193, 7, 0.15) 0%, rgba(44, 54, 65, 0.4) 100%));
+    box-shadow: 0 0 20px rgba(255, 193, 7, 0.1), var(--podium-shadow, inset 0 1px 0 rgba(255,255,255,0.1));
+    border-color: rgba(255, 193, 7, 0.3);
 }
-.drawer-overlay.open { opacity: 1; pointer-events: auto; }
+.podium-item.rank-2 .podium-base { height: 60px; }
+.podium-item.rank-3 .podium-base { height: 40px; }
 
-.bottom-drawer {
-    position: fixed; bottom: 0; left: 0; right: 0;
-    background: var(--bg-darker);
-    border-top-left-radius: 24px; border-top-right-radius: 24px;
-    padding: 24px; padding-bottom: 40px; z-index: 2001; 
-    transform: translateY(110%);
-    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-    box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
-    max-width: 500px; margin: 0 auto; touch-action: none; 
-    border-top: 1px solid var(--border-color);
+
+/* =========================================
+   СПИСОК ОСТАЛЬНЫХ (4-10)
+   ========================================= */
+
+.leaderboard-list {
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
-.bottom-drawer.open { transform: translateY(0); }
-.bottom-drawer.is-dragging { transition: none; }
 
-.drawer-handle-area { width: 100%; height: 40px; display: flex; justify-content: center; align-items: flex-start; margin-top: -10px; cursor: grab; touch-action: none; }
-.drawer-handle { width: 40px; height: 4px; background: var(--border-color); border-radius: 2px; opacity: 0.5; }
+.list-item {
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-secondary); /* Переменная */
+    border-radius: 12px;
+    padding: 10px 16px;
+    border: 1px solid var(--border-color); /* Переменная */
+    border-left: 3px solid transparent;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fadeInList 0.4s ease-out forwards;
+    box-shadow: var(--card-shadow);
+}
 
-.drawer-content { display: flex; flex-direction: column; align-items: center; text-align: center; }
-.drawer-image-wrapper { position: relative; width: 140px; height: 140px; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
-.glow-bg { position: absolute; width: 100%; height: 100%; border-radius: 50%; filter: blur(40px); opacity: 0.3; }
-.drawer-img { width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 1; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4)); pointer-events: none; }
+@keyframes fadeInList { to { opacity: 1; transform: translateY(0); } }
 
-.drawer-title { margin: 0 0 8px 0; font-size: 20px; color: var(--text-primary); font-weight: 700; }
-.drawer-price { display: flex; align-items: center; gap: 6px; font-size: 24px; color: #ffc107; font-weight: 800; margin-bottom: 30px; }
-.drawer-price img { width: 24px; height: 24px; }
+.list-item:nth-child(1) { border-left-color: rgba(255,255,255,0.2); }
+.list-item:nth-child(2) { border-left-color: rgba(255,255,255,0.1); }
 
-.drawer-actions { width: 100%; display: flex; flex-direction: column; gap: 12px; }
-.btn-action { width: 100%; padding: 16px; border-radius: 14px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
-.btn-action.withdraw { background: linear-gradient(90deg, #00aaff, #0088cc); color: white; box-shadow: 0 4px 15px rgba(0, 170, 255, 0.3); }
-.btn-action.sell { background: var(--bg-input); color: #f85149; border: 1px solid var(--border-color); }
+.list-rank {
+    width: 30px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-secondary); /* Переменная */
+    font-family: monospace;
+}
+
+.list-avatar-wrapper img {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    margin-right: 12px;
+    object-fit: cover;
+    background-color: var(--bg-input); /* Переменная */
+}
+
+.list-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary); /* Переменная */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list-score {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 13px; font-weight: 600; color: #ffc107;
+}
