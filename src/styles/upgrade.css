@@ -19,7 +19,7 @@
     font-size: 18px;
     text-transform: uppercase;
     letter-spacing: 2px;
-    color: #8a99a8;
+    color: var(--text-secondary); /* Переменная */
     opacity: 0.6;
 }
 
@@ -35,12 +35,13 @@
     padding: 10px 0;
 }
 
-/* Фоновое свечение за колесом ("Реактор") */
+/* Фоновое свечение за колесом */
 .wheel-glow-backdrop {
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     width: 220px; height: 220px;
+    /* Можно оставить синее свечение или адаптировать */
     background: radial-gradient(circle, rgba(0, 170, 255, 0.15) 0%, transparent 70%);
     border-radius: 50%;
     z-index: 0;
@@ -69,14 +70,15 @@
 .stat-label {
     font-size: 10px;
     text-transform: uppercase;
-    color: #5f6e7c;
+    color: var(--text-secondary); /* Переменная */
     font-weight: 700;
     letter-spacing: 1px;
 }
 .stat-value {
     font-size: 24px;
     font-weight: 800;
-    text-shadow: 0 0 10px rgba(0,0,0,0.5);
+    text-shadow: 0 0 10px rgba(0,0,0,0.1);
+    color: var(--text-primary); /* Переменная */
 }
 
 /* --- КОЛЕСО --- */
@@ -89,14 +91,15 @@
     box-sizing: border-box;
     
     /* Градиентная рамка, меняется через JS (--chance) */
-    background: conic-gradient(#00aaff 0%, #00aaff var(--chance, 0%), #232b34 var(--chance, 0%), #232b34 100%);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    /* Используем переменные: accent-blue для активной части, bg-secondary для неактивной */
+    background: conic-gradient(var(--accent-blue) 0%, var(--accent-blue) var(--chance, 0%), var(--bg-secondary) var(--chance, 0%), var(--bg-secondary) 100%);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
 .wheel-outer-ring {
     width: 100%; height: 100%;
     border-radius: 50%;
-    background-color: #1a2126; /* Темный фон между рамкой и центром */
+    background-color: var(--bg-main); /* Переменная */
     display: flex; justify-content: center; align-items: center;
     padding: 4px;
     box-sizing: border-box;
@@ -105,19 +108,19 @@
 .wheel-inner-ring {
     width: 100%; height: 100%;
     border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.05);
-    background: radial-gradient(circle, #2c3641 0%, #151a1f 100%);
+    border: 1px solid var(--border-color); /* Переменная */
+    background: radial-gradient(circle, var(--bg-secondary) 0%, var(--bg-darker) 100%);
     display: flex; justify-content: center; align-items: center;
     box-sizing: border-box;
     position: relative;
     overflow: hidden;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
 }
 
 /* Стрелка */
 .wheel-indicator-container {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    transition: transform 4s cubic-bezier(0.2, 0.8, 0.3, 1); /* Плавное торможение */
+    transition: transform 4s cubic-bezier(0.2, 0.8, 0.3, 1);
     pointer-events: none;
 }
 .wheel-indicator-arrow {
@@ -127,7 +130,7 @@
     border-left: 12px solid transparent;
     border-right: 12px solid transparent;
     border-top: 18px solid #ffc107;
-    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5));
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
     z-index: 10;
 }
 
@@ -138,13 +141,12 @@
 /* Предмет в центре */
 .wheel-item {
     width: 60%; height: auto;
-    /* Плавный переход прозрачности и размера */
     transition: opacity 0.4s ease-in-out, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     opacity: 1; 
     transform: scale(1);
     position: relative;
     z-index: 2;
-    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
+    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));
 }
 
 .wheel-item.is-fading { 
@@ -158,8 +160,8 @@
 }
 @keyframes simpleSuccess {
     0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(0,0,0,0)); }
-    50% { transform: scale(1.3); filter: drop-shadow(0 0 30px #00e5ff) brightness(1.3); }
-    100% { transform: scale(1.2); filter: drop-shadow(0 0 20px #00e5ff) brightness(1.1); }
+    50% { transform: scale(1.3); filter: drop-shadow(0 0 30px var(--accent-blue)) brightness(1.3); }
+    100% { transform: scale(1.2); filter: drop-shadow(0 0 20px var(--accent-blue)) brightness(1.1); }
 }
 
 /* --- ПРОИГРЫШ (МЕДЛЕННОЕ ИСЧЕЗНОВЕНИЕ) --- */
@@ -174,7 +176,6 @@
     20% {
         opacity: 1;
         transform: scale(1.05);
-        /* Красная подсветка без серого фильтра */
         filter: drop-shadow(0 0 10px #ff1744); 
     }
     100% { 
@@ -183,7 +184,7 @@
     }
 }
 
-/* --- ФОНОВЫЕ ЭФФЕКТЫ (ВСПЫШКА/ВОЛНА) --- */
+/* --- ФОНОВЫЕ ЭФФЕКТЫ --- */
 .result-effect {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     width: 100%; height: 100%; pointer-events: none; z-index: 1;
@@ -201,7 +202,7 @@
 
 /* Цвета эффектов */
 .result-effect.success .effect-flash { background: radial-gradient(circle, rgba(0, 229, 255, 0.6) 0%, transparent 70%); }
-.result-effect.success .effect-wave { border-color: #00e5ff; box-shadow: 0 0 20px #00e5ff; }
+.result-effect.success .effect-wave { border-color: var(--accent-blue); box-shadow: 0 0 20px var(--accent-blue); }
 
 .result-effect.fail .effect-flash { background: radial-gradient(circle, rgba(255, 23, 68, 0.5) 0%, transparent 70%); }
 .result-effect.fail .effect-wave { border-color: #ff1744; box-shadow: 0 0 15px #ff1744; }
@@ -225,12 +226,12 @@
 .selection-area {
     display: flex;
     align-items: center;
-    justify-content: center; /* Центрируем содержимое */
+    justify-content: center;
     width: 100%;
     gap: 12px;
     padding: 0 16px;
     box-sizing: border-box;
-    min-height: 130px; /* Фиксируем высоту зоны */
+    min-height: 130px;
 }
 
 /* Квадраты (Слоты) */
@@ -238,9 +239,9 @@
     flex: 1;
     min-width: 100px;
     height: 130px;
-    background: rgba(44, 54, 65, 0.5); /* Полупрозрачный фон */
-    backdrop-filter: blur(10px); /* Эффект стекла */
-    border: 1px solid rgba(255,255,255,0.05);
+    background: var(--bg-secondary); /* Переменная */
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color); /* Переменная */
     border-radius: 16px;
     display: flex;
     flex-direction: column;
@@ -251,9 +252,8 @@
     position: relative;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     overflow: hidden;
-    
-    /* Анимация появления */
     animation: slideInBox 0.3s ease-out forwards;
+    box-shadow: var(--card-shadow);
 }
 
 @keyframes slideInBox {
@@ -263,14 +263,13 @@
 
 /* Активное состояние (подсветка) */
 .selection-box.active-focus {
-    border-color: rgba(255,255,255,0.3);
-    background: rgba(44, 54, 65, 0.8);
-    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px var(--accent-blue), var(--card-shadow);
 }
 
 /* Состояние: Заполнено */
 .selection-box.filled {
-    background: linear-gradient(145deg, #232a31, #1a2025);
+    background: var(--gradient-card); /* Переменная */
 }
 
 .box-glow {
@@ -278,22 +277,27 @@
 }
 
 .selection-box img {
-    width: 65px; height: 65px; object-fit: contain; z-index: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transition: transform 0.2s;
+    width: 65px; height: 65px; object-fit: contain; z-index: 1;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transition: transform 0.2s;
 }
 .selection-box:active img { transform: scale(0.95); }
 
 .box-price {
-    font-size: 14px; font-weight: 700; color: #00aaff; z-index: 1; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 8px;
+    font-size: 14px; font-weight: 700; color: var(--accent-blue); z-index: 1;
+    background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 8px;
 }
 
-.placeholder-content { display: flex; flex-direction: column; align-items: center; color: #5f6e7c; z-index: 1; text-align: center; }
+.placeholder-content {
+    display: flex; flex-direction: column; align-items: center;
+    color: var(--text-secondary); /* Переменная */
+    z-index: 1; text-align: center;
+}
 .plus-icon { font-size: 28px; margin-bottom: 4px; opacity: 0.5; }
 
 /* Стрелка */
 .upgrade-arrow {
-    color: #3a4552;
-    font-size: 24px;
-    font-weight: bold;
+    color: var(--text-secondary); /* Переменная */
+    font-size: 24px; font-weight: bold;
     opacity: 0.5;
     transition: all 0.3s ease;
 }
@@ -311,7 +315,7 @@
 .upgrade-button-main {
     width: calc(100% - 32px);
     padding: 18px;
-    background: linear-gradient(90deg, #0088cc, #00aaff);
+    background: var(--accent-blue); /* Переменная */
     color: white;
     border: none;
     border-radius: 14px;
@@ -319,19 +323,19 @@
     font-weight: 800;
     letter-spacing: 1px;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
+    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
     transition: transform 0.1s, box-shadow 0.2s, filter 0.2s;
     text-transform: uppercase;
 }
 .upgrade-button-main:disabled {
-    background: #3a4552;
+    background: #555;
     box-shadow: none;
     color: #8a99a8;
     cursor: not-allowed;
 }
 .upgrade-button-main:active:not(:disabled) {
     transform: scale(0.98);
-    box-shadow: 0 2px 5px rgba(0, 136, 204, 0.4);
+    box-shadow: 0 2px 5px rgba(0, 136, 204, 0.3);
 }
 
 
@@ -341,37 +345,40 @@
 
 .inventory-section {
     width: 100%;
-    background: #161b22;
+    background: var(--bg-secondary); /* Переменная */
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;
     padding: 16px;
     box-sizing: border-box;
     flex: 1; /* Занимает остаток высоты экрана */
     min-height: 300px;
+    border-top: 1px solid var(--border-color); /* Переменная */
+    box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
 }
 
 .inventory-tabs {
     display: flex;
-    background: #0d1117;
+    background: var(--bg-input); /* Переменная */
     padding: 4px;
     border-radius: 12px;
     margin-bottom: 16px;
+    border: 1px solid var(--border-color); /* Переменная */
 }
 .tab-btn {
     flex: 1;
     padding: 10px;
     border: none;
     background: transparent;
-    color: #8b949e;
+    color: var(--text-secondary); /* Переменная */
     font-weight: 600;
     border-radius: 10px;
     cursor: pointer;
     transition: all 0.2s;
 }
 .tab-btn.active {
-    background: #232b34;
-    color: #e0e0e0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    background: var(--bg-secondary); /* Переменная */
+    color: var(--text-primary); /* Переменная */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .inventory-grid {
@@ -384,31 +391,32 @@
 }
 
 .inventory-item {
-    background: #232b34;
+    background: var(--bg-input); /* Переменная */
     border-radius: 10px;
     padding: 6px;
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     cursor: pointer;
     border: 2px solid transparent;
     transition: all 0.15s;
+    border: 1px solid var(--border-color); /* Переменная */
 }
 .inventory-item img { width: 50px; height: 50px; object-fit: contain; }
-.inventory-item .item-value { font-size: 11px; color: #e0e0e0; font-weight: 600; }
+.inventory-item .item-value { font-size: 11px; color: var(--text-primary); font-weight: 600; }
 .inventory-item .item-value img { width: 12px; height: 12px; margin-right: 2px; }
 
 .inventory-item.active-border {
-    border-color: #00aaff;
+    border-color: var(--accent-blue);
     background: rgba(0, 170, 255, 0.1);
 }
 
-/* --- КРАСИВОЕ ПУСТОЕ СОСТОЯНИЕ (БЕЗ РАМОК) --- */
+/* --- КРАСИВОЕ ПУСТОЕ СОСТОЯНИЕ --- */
 .empty-state-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 200px;
-    color: #5f6e7c;
+    color: var(--text-secondary); /* Переменная */
     text-align: center;
     opacity: 0.8;
 }
@@ -420,7 +428,7 @@
 .empty-state-container p {
     margin: 0 0 4px 0;
     font-weight: 600;
-    color: #8a99a8;
+    color: var(--text-primary); /* Переменная */
 }
 .empty-state-container span {
     font-size: 12px;
